@@ -1,0 +1,163 @@
+name: AI Conversational + RAG System
+slug: ia-conversacional-rag
+version: 1.0.0
+created: 2026-04-21
+updated: 2026-04-21
+status: active
+archived: false
+
+description: |
+  Squad especializado em planejar, arquitetar e implementar um sistema de IA 
+  conversacional com RAG similar a ChatGPT + Perplexity + Magisterium.
+  
+  Objetivo: Entregar um sistema SaaS balanceado entre qualidade e eficiência,
+  com 8 agentes especializados trabalhando de forma autônoma e colaborativa.
+
+context:
+  application_type: SaaS Multi-tenant
+  rag_data_type: Document text (PDFs, Word, Markdown)
+  performance_mode: Balanceado
+  references:
+    - ChatGPT (OpenAI)
+    - Claude (Anthropic)
+    - Perplexity.ai
+    - Magisterium.com
+
+pipeline:
+  - id: discovery
+    phase: 1
+    title: Discovery & Context
+    description: Análise de requisitos, constraints e referências
+    agent: architect
+    task: discovery-requirements
+    checkpoint: true
+    
+  - id: architecture
+    phase: 2
+    title: Architecture Blueprint
+    description: Design geral do sistema, componentes e integrações
+    agent: architect
+    task: architecture-blueprint
+    depends_on: [discovery]
+    checkpoint: true
+    
+  - id: llm-strategy
+    phase: 3
+    title: LLM Integration Strategy
+    description: Escolha de modelos, routing, context management
+    agent: llm-engineer
+    task: llm-strategy
+    depends_on: [architecture]
+    checkpoint: false
+    
+  - id: rag-design
+    phase: 4
+    title: RAG System Design
+    description: Arquitetura de retrieval, reranking, citations
+    agent: rag-specialist
+    task: rag-system-design
+    depends_on: [llm-strategy]
+    checkpoint: false
+    
+  - id: backend-data
+    phase: 5
+    title: Backend & Data Infrastructure
+    description: APIs, sessions, auth, vector DB, embeddings
+    agent_sequence:
+      - backend-engineer
+      - data-engineer
+    task_sequence:
+      - backend-implementation
+      - data-pipeline-design
+    depends_on: [rag-design]
+    checkpoint: true
+    
+  - id: frontend-dev
+    phase: 6
+    title: Frontend Implementation
+    description: UI reativa, streaming, histórico, upload de docs
+    agent: frontend-engineer
+    task: frontend-implementation
+    depends_on: [backend-data]
+    checkpoint: false
+    
+  - id: prompt-tuning
+    phase: 7
+    title: Prompt Engineering & Tuning
+    description: System prompts, few-shot, quality assurance
+    agent: prompt-engineer
+    task: prompt-tuning
+    depends_on: [frontend-dev, llm-strategy]
+    checkpoint: false
+    
+  - id: final-review
+    phase: 8
+    title: Final Review & Documentation
+    description: QA final, validação de integrações, documentação
+    agent: reviewer
+    task: final-review
+    depends_on: [prompt-tuning]
+    checkpoint: true
+    output: final-report
+
+squad_party:
+  - role: architect
+    agent_id: architect-systems
+    agent_name: Arquiteto de Sistemas
+    responsibility: Visão geral, decisões arquiteturais, trade-offs
+    
+  - role: llm-engineer
+    agent_id: llm-engineer-ai
+    agent_name: Engenheiro de IA (LLM)
+    responsibility: Integração LLM, routing, context management
+    
+  - role: rag-specialist
+    agent_id: rag-specialist-ai
+    agent_name: Especialista em RAG
+    responsibility: Design de RAG, retrieval, reranking, citations
+    
+  - role: backend-engineer
+    agent_id: backend-engineer-api
+    agent_name: Engenheiro Backend
+    responsibility: APIs, sessions, auth, rate limiting, jobs
+    
+  - role: frontend-engineer
+    agent_id: frontend-engineer-ui
+    agent_name: Engenheiro Frontend
+    responsibility: UI real-time, streaming, histórico, upload
+    
+  - role: data-engineer
+    agent_id: data-engineer-vectors
+    agent_name: Engenheiro de Dados
+    responsibility: Vector DB, embeddings, data pipeline
+    
+  - role: prompt-engineer
+    agent_id: prompt-specialist
+    agent_name: Especialista em Prompt Engineering
+    responsibility: System prompts, few-shot, quality tuning
+    
+  - role: reviewer
+    agent_id: reviewer-qa
+    agent_name: Revisor de Arquitetura
+    responsibility: QA, validação, revisão final
+
+output_format:
+  - markdown
+  - yaml
+  - code
+  - architecture-diagrams
+
+metadata:
+  domain_areas:
+    - LLM Architecture & Integration
+    - RAG Systems & Design Patterns
+    - Backend Architecture
+    - Frontend Architecture
+    - Vector Databases & Embeddings
+    - Prompt Engineering & Few-shot Learning
+    - Data Ingestion Pipeline
+    - Performance & Scaling
+
+execution_mode: sequential-with-checkpoints
+estimated_duration: "4-6 horas"
+token_budget: "high"

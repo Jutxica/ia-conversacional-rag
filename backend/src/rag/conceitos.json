@@ -1,0 +1,48 @@
+{
+  "_domain_prefix": "No contexto da espiritualidade cristã e teologia dehoniana do Padre Leão Dehon SCJ, Congregação dos Sacerdotes do Sagrado Coração de Jesus",
+  "reparacao": {
+    "sinonimo": ["oblação", "sacrifício", "expiação", "vítima", "imolação", "reparação espiritual", "atonement", "réparation"],
+    "relacionado": ["Eucaristia", "Coração de Jesus", "amor oblativo", "sacerdócio", "adoração", "oferta", "espírito de vítima"],
+    "historico": [
+      "1878: primeiros escritos sobre reparação pessoal nos Diários espirituais",
+      "1884: fundação do Apostolado da Oração como forma de reparação coletiva",
+      "1890: reparação como sacrifício pessoal interior e oblação ao Coração de Jesus",
+      "1891: Rerum Novarum de Leão XIII influencia a dimensão social da reparação",
+      "1897-1903: reparação passa a incluir a transformação social como ato reparador",
+      "1915: reparação como ação social, justiça e reconstrução cristã da sociedade"
+    ],
+    "contraste": [
+      "reparação passiva (apenas oração interior) vs reparação ativa (ação social transformadora)",
+      "reparação individual vs reparação comunitária e eclesial"
+    ]
+  },
+  "coracao_de_jesus": {
+    "sinonimo": ["Sagrado Coração", "Cœur de Jésus", "coração de Cristo", "amor de Deus encarnado"],
+    "relacionado": ["reparação", "oblação", "espiritualidade", "adoração eucarística", "reino social"],
+    "historico": ["1856: devoção de Santa Margarida Maria Alacoque como referência", "1878: Dehon integra devoção à sua espiritualidade sacerdotal"],
+    "contraste": ["devoção sentimental vs comprometimento ético e social"]
+  },
+  "oblacao": {
+    "sinonimo": ["oferta", "consagração", "imolação", "dádiva", "entrega total"],
+    "relacionado": ["reparação", "Eucaristia", "sacerdócio", "espiritualidade dehoniana"],
+    "historico": ["1884: oblação como núcleo da espiritualidade dehoniana"],
+    "contraste": ["obrigação exterior vs amor interior"]
+  },
+  "amor": {
+    "sinonimo": ["caridade", "doação", "agape", "amor oblativo"],
+    "relacionado": ["Coração de Jesus", "reparação", "oblação"],
+    "historico": [],
+    "contraste": ["amor próprio", "egoísmo"]
+  },
+  "sociedade": {
+    "sinonimo": ["justiça social", "reino social de Cristo", "questão operária", "doutrina social"],
+    "relacionado": ["Diretório Social", "Rerum Novarum", "Leão XIII", "reparação ativa"],
+    "historico": ["1891: Rerum Novarum", "1894: Congresso operário de Liège", "1897: Obra dos círculos católicos operários"],
+    "contraste": ["individualismo liberal", "capitalismo desumano", "socialismo materialista"]
+  },
+  "andre_prevot": {
+    "sinonimo": ["André Prévot", "Prévot", "Prevot", "Padre Prévot", "Père Prévot"],
+    "relacionado": ["primeiro noviço", "conselheiro geral", "espiritualidade", "correspondência"],
+    "historico": ["1878: entra no noviciado", "1884: secretário e confidente de Dehon", "1900-1920: principal correspondente sobre temas de espiritualidade interior"]
+  }
+}

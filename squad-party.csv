@@ -1,0 +1,9 @@
+role,agent_id,agent_name,specialty,domain,responsibility
+architect,architect-systems,Arquiteto de Sistemas,Enterprise Architecture,LLM Architecture & Integration,Visão geral do sistema; decisões arquiteturais; trade-offs técnicos; multi-tenancy
+llm-engineer,llm-engineer-ai,Engenheiro de IA (LLM),LLM Integration,LLM Architecture & Integration,Integração de modelos LLM; routing inteligente; context window management; streaming
+rag-specialist,rag-specialist-ai,Especialista em RAG,RAG Systems,RAG Systems & Design Patterns,Design de RAG; retrieval strategy; reranking; citation tracking
+backend-engineer,backend-engineer-api,Engenheiro Backend,Backend & APIs,Backend Architecture,APIs REST/async; session management; auth; rate limiting; cache
+frontend-engineer,frontend-engineer-ui,Engenheiro Frontend,Frontend UI,Frontend Architecture,UI reativa; streaming de tokens; markdown rendering; upload de documentos
+data-engineer,data-engineer-vectors,Engenheiro de Dados,Data & Vectors,Vector Databases & Embeddings,Vector DB setup; embedding models; data pipeline; batch indexing
+prompt-engineer,prompt-specialist,Especialista Prompt,Prompt Engineering,Prompt Engineering & Few-shot Learning,System prompts; few-shot chains; instruction tuning; quality assurance
+reviewer,reviewer-qa,Revisor de Arquitetura,QA & Validation,Performance & Scaling,Integration testing; decision verification; final documentation; quality gates

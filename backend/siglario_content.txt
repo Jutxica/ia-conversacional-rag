@@ -1,0 +1,184 @@
+Informações básicas sobre DehonDocs 
+ 
+Versão provisória 
+ 
+Introdução 
+ 
+Este documento é uma oferece as informações necessárias para entender a plataforma 
+“DehonDocs”,  isto é, plataforma de pesquisas dos textos originais de Padre Dehon.  
+Ele está organizado em três partes: 
+i) As siglas e tradução para língua portuguesa das Obras de Padre Dehon;  
+ii) Como citar os escritos de Padre Dehon?  
+iii) Como encontrar as obras de Padre Dehon nas diversas seções de DehonDocs? 
+Na primeira parte, temos um siglário. Ali estarão apresentadas as siglas de todos os escritos 
+de Padre Dehon . Este siglário foi composto pelo Centro Studi Dehoniani  e é o padrão adotado 
+oficialmente pela Congregação dos Padres do Sagrado Coração de Jesus para referenciar textos do 
+Fundador.  
+Os escritos de Padre Dehon estarão ali organizados em três categorias: 1) livros, 2) artigos 
+e 3) inéditos. Este último ramo é composto por diversos escritos de Padre Dehon que não foram 
+publicados, tais como esboço de pregações, anotações diversas, estrutura de retiros, etc.  
+Na segunda parte, se encontra um tutorial para  entender números e alguns sinais 
+empregados no Siglário , como também a maneira  adequada para referenciar um texto de Padre 
+Dehon.  
+Por fim, na terceira parte, encontra-se uma espécie de mapa ou índice geral de DehonDocs. 
+É indicado onde se encontra cada escrito do Fundador a partir das “seções” (categorias das obras) 
+em que se organiza a plataforma, a saber: Obras Espirituais, Obras Sociais, Diários, Viagens, 
+Correspondência, Artigos, Inéditos e Obras Diversas.  Estes títulos se encontram na barra inferior 
+de DehonDocs.  
+ 
+I – Siglas e tradução portuguesa das Obras de Padre Dehon 
+ 
+Título em português Título Original Sigla 
+1 - Livros 
+Para além dos Pirineus Au delà des Pyrénées ADP  
+O Ano com o Sagrado Coração de Jesus (1-
+12) L’Année avec le Sacré-Cœur de Jésus (1-12) ASC  
+Cadernos Falleur (1-8) Cahiers Falleur (1-8) CFL  
+Catecismo social Catéchisme Social CSC  
+Coração Sacerdotal de Jesus Cœur Sacerdotal de Jésus   CSJ  
+Coroas de Amor (1-3) Couronnes d’Amour (1-3)   CAM  
+A Devoção ao Sagrado Coração de Jesus La Dévotion au Sacré Cœur de Jésus   DSC  
+Direções Pontifícias, Políticas e Sociais Les Directions Pontificales, Politiques et 
+Sociales   DPS  
+Diretório Espiritual (1919) Directoire Spirituel (1919)   DSP  
+Diretório Espiritual (1936) Directoire Spirituel (1936)  DSP  
+Discursos, relatórios, debates Discours, Rapports, Débats   DRD  
+Estudos sobre o Sagrado Coração de Jesus 
+(1-2)   Études sur le Sacré-Cœur de Jésus (1-2)   ESC  
+Cartas de Padre Dehon  Lettres de Dehon  1LD  
+Cartas a Padre Dehon  Lettres à Dehon  LC1  
+Cartas Circulares   Lettres Circulaires   LCC  
+Manual Social Cristão   Manuel Social Chrétien   MSO  
+Mil léguas na América do Sul   Mille lieues dans l’Amérique du Sud   MLA  
+Mês de Maria   Mois de Marie   MM
+R  
+Mês do Sagrado Coração de Jesus   Mois du Sacré-Cœur de Jésus   MSC  
+Nossos Congressos   Nos Congrès   NCG  
+Notas Quotidianas (1 - 45)   Notes Quotidiennes (1 – 45)   NQT  
+Notas sobre a História da minha Vida (1-
+15)   Notes sur l’Histoire de ma Vie (1 – 15)   NHV  
+Pequeno Diretório para os Reitores   Petit Directoire pour les Recteurs   PDR  
+O Plano da Franco-Maçonaria...   Le Plan de la Franc-Maçonnerie…   PFM  
+Prefácio à vida do Padre André   Préface à la vie du père André   PVA  
+Um Sacerdote do Sagrado Coração de 
+Jesus…   Un Prêtre du Sacré-Cœur de Jésus…  PSC  
+Renovação social cristã (1-12)   La Rénovation Sociale Chrétienne (1-12)   RSO  
+Retiro do Sagrado Coração   Retraite du Sacré-Cœur   RSC  
+Riqueza, Moderação ou Pobreza   Richesse, Médiocrité ou Pauvreté   RMP  
+Sicília, Norte de África e Calábria   La Sicile, l’Afrique du Nord et les Calabres   SAC  
+Irmã Maria de Jesus   Sœur Marie de Jésus   SMJ  
+Memórias   Souvenirs   SVN  
+Tesouro de Orações  Thesaurus  Precum THE  
+Tese para a Licença   Thèse pour la Licence   THL  
+Tese de Doutoramento   Thèse pour le Doctorat   THD  
+A usura no tempo presente   L’Usure au Temps Présent   UTP  
+Uma vida de amor ao Sagrado Coração de 
+Jesus   
+De La Vie d’Amour envers le Sacré-Cœur de 
+Jésus   
+VA
+M  
+Vida Interior: Exercícios Espirituais   Vie Intérieure: Exercices Spirituels   VES  
+Vida Interior: Princípios   Vie Intérieure: Principes   VPR  
+2 – Artigos 
+Crônicas do Reino Chroniques du Règne  CHR  
+Extras Extras  EXT  
+Críticas Revues  REV  
+3 – Inéditos  
+Atividades do Padre Dehon Activité du Père Dehon  ACD  
+Sobre o Padre Dehon A propos du Père Dehon  APD  
+Associação Reparadora Association Réparatrice   ARP  
+Conferências Conférences   CON  
+Discursos Discours  DIS  
+Documentos jurídicos Documents juridiques  DJU  
+Documentos para a Santa Sé Documents au Saint-Siège  DSS  
+Escritos duvidosos Écrits douteux  ECD  
+Arredores Entourage  ENT  
+Extratos Excerpta  EXC  
+Missões Missions  MIS  
+Notas diversas Notes diverses  NTD  
+Notas sobre a Obra Notes sur l’Œuvre  NTO  
+Orações Prières  PRI  
+Questões sociais Questions sociales  QSS  
+Retiros Retraites  RET  
+Viagens Voyages  VYG  
+  
+ 
+ 
+II – Como citar os escritos de Padre Dehon? 
+  
+Texto Estrutura Exemplo 
+Obras de volume único Sigla + número do parágrafo*  CSC 214  
+Obras com vários volumes Sigla + volume* + barra [/] + número do 
+parágrafo* NHV 3/21  
+Crônicas do Reino Sigla + ano + barra [/] + número do parágrafo*  CHR 1901/3  
+Artigos diversos e críticas Sigla + número do artigo + barra [/] + n° parágrafo*  REV 8031040/2 
+Não publicados Sigla + número do “não publicado” + barra [/] + 
+n° parágrafo* RET 9170002/11 
+* Sempre em algarismos indo-arábicos [1, 2, 3…] e jamais em números romanos. 
+  
+ 
+III – Como encontrar as obras de Padre Dehon  
+nas diversas seções de DehonDocs? 
+  
+Sigla  Título  Seção  
+1LD  Cartas de Padre Dehon Correspondência 
+ACD  Atividade de Padre Dehon Inéditos 
+ADP  Para além dos Pirineus Viagens 
+APD  Sobre Padre Dehon Inéditos 
+ARP  Associação Reparadora Inéditos 
+ASC  O Ano com o Sagrado Coração de Jesus Obras Espirituais 
+CAM  Coroas de Amor Obras Espirituais 
+CFL  Cadernos Falleur Obras Diversas 
+CHR  Crônicas do Reino Artigos 
+CON  Conferências Inéditos 
+CSC  Catecismo social Obras Sociais 
+CSJ  Coração Sacerdotal de Jesus Obras Espirituais 
+DIS  Discursos Inéditos 
+DJU  Documentos jurídicos Inéditos 
+DPS  Direções Pontifícias, Políticas e Sociais Obras Sociais 
+DRD  Discursos, relatórios, debates Obras Sociais 
+DSC  A Devoção ao Sagrado Coração de Jesus Obras Espirituais 
+DSP  Diretório Espiritual (1919) Obras Espirituais 
+DSP  Diretório Espiritual (1936) Obras Espirituais 
+DSS  Documentos para a Santa Sé Inéditos 
+ECD  Escritos duvidosos Inéditos 
+ENT  Arredores Inéditos 
+ESC  Estudos sobre o Sagrado Coração de Jesus Obras Espirituais 
+EXC  Extratos Inéditos 
+EXT  Extras Artigos 
+LC1  Cartas a Padre Dehon Correspondência 
+LCC  Cartas Circulares Correspondência 
+MIS  Missões Inéditos 
+MLA  Mil léguas na América do Sul Viagens 
+MMR  Mês de Maria Obras Espirituais 
+MSC  Mês do Sagrado Coração de Jesus   Obras Espirituais 
+MSO  Manual Social Cristão   Obras Sociais 
+NCG  Nossos Congressos Obras Sociais 
+NHV  Notas sobre a História da minha Vida Diários 
+NQT  Notas quotidianas Diários 
+NTD  Notas diversas Inéditos 
+NTO  Notas sobre a obra Inéditos 
+PDR  Pequeno Diretório para os Reitores Obras Espirituais 
+PFM  O Plano da Franco-Maçonaria... Obras Sociais 
+PRI  Orações Inéditos 
+PSC  Um Sacerdote do Sagrado Coração de Jesus Obras Espirituais 
+PVA  Prefácio à vida do Padre André   Obras Espirituais 
+QSS  Questões sociais Inéditos 
+RET  Retiros Inéditos 
+REV  Críticas Artigos 
+RMP  Riqueza, Moderação ou Pobreza Obras Sociais 
+RSC  Retiro do Sagrado Coração   Obras Espirituais 
+RSO  Renovação social cristã Obras Sociais 
+SAC  Sicília, Norte de África e Calábria Viagens 
+SMJ  Irmã Maria de Jesus Obras Espirituais 
+SVN  Memórias Obras Espirituais 
+THD  Tese de Doutoramento Obras Sociais 
+THE  Thesaurus Precum Obras Espirituais 
+THL  Tese para a Licença Obras Sociais 
+UTP  A Usura no tempo presente   Obras Sociais 
+VAM  Uma vida de amor ao Sagrado Coração de Jesus Obras Espirituais 
+VES  Vida Interior: Exercícios Espirituais Obras Espirituais 
+VPR  Vida Interior: Princípios Obras Espirituais 
+VYG  Viagens Inéditos 
+  
