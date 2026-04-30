@@ -15,7 +15,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 client_openai = OpenAI(api_key=OPENAI_API_KEY)
 
 def get_embedding(text: str) -> List[float]:
-    """Gera embedding de 2000 dimensões usando o modelo Large."""
+    """Gera embedding de 2000 dimensões usando o modelo Large (limite do HNSW)."""
     text = text.replace("\n", " ")
     return client_openai.embeddings.create(
         input=[text], 
@@ -23,7 +23,7 @@ def get_embedding(text: str) -> List[float]:
         dimensions=2000
     ).data[0].embedding
 
-def search_context(query: str, top_k: int = 5) -> Dict[str, Any]:
+def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None) -> Dict[str, Any]:
     """
     Realiza busca híbrida neutra no Supabase.
     O critério de ordenação é puramente a similaridade semântica e lexical (Teor da Pergunta).
@@ -32,22 +32,38 @@ def search_context(query: str, top_k: int = 5) -> Dict[str, Any]:
     
     # Busca Híbrida via RPC (Vetor + FTS)
     try:
-        res = supabase.rpc('hybrid_search', {
+        rpc_params = {
             'query_text': query,
             'query_embedding': embedding,
-            'match_threshold': 0.1,
-            'match_count': top_k * 2 # Busca um pouco mais para garantir qualidade
-        }).execute()
+            'match_count': top_k * 2,
+            'full_text_weight': 1.0,
+            'vector_weight': 1.0,
+        }
+        if filter_siglas:
+            rpc_params['filter_siglas'] = filter_siglas
+            
+        res = supabase.rpc('hybrid_search', rpc_params).execute()
         results = res.data or []
+        print(f"hybrid_search retornou {len(results)} resultados.")
     except Exception as e:
-        print(f"Erro na busca RPC: {e}")
-        # Fallback para busca vetorial simples se a RPC falhar
-        res = supabase.rpc('match_documents', {
-            'query_embedding': embedding,
-            'match_threshold': 0.1,
-            'match_count': top_k
-        }).execute()
-        results = res.data or []
+        print(f"Erro na busca híbrida, tentando fallback vetorial: {e}")
+        # Fallback para busca vetorial simples
+        try:
+            fallback_params = {
+                'query_embedding': embedding,
+                'match_threshold': 0.1,
+                'match_count': top_k
+            }
+            # O nome correto do parâmetro de filtro no match_documents é 'filter' (não 'filter_siglas')
+            if filter_siglas:
+                fallback_params['filter'] = {'sigla': filter_siglas}
+                
+            res = supabase.rpc('match_documents', fallback_params).execute()
+            results = res.data or []
+            print(f"match_documents fallback retornou {len(results)} resultados.")
+        except Exception as e2:
+            print(f"Fallback também falhou: {e2}")
+            results = []
 
     # Re-ordena e seleciona top_k (Baseado puramente na similaridade retornada pelo banco)
     results = sorted(results, key=lambda x: x.get('similarity', 0), reverse=True)[:top_k]
@@ -86,6 +102,8 @@ def search_context(query: str, top_k: int = 5) -> Dict[str, Any]:
         ref_num = i + 1
         title = meta.get('title', 'Documento Dehoniano')
         sigla = meta.get('sigla', 'OBRA')
+        destinatario = meta.get('destinatario') or meta.get('recipient') or meta.get('addressee') or meta.get('to') or None
+        data_doc = meta.get('date') or meta.get('data') or meta.get('year') or None
         
         context_parts.append(f"--- FONTE [{ref_num}]: {title} ({sigla}) ---\n{full_context_text}")
         
@@ -93,6 +111,8 @@ def search_context(query: str, top_k: int = 5) -> Dict[str, Any]:
             "id": ref_num,
             "title": title,
             "sigla": sigla,
+            "destinatario": destinatario,
+            "data": data_doc,
             "snippet": content,
             "score": match.get('similarity', 0)
         })

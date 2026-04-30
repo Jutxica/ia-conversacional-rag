@@ -57,7 +57,7 @@ def get_embedding(text):
     return client_openai.embeddings.create(
         input=[text], 
         model="text-embedding-3-large",
-        dimensions=2000 # Sincronizado com GraphRAG Elite 2026
+        dimensions=2000 # Sincronizado com o limite HNSW do Supabase
     ).data[0].embedding
 
 def extract_sigla(filename):

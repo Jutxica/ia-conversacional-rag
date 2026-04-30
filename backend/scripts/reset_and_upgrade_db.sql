@@ -5,7 +5,7 @@ CREATE TABLE documents (
   id BIGSERIAL PRIMARY KEY,
   content TEXT,
   metadata JSONB,
-  embedding VECTOR(2000), -- Ajustado para o limite máximo do índice (2000)
+  embedding VECTOR(2000), -- Ajustado para o limite máximo do índice HNSW do pgvector
   fts tsvector
 );
 

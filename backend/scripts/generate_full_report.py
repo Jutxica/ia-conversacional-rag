@@ -13,8 +13,12 @@ def generate_report():
     print("="*50)
     
     try:
-        # Busca todas as siglas
-        res = supabase.table('documents').select('metadata').execute()
+        # Busca o total exato e os metadados (usando contagem exata do banco)
+        res_count = supabase.table('documents').select('id', count='exact').limit(1).execute()
+        total_real = res_count.count
+        
+        # Busca amostra de metadados para as porcentagens (limitado a 5000 para performance)
+        res = supabase.table('documents').select('metadata').limit(5000).execute()
         
         if not res.data:
             print("O banco de dados está vazio.")
@@ -38,7 +42,8 @@ def generate_report():
             print(f"{sigla:<15} | {count:<10} | {pct:>9.2f}%")
             
         print("-" * 45)
-        print(f"{'TOTAL':<15} | {total:<10} | 100.00%")
+        print(f"{'AMOSTRA (STATS)':<15} | {total:<10} | 100.00%")
+        print(f"{'TOTAL NO BANCO':<15} | {total_real:<10}")
         print("="*50)
 
     except Exception as e:

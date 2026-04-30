@@ -22,13 +22,14 @@ ON documents FOR EACH ROW EXECUTE FUNCTION documents_fts_trigger();
 -- Cria o índice GIN para busca ultra-rápida
 CREATE INDEX IF NOT EXISTS documents_fts_idx ON documents USING GIN (fts);
 
--- Função de Busca Híbrida (Vetor + FTS)
+-- Função de Busca Híbrida (Vetor + FTS) com Suporte a Filtro de Domínio
 CREATE OR REPLACE FUNCTION hybrid_search(
   query_text TEXT,
-  query_embedding VECTOR(2000), -- Ajustado para o limite do índice
+  query_embedding VECTOR(2000), -- Limite do índice HNSW
   match_count int,
   full_text_weight float DEFAULT 1.0,
-  vector_weight float DEFAULT 1.0
+  vector_weight float DEFAULT 1.0,
+  filter_siglas TEXT[] DEFAULT NULL
 ) RETURNS TABLE (
   id BIGINT,
   content TEXT,
@@ -46,6 +47,7 @@ BEGIN
       (full_text_weight * ts_rank_cd(d.fts, websearch_to_tsvector('portuguese', query_text)))
     ) AS similarity
   FROM documents d
+  WHERE (filter_siglas IS NULL OR d.metadata->>'sigla' = ANY(filter_siglas))
   ORDER BY similarity DESC
   LIMIT match_count;
 END;

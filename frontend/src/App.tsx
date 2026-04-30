@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './index.css';
-import { MessageSquare, Plus, User, Bot, Send, ShieldCheck, Settings, ExternalLink, FileText, Loader2, LogOut } from 'lucide-react';
+import { MessageSquare, Plus, User, Bot, Send, ShieldCheck, Settings, ExternalLink, FileText, Loader2, LogOut, SquarePen, Search } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from './supabaseClient';
 
@@ -22,6 +22,7 @@ interface Message {
     confidence: { level: string; percentage: number; avg_score: number };
     comparative_mode: boolean;
   };
+  isGreeting?: boolean;
 }
 
 interface Conversation {
@@ -53,7 +54,7 @@ const LoginPage = () => {
   return (
     <div className="login-overlay">
       <div className="login-card">
-        <img src="/Login.png" className="login-logo" alt="Dehon AI" />
+        <img src="/Login svg.svg" className="login-logo" alt="Dehon AI" />
         <h2>Biblioteca Dehoniana</h2>
         <p>Acesso restrito a pesquisadores autorizados.</p>
         
@@ -101,8 +102,11 @@ export default function App() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [input, setInput] = useState('');
+  const [scope, setScope] = useState('Geral');
+  const [isScopeOpen, setIsScopeOpen] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -126,40 +130,43 @@ export default function App() {
   }, [currentChat?.messages, isStreaming]);
 
   const startNewChat = () => {
-    const newChat: Conversation = {
+    const hour = new Date().getHours();
+    let greeting = 'Boa noite';
+    if (hour >= 5 && hour < 12) greeting = 'Bom dia';
+    else if (hour >= 12 && hour < 18) greeting = 'Boa tarde';
+
+    const userName = session?.user?.email?.split('@')[0] || 'Pesquisador';
+    const formattedName = userName.charAt(0).toUpperCase() + userName.slice(1);
+
+    const initialMessage: Message = {
       id: Date.now().toString(),
+      role: 'assistant',
+      content: `### ${greeting}, ${formattedName}.\nComo posso guiar sua pesquisa hoje?`,
+      timestamp: new Date(),
+      isGreeting: true
+    };
+
+    const newChat: Conversation = {
+      id: Date.now().toString() + '_chat',
       title: 'Nova Pesquisa',
-      messages: []
+      messages: [initialMessage]
     };
     setConversations([newChat, ...conversations]);
     setCurrentId(newChat.id);
   };
 
-  const handleSend = async () => {
-    if (!input.trim() || !currentId) return;
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input,
-      timestamp: new Date()
-    };
-
-    setConversations(prev => prev.map(c => 
-      c.id === currentId 
-        ? { ...c, messages: [...c.messages, userMessage], title: c.messages.length === 0 ? input.slice(0, 30) : c.title }
-        : c
-    ));
-
-    setInput('');
+  const executeChatLogic = async (chatId: string, query: string, currentHistory: Message[]) => {
     setIsStreaming(true);
     setError(null);
+    setInput('');
 
     try {
+      const historyPayload = currentHistory.map(m => ({ role: m.role, content: m.content }));
+      
       const response = await fetch('http://localhost:8000/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: input }),
+        body: JSON.stringify({ query: query, scope: scope, history: historyPayload }),
       });
 
       const reader = response.body?.getReader();
@@ -168,7 +175,7 @@ export default function App() {
       let assistantMessageId = (Date.now() + 1).toString();
 
       setConversations(prev => prev.map(c => 
-        c.id === currentId 
+        c.id === chatId 
           ? { ...c, messages: [...c.messages, { id: assistantMessageId, role: 'assistant', content: '', timestamp: new Date() }] }
           : c
       ));
@@ -186,7 +193,7 @@ export default function App() {
             
             if (data.type === 'token') {
               setConversations(prev => prev.map(c => 
-                c.id === currentId 
+                c.id === chatId 
                   ? { 
                       ...c, 
                       messages: c.messages.map(m => 
@@ -197,7 +204,7 @@ export default function App() {
               ));
             } else if (data.type === 'citations') {
               setConversations(prev => prev.map(c => 
-                c.id === currentId 
+                c.id === chatId 
                   ? { 
                       ...c, 
                       messages: c.messages.map(m => 
@@ -208,7 +215,7 @@ export default function App() {
               ));
             } else if (data.type === 'metadata') {
               setConversations(prev => prev.map(c => 
-                c.id === currentId 
+                c.id === chatId 
                   ? { 
                       ...c, 
                       messages: c.messages.map(m => 
@@ -230,6 +237,69 @@ export default function App() {
     }
   };
 
+  const startNewChatWithInput = (query: string) => {
+    if (!query.trim()) return;
+
+    const hour = new Date().getHours();
+    let greeting = 'Boa noite';
+    if (hour >= 5 && hour < 12) greeting = 'Bom dia';
+    else if (hour >= 12 && hour < 18) greeting = 'Boa tarde';
+
+    const userName = session?.user?.email?.split('@')[0] || 'Pesquisador';
+    const formattedName = userName.charAt(0).toUpperCase() + userName.slice(1);
+
+    const initialMessage: Message = {
+      id: Date.now().toString(),
+      role: 'assistant',
+      content: `### ${greeting}, ${formattedName}.\nComo posso guiar sua pesquisa hoje?`,
+      timestamp: new Date(),
+      isGreeting: true
+    };
+
+    const userMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      role: 'user',
+      content: query,
+      timestamp: new Date()
+    };
+
+    const newChatId = Date.now().toString() + '_chat';
+    const newChat: Conversation = {
+      id: newChatId,
+      title: query.slice(0, 30),
+      messages: [initialMessage, userMessage]
+    };
+    
+    setConversations([newChat, ...conversations]);
+    setCurrentId(newChatId);
+    
+    executeChatLogic(newChatId, query, [initialMessage]);
+  };
+
+  const handleSend = () => {
+    if (!input.trim() || !currentId) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: input,
+      timestamp: new Date()
+    };
+
+    const targetChat = conversations.find(c => c.id === currentId);
+    if (!targetChat) return;
+
+    setConversations(prev => prev.map(c => 
+      c.id === currentId 
+        ? { ...c, messages: [...c.messages, userMessage], title: c.messages.length === 0 ? input.slice(0, 30) : c.title }
+        : c
+    ));
+
+    const query = input;
+    const currentHistory = targetChat.messages;
+    executeChatLogic(currentId, query, currentHistory);
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
@@ -243,22 +313,34 @@ export default function App() {
       <aside className="sidebar">
         <header className="sidebar-header">
           <div className="brand">
-            <img src="/Navbar.png" className="logo-small" alt="Dehon AI" />
+            <img src="/Navbar.png" className="logo-sidebar" alt="Dehon AI" />
           </div>
         </header>
 
         <button className="new-chat-btn" onClick={startNewChat}>
-          <Plus size={16} /> Nova Pesquisa
+          <SquarePen size={20} className="new-chat-icon" /> <span className="new-chat-text">Nova Pesquisa</span>
         </button>
+
+        <div className="search-bar-container">
+          <Search size={20} className="search-icon" />
+          <input 
+            type="text" 
+            placeholder="Pesquisar" 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="history-search-input"
+          />
+        </div>
 
         <div className="history-list">
           <div className="section-label">Recentes</div>
-          {conversations.map(c => (
+          {conversations.filter(c => c.title.toLowerCase().includes(searchQuery.toLowerCase())).map(c => (
             <div 
               key={c.id} 
               className={`history-item ${c.id === currentId ? 'active' : ''}`}
               onClick={() => setCurrentId(c.id)}
             >
+              <MessageSquare size={14} className="history-item-icon" />
               <span className="history-title">{c.title}</span>
             </div>
           ))}
@@ -268,34 +350,98 @@ export default function App() {
           <div className="user-profile" onClick={handleLogout} title="Clique para sair">
             <div className="avatar">{session.user.email[0].toUpperCase()}</div>
             <span className="username">{session.user.email.split('@')[0]}</span>
-            <LogOut size={14} className="settings-icon" />
+            <LogOut size={16} className="settings-icon" />
           </div>
         </div>
       </aside>
 
       <main className="main-content">
         {!currentId ? (
-          <div className="hero-section">
-            <img src="/Login.png" className="hero-logo" alt="Dehon AI Logo" />
-            <h1>Qual obra vamos analisar hoje?</h1>
-            <div className="quick-suggestions">
-               <div className="suggestion-card" onClick={startNewChat}>O Catecismo Social</div>
-               <div className="suggestion-card" onClick={startNewChat}>Teologia da Reparação</div>
-               <div className="suggestion-card" onClick={startNewChat}>Cartas aos Escolásticos</div>
+          <div className="home-layout">
+            <header className="top-bar">
+               <div className="model-info">
+                 <img src="/Navbar.png" className="logo-topbar" alt="Navbar Logo" />
+               </div>
+               <div className="sync-status">
+                 <ShieldCheck size={14} className="status-icon active" />
+                 <span>Ambiente Acadêmico</span>
+               </div>
+            </header>
+
+            <div className="home-content">
+               <h1 className="home-greeting">O que posso fazer por você?</h1>
+               
+               <div className="home-input-wrapper">
+                 <div className="input-container huge">
+                   <textarea 
+                     placeholder="Atribua uma pesquisa sobre o Magistério Dehoniano..." 
+                     value={input}
+                     onChange={(e) => setInput(e.target.value)}
+                     onKeyDown={(e) => {
+                       if (e.key === 'Enter' && !e.shiftKey) {
+                         e.preventDefault();
+                         startNewChatWithInput(input);
+                       }
+                     }}
+                     rows={1}
+                     disabled={isStreaming}
+                   />
+                   <button 
+                     className={`send-button ${input.trim() ? 'enabled' : ''}`}
+                     onClick={() => startNewChatWithInput(input)}
+                     disabled={!input.trim() || isStreaming}
+                   >
+                     <Send size={20} />
+                   </button>
+                 </div>
+                 
+                 <div className="scope-dropdown-container home-scope">
+                    <button 
+                      className="scope-dropdown-button" 
+                      onClick={() => setIsScopeOpen(!isScopeOpen)}
+                      type="button"
+                    >
+                      <span className="scope-dropdown-label">Escopo:</span> {scope}
+                      <svg className={`chevron ${isScopeOpen ? 'open' : ''}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    {isScopeOpen && (
+                      <div className="scope-dropdown-menu">
+                        {['Geral', 'Espiritualidade e Retiros', 'Social e Político', 'Vida e Biografia', 'Correspondência'].map(s => (
+                          <div 
+                            key={s} 
+                            className={`scope-dropdown-item ${scope === s ? 'selected' : ''}`}
+                            onClick={() => { setScope(s); setIsScopeOpen(false); }}
+                          >
+                            {s}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                 </div>
+               </div>
+
+               <div className="suggestion-pills">
+                 <button className="pill" onClick={() => startNewChatWithInput('Resuma O Catecismo Social')}><FileText size={14} /> Resumo: O Catecismo Social</button>
+                 <button className="pill" onClick={() => startNewChatWithInput('O que é a Teologia da Reparação?')}><FileText size={14} /> Teologia da Reparação</button>
+                 <button className="pill" onClick={() => startNewChatWithInput('Quais as principais Cartas aos Escolásticos?')}><FileText size={14} /> Cartas aos Escolásticos</button>
+               </div>
             </div>
           </div>
         ) : (
           <div className="chat-layout">
             <header className="top-bar">
                <div className="model-info">
-                 <img src="/Sidebar.png" className="logo-tiny" alt="Sidebar Logo" />
+                 <img src="/Navbar.png" className="logo-topbar" alt="Navbar Logo" />
                </div>
-
+               <div className="sync-status">
+                 <ShieldCheck size={14} className="status-icon active" />
+                 <span>Pesquisa em Tempo Real</span>
+               </div>
             </header>
 
             <div className="chat-container" ref={scrollRef}>
               {currentChat?.messages.map((m, idx) => (
-                <div key={m.id} className={`message-row ${m.role} animate-slide-up`}>
+                <div key={m.id} className={`message-row ${m.role} animate-slide-up ${m.isGreeting ? 'greeting-row' : ''}`}>
                   <div className="message-container">
                     <div className="message-icon-wrapper">
                       {m.role === 'user' ? (
@@ -312,32 +458,25 @@ export default function App() {
                           <span className="user-name">Sua Pesquisa</span>
                         </div>
                       ) : (
-                        <div className="assistant-header">
-                          <span className="assistant-name">Dehon AI</span>
-                          <span className="assistant-status">Magistério Dehoniano</span>
-                          {m.metadata && (
+                        m.metadata ? (
+                          <div className="assistant-header">
                             <span className={`badge confidence-${m.metadata.confidence.level.toLowerCase()}`}>
                                Confiança {m.metadata.confidence.level} ({m.metadata.confidence.percentage}%)
                             </span>
-                          )}
-                        </div>
+                          </div>
+                        ) : null
                       )}
                       {m.role === 'assistant' && m.content === '' && isStreaming && idx === currentChat.messages.length - 1 ? (
                         <div className="thinking-container fade-in">
-                          <div className="thinking-pena-wrapper">
-                            <div className="thinking-pena-glow"></div>
-                            <img src="/pena.png?v=2" className="thinking-pena" alt="Processando..." />
-                          </div>
-                          <div className="thinking-text">Sincronizando com o Magistério Dehoniano...</div>
+                          <div className="thinking-trace"></div>
+                          <div className="thinking-text">Consultando o acervo de Padre Dehon...</div>
                         </div>
                       ) : (
                         <div className={m.role === 'assistant' ? 'gradual-reveal' : ''}>
                           <ReactMarkdown>{m.content}</ReactMarkdown>
                         </div>
                       )}
-                      {isStreaming && m.content !== '' && idx === currentChat.messages.length - 1 && (
-                        <img src="/pena.png?v=2" className="typing-pena-cursor" alt="Escrevendo..." />
-                      )}
+                      {isStreaming && m.content !== '' && idx === currentChat.messages.length - 1 && <span className="typing-cursor"></span>}
                     </div>
                     {m.role === 'assistant' && m.citations && m.citations.length > 0 && (() => {
                         const regex = new RegExp('\\[(\\d+)\\]', 'g');
@@ -353,11 +492,18 @@ export default function App() {
                               {filteredCitations.map((cite, cIdx) => (
                                 <div key={cIdx} className={`source-item stagger-${Math.min(cIdx + 1, 5)}`}>
                                   <div className="source-reference">
-                                    <a href={cite.url} target="_blank" rel="noopener noreferrer" className="source-link">
+                                    <span className="source-link">
                                       <span className="ref-label">[{referencedIndices.find(i => m.citations[i].id === cite.id) + 1}]</span>
-                                      {cite.title} <ExternalLink size={12} style={{ display: 'inline', marginLeft: '4px' }} />
-                                    </a>
+                                      <span className="source-title">{cite.title}</span>
+                                      {cite.sigla && <span className="source-sigla"> · {cite.sigla}</span>}
+                                    </span>
                                   </div>
+                                  {(cite.destinatario || cite.data) && (
+                                    <div className="source-meta">
+                                      {cite.destinatario && <span className="source-meta-item"><strong>Para:</strong> {cite.destinatario}</span>}
+                                      {cite.data && <span className="source-meta-item"><strong>Data:</strong> {cite.data}</span>}
+                                    </div>
+                                  )}
                                   <div className="source-snippet">
                                     {cite.snippet && (cite.snippet.length > 300 ? cite.snippet.substring(0, 300) + "..." : cite.snippet)}
                                   </div>
@@ -387,9 +533,34 @@ export default function App() {
                   onClick={handleSend}
                   disabled={!input.trim() || isStreaming}
                 >
-                  <Send size={18} />
+                  <Send size={20} />
                 </button>
               </div>
+              
+              <div className="scope-dropdown-container">
+                {isScopeOpen && (
+                  <div className="scope-dropdown-menu">
+                    {['Geral', 'Espiritualidade e Retiros', 'Social e Político', 'Vida e Biografia', 'Correspondência'].map(s => (
+                      <div 
+                        key={s} 
+                        className={`scope-dropdown-item ${scope === s ? 'selected' : ''}`}
+                        onClick={() => { setScope(s); setIsScopeOpen(false); }}
+                      >
+                        {s}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button 
+                  className="scope-dropdown-button" 
+                  onClick={() => setIsScopeOpen(!isScopeOpen)}
+                  type="button"
+                >
+                  <span className="scope-dropdown-label">Escopo:</span> {scope}
+                  <svg className={`chevron ${isScopeOpen ? 'open' : ''}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+              </div>
+
               <div className="footer-note">Ambiente Seguro de Pesquisa | Sacerdotes do Sagrado Coração de Jesus</div>
             </div>
           </div>

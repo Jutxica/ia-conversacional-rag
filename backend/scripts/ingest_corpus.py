@@ -115,7 +115,7 @@ def get_embeddings_batch(texts: List[str]) -> List[List[float]]:
     response = client_openai.embeddings.create(
         input=cleaned_texts, 
         model="text-embedding-3-large",
-        dimensions=2000 # Limite máximo para indexação no pgvector (HNSW)
+        dimensions=2000 # Limite máximo suportado pelo índice HNSW no pgvector
     )
     return [d.embedding for d in response.data]
 
@@ -268,7 +268,8 @@ def main():
     
     logger.info(f"Total qualificado: {len(files_to_process)}")
     
-    for fpath, _ in files_to_process:
+    for fpath_tuple in files_to_process:
+        fpath = fpath_tuple[0]
         ingest_file(fpath)
 
 if __name__ == "__main__":
