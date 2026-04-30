@@ -163,7 +163,8 @@ export default function App() {
     try {
       const historyPayload = currentHistory.map(m => ({ role: m.role, content: m.content }));
       
-      const response = await fetch('http://localhost:8000/api/chat', {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/chat';
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: query, scope: scope, history: historyPayload }),
