@@ -54,7 +54,11 @@ def clean_text(text):
 
 def get_embedding(text):
     text = text.replace("\n", " ")
-    return client_openai.embeddings.create(input=[text], model="text-embedding-3-small").data[0].embedding
+    return client_openai.embeddings.create(
+        input=[text], 
+        model="text-embedding-3-large",
+        dimensions=2000 # Sincronizado com GraphRAG Elite 2026
+    ).data[0].embedding
 
 def extract_sigla(filename):
     """Tenta extrair a sigla do padrão OSP-VAM-0002..."""

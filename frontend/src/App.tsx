@@ -53,7 +53,7 @@ const LoginPage = () => {
   return (
     <div className="login-overlay">
       <div className="login-card">
-        <img src="/Login svg.svg" className="login-logo" alt="Dehon AI" />
+        <img src="/Login.png" className="login-logo" alt="Dehon AI" />
         <h2>Biblioteca Dehoniana</h2>
         <p>Acesso restrito a pesquisadores autorizados.</p>
         
@@ -243,8 +243,7 @@ export default function App() {
       <aside className="sidebar">
         <header className="sidebar-header">
           <div className="brand">
-            <img src="/Sidebar svg.svg" className="logo-small" alt="Dehon AI" />
-            <span>Dehon AI</span>
+            <img src="/Navbar.png" className="logo-small" alt="Dehon AI" />
           </div>
         </header>
 
@@ -277,7 +276,7 @@ export default function App() {
       <main className="main-content">
         {!currentId ? (
           <div className="hero-section">
-            <img src="/Navbar svg.svg" className="hero-logo" alt="Dehon AI Logo" />
+            <img src="/Login.png" className="hero-logo" alt="Dehon AI Logo" />
             <h1>Qual obra vamos analisar hoje?</h1>
             <div className="quick-suggestions">
                <div className="suggestion-card" onClick={startNewChat}>O Catecismo Social</div>
@@ -289,14 +288,9 @@ export default function App() {
           <div className="chat-layout">
             <header className="top-bar">
                <div className="model-info">
-                 <img src="/Navbar svg.svg" className="logo-tiny" alt="Navbar Logo" />
-                 <span className="model-label">Dehon AI</span>
-                 <span className="model-version">v1.2 Supabase</span>
+                 <img src="/Sidebar.png" className="logo-tiny" alt="Sidebar Logo" />
                </div>
-               <div className="sync-status">
-                 <ShieldCheck size={14} className="status-icon active" />
-                 <span>Pesquisa em Tempo Real</span>
-               </div>
+
             </header>
 
             <div className="chat-container" ref={scrollRef}>
@@ -308,7 +302,7 @@ export default function App() {
                         <div className="user-avatar">{session.user.email[0].toUpperCase()}</div>
                       ) : (
                         <div className="bot-avatar">
-                          <img src="/Avatar svg.svg" alt="Bot" className="bot-img" />
+                          <img src="/Avatar.png" alt="Bot" className="bot-img" />
                         </div>
                       )}
                     </div>
@@ -330,15 +324,20 @@ export default function App() {
                       )}
                       {m.role === 'assistant' && m.content === '' && isStreaming && idx === currentChat.messages.length - 1 ? (
                         <div className="thinking-container fade-in">
-                          <div className="thinking-trace"></div>
-                          <div className="thinking-text">Consultando Magistério Dehoniano...</div>
+                          <div className="thinking-pena-wrapper">
+                            <div className="thinking-pena-glow"></div>
+                            <img src="/pena.png?v=2" className="thinking-pena" alt="Processando..." />
+                          </div>
+                          <div className="thinking-text">Sincronizando com o Magistério Dehoniano...</div>
                         </div>
                       ) : (
                         <div className={m.role === 'assistant' ? 'gradual-reveal' : ''}>
                           <ReactMarkdown>{m.content}</ReactMarkdown>
                         </div>
                       )}
-                      {isStreaming && m.content !== '' && idx === currentChat.messages.length - 1 && <span className="typing-cursor"></span>}
+                      {isStreaming && m.content !== '' && idx === currentChat.messages.length - 1 && (
+                        <img src="/pena.png?v=2" className="typing-pena-cursor" alt="Escrevendo..." />
+                      )}
                     </div>
                     {m.role === 'assistant' && m.citations && m.citations.length > 0 && (() => {
                         const regex = new RegExp('\\[(\\d+)\\]', 'g');
