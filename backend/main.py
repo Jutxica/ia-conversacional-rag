@@ -25,7 +25,14 @@ app.add_middleware(
 )
 
 # Inicializa cliente OpenAI
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+try:
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if not openai_key:
+        print("AVISO: OPENAI_API_KEY não encontrada nas variáveis de ambiente!")
+    client = OpenAI(api_key=openai_key)
+except Exception as e:
+    print(f"ERRO CRÍTICO: Falha ao inicializar cliente OpenAI: {e}")
+    client = None
 
 # Carrega Respostas Validadas
 BLESSED_PATH = os.path.join(os.path.dirname(__file__), 'src/rag/blessed_answers.json')
@@ -183,6 +190,11 @@ As fontes não são apenas referências; elas são a autoridade da sua resposta.
                     messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
         
         messages.append({"role": "user", "content": query})
+
+        if not client:
+            yield f"data: {json.dumps({'content': 'Erro: Cliente OpenAI não inicializado. Verifique a API Key no servidor.', 'type': 'token'})}\n\n"
+            yield "data: {\"type\": \"done\"}\n\n"
+            return
 
         completion = client.chat.completions.create(
             model="gpt-4o",

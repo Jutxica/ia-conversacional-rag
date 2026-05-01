@@ -452,7 +452,19 @@ export default function App() {
       }
     } catch (err) {
       console.error('Erro ao conectar com o backend:', err);
-      setError('Falha na conexão com o servidor Dehon AI.');
+      const errorMsg = 'Falha na conexão com o servidor Dehon AI. Verifique se o backend está rodando.';
+      
+      setConversations(prev => prev.map(c => 
+        c.id === chatId 
+          ? { 
+              ...c, 
+              messages: c.messages.map(m => 
+                m.id === assistantMessageId ? { ...m, content: errorMsg } : m
+              ) 
+            }
+          : c
+      ));
+      
       setIsStreaming(false);
     }
   };
@@ -673,6 +685,17 @@ export default function App() {
                   </div>
                 </div>
             </header>
+
+            {/* Banner de Erro Global */}
+            {conversations.length > 0 && (
+              <div className="global-error-container">
+                {currentId && conversations.find(c => c.id === currentId)?.messages.some(m => m.content.includes("Falha na conexão")) && (
+                  <div className="error-banner">
+                    Falha ao conectar com o Dehon AI. Verifique se o servidor está online.
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="chat-container" ref={scrollRef}>
               {currentChat?.messages.map((m, idx) => (
