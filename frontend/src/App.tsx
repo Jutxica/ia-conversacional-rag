@@ -39,20 +39,42 @@ interface Conversation {
 
 // --- Components ---
 const LoginPage = () => {
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    
-    if (error) {
-      setError('Credenciais inválidas. Verifique seu e-mail e senha.');
+    setSuccess(null);
+
+    if (mode === 'signup') {
+      if (password !== confirmPassword) {
+        setError('As senhas não coincidem.');
+        setLoading(false);
+        return;
+      }
+      if (password.length < 6) {
+        setError('A senha deve ter pelo menos 6 caracteres.');
+        setLoading(false);
+        return;
+      }
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        setError(error.message === 'User already registered' ? 'Este e-mail já está cadastrado.' : 'Erro ao criar conta. Tente novamente.');
+      } else {
+        setSuccess('Conta criada! Verifique seu e-mail para confirmar o cadastro.');
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setError('Credenciais inválidas. Verifique seu e-mail e senha.');
+      }
     }
     setLoading(false);
   };
@@ -62,9 +84,22 @@ const LoginPage = () => {
       <div className="login-card">
         <img src="/Login.png" className="login-logo" alt="Dehon AI" />
         <h2>Biblioteca Dehoniana</h2>
-        <p>Acesso restrito a pesquisadores autorizados.</p>
+        <p>{mode === 'login' ? 'Entre na sua conta de pesquisador.' : 'Crie sua conta e comece a pesquisar.'}</p>
         
-        <form className="login-form" onSubmit={handleLogin}>
+        <div className="auth-tabs">
+          <button
+            className={`auth-tab ${mode === 'login' ? 'active' : ''}`}
+            onClick={() => { setMode('login'); setError(null); setSuccess(null); }}
+            type="button"
+          >Entrar</button>
+          <button
+            className={`auth-tab ${mode === 'signup' ? 'active' : ''}`}
+            onClick={() => { setMode('signup'); setError(null); setSuccess(null); }}
+            type="button"
+          >Criar Conta</button>
+        </div>
+
+        <form className="login-form" onSubmit={handleSubmit}>
           <div className="input-group">
             <label>E-mail</label>
             <input 
@@ -77,7 +112,7 @@ const LoginPage = () => {
             />
           </div>
           <div className="input-group">
-            <label>Senha de Acesso</label>
+            <label>Senha</label>
             <input 
               type="password" 
               className="login-input" 
@@ -87,16 +122,26 @@ const LoginPage = () => {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          {error && <div className="error-text" style={{ color: '#eb144c', fontSize: '0.8rem', marginBottom: '1rem' }}>{error}</div>}
+          {mode === 'signup' && (
+            <div className="input-group">
+              <label>Confirmar Senha</label>
+              <input 
+                type="password" 
+                className="login-input" 
+                placeholder="••••••••" 
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+          )}
+          {error && <div className="auth-message error">{error}</div>}
+          {success && <div className="auth-message success">{success}</div>}
           <button type="submit" className="login-btn" disabled={loading}>
             {loading ? <Loader2 className="animate-spin" /> : <ShieldCheck size={18} />}
-            {loading ? 'Autenticando...' : 'Acessar Biblioteca'}
+            {loading ? (mode === 'login' ? 'Autenticando...' : 'Criando conta...') : (mode === 'login' ? 'Acessar Biblioteca' : 'Criar Conta')}
           </button>
         </form>
-
-        <div className="login-footer">
-          Não tem uma conta? <a href="mailto:admin@dehon.it">Solicitar Registro</a>
-        </div>
       </div>
     </div>
   );
@@ -136,26 +181,10 @@ export default function App() {
   }, [currentChat?.messages, isStreaming]);
 
   const startNewChat = () => {
-    const hour = new Date().getHours();
-    let greeting = 'Boa noite';
-    if (hour >= 5 && hour < 12) greeting = 'Bom dia';
-    else if (hour >= 12 && hour < 18) greeting = 'Boa tarde';
-
-    const userName = session?.user?.email?.split('@')[0] || 'Pesquisador';
-    const formattedName = userName.charAt(0).toUpperCase() + userName.slice(1);
-
-    const initialMessage: Message = {
-      id: Date.now().toString(),
-      role: 'assistant',
-      content: `### ${greeting}, ${formattedName}.\nComo posso guiar sua pesquisa hoje?`,
-      timestamp: new Date(),
-      isGreeting: true
-    };
-
     const newChat: Conversation = {
       id: Date.now().toString() + '_chat',
       title: 'Nova Pesquisa',
-      messages: [initialMessage]
+      messages: []
     };
     setConversations([newChat, ...conversations]);
     setCurrentId(newChat.id);
