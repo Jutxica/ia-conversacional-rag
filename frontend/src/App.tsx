@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './index.css';
-import { MessageSquare, Send, ShieldCheck, FileText, Loader2, LogOut, SquarePen, Search, ExternalLink } from 'lucide-react';
+import { MessageSquare, Send, ShieldCheck, FileText, Loader2, LogOut, SquarePen, Search, ExternalLink, Menu, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from './supabaseClient';
 
@@ -197,6 +197,7 @@ export default function App() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -369,14 +370,17 @@ export default function App() {
 
   return (
     <div className="app-container">
-      <aside className="sidebar">
+      <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
+        <button className="sidebar-close-btn" onClick={() => setIsSidebarOpen(false)}>
+          <X size={24} />
+        </button>
         <header className="sidebar-header">
           <div className="brand">
             <img src="/Navbar.png" className="logo-sidebar" alt="Dehon AI" />
           </div>
         </header>
 
-        <button className="new-chat-btn" onClick={startNewChat}>
+        <button className="new-chat-btn" onClick={() => { startNewChat(); setIsSidebarOpen(false); }}>
           <SquarePen size={20} className="new-chat-icon" /> <span className="new-chat-text">Nova Pesquisa</span>
         </button>
 
@@ -396,8 +400,8 @@ export default function App() {
           {conversations.filter(c => c.title.toLowerCase().includes(searchQuery.toLowerCase())).map(c => (
             <div 
               key={c.id} 
-              className={`history-item ${c.id === currentId ? 'active' : ''}`}
-              onClick={() => setCurrentId(c.id)}
+               className={`history-item ${c.id === currentId ? 'active' : ''}`}
+               onClick={() => { setCurrentId(c.id); setIsSidebarOpen(false); }}
             >
               <MessageSquare size={14} className="history-item-icon" />
               <span className="history-title">{c.title}</span>
@@ -418,6 +422,9 @@ export default function App() {
         {!currentId ? (
           <div className="home-layout">
             <header className="top-bar">
+               <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
+                 <Menu size={24} />
+               </button>
                <div className="model-info">
                  <img src="/Navbar.png" className="logo-topbar" alt="Navbar Logo" />
                </div>
@@ -489,6 +496,9 @@ export default function App() {
         ) : (
           <div className="chat-layout">
             <header className="top-bar">
+               <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
+                 <Menu size={24} />
+               </button>
                <div className="model-info">
                  <img src="/Navbar.png" className="logo-topbar" alt="Navbar Logo" />
                </div>
