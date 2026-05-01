@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './index.css';
-import { MessageSquare, Plus, User, Bot, Send, ShieldCheck, Settings, ExternalLink, FileText, Loader2, LogOut, SquarePen, Search } from 'lucide-react';
+import { MessageSquare, Send, ShieldCheck, FileText, Loader2, LogOut, SquarePen, Search } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from './supabaseClient';
 
@@ -10,6 +10,9 @@ interface Citation {
   title: string;
   url: string;
   snippet?: string;
+  sigla?: string;
+  destinatario?: string;
+  data?: string;
 }
 
 interface Message {
@@ -105,7 +108,7 @@ export default function App() {
   const [scope, setScope] = useState('Geral');
   const [isScopeOpen, setIsScopeOpen] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -494,7 +497,7 @@ export default function App() {
                                 <div key={cIdx} className={`source-item stagger-${Math.min(cIdx + 1, 5)}`}>
                                   <div className="source-reference">
                                     <span className="source-link">
-                                      <span className="ref-label">[{referencedIndices.find(i => m.citations[i].id === cite.id) + 1}]</span>
+                                      <span className="ref-label">[{ (referencedIndices.find(i => m.citations![i].id === cite.id) ?? 0) + 1 }]</span>
                                       <span className="source-title">{cite.title}</span>
                                       {cite.sigla && <span className="source-sigla"> · {cite.sigla}</span>}
                                     </span>
