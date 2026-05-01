@@ -255,7 +255,7 @@ export default function App() {
     // Finaliza a Splash Screen após um breve delay para garantir imersão
     const timer = setTimeout(() => {
       setIsAppLoading(false);
-    }, 2500);
+    }, 3000);
 
     return () => {
       subscription.unsubscribe();
