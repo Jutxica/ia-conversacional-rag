@@ -204,13 +204,49 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
     });
-
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Persistência: Carregar do localStorage quando a sessão mudar
+  useEffect(() => {
+    if (session?.user?.id) {
+      const saved = localStorage.getItem(`dehon_chats_${session.user.id}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          // Converter strings de data de volta para objetos Date
+          const sanitized = parsed.map((c: any) => ({
+            ...c,
+            messages: c.messages.map((m: any) => ({
+              ...m,
+              timestamp: new Date(m.timestamp)
+            }))
+          }));
+          setConversations(sanitized);
+          if (sanitized.length > 0) {
+            setCurrentId(sanitized[0].id);
+          }
+        } catch (e) {
+          console.error("Erro ao carregar histórico:", e);
+        }
+      }
+    } else {
+      setConversations([]);
+      setCurrentId(null);
+    }
+  }, [session?.user?.id]);
+
+  // Persistência: Salvar no localStorage sempre que as conversas mudarem
+  useEffect(() => {
+    if (session?.user?.id && conversations.length > 0) {
+      localStorage.setItem(`dehon_chats_${session.user.id}`, JSON.stringify(conversations));
+    }
+  }, [conversations, session?.user?.id]);
 
   const currentChat = conversations.find(c => c.id === currentId);
 
