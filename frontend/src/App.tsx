@@ -57,7 +57,7 @@ const LoginPage = () => {
   return (
     <div className="login-overlay">
       <div className="login-card">
-        <img src="/Login svg.svg" className="login-logo" alt="Dehon AI" />
+        <img src="/Login.png" className="login-logo" alt="Dehon AI" />
         <h2>Biblioteca Dehoniana</h2>
         <p>Acesso restrito a pesquisadores autorizados.</p>
         
