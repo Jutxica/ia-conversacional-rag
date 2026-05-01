@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './index.css';
-import { MessageSquare, Send, ShieldCheck, FileText, Loader2, LogOut, SquarePen, Search, ExternalLink, Menu, X } from 'lucide-react';
+import { MessageSquare, Send, ShieldCheck, FileText, Loader2, LogOut, SquarePen, Search, ExternalLink, Menu, X, Share2, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from './supabaseClient';
 
@@ -35,6 +35,8 @@ interface Conversation {
   id: string;
   title: string;
   messages: Message[];
+  is_public?: boolean;
+  user_id?: string;
 }
 
 // --- Components ---
@@ -208,8 +210,36 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
+
+    // Detectar Chat Compartilhado na URL (?chat=ID)
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedChatId = urlParams.get('chat');
+    if (sharedChatId) {
+      loadSharedChat(sharedChatId);
+    }
+
     return () => subscription.unsubscribe();
   }, []);
+
+  const loadSharedChat = async (id: string) => {
+    const { data, error } = await supabase
+      .from('chats')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (data && !error) {
+      const sanitized = {
+        ...data,
+        messages: data.messages.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }))
+      };
+      setConversations(prev => {
+        if (prev.find(c => c.id === id)) return prev;
+        return [sanitized, ...prev];
+      });
+      setCurrentId(id);
+    }
+  };
 
   // Persistência: Carregar do Supabase quando a sessão mudar
   useEffect(() => {
@@ -259,10 +289,34 @@ export default function App() {
         user_id: session.user.id,
         title: chat.title,
         messages: chat.messages,
+        is_public: chat.is_public || false,
         updated_at: new Date().toISOString()
       });
 
     if (error) console.error("Erro ao salvar chat no Supabase:", error);
+  };
+
+  const toggleShare = async () => {
+    if (!currentChat || !session || currentChat.user_id !== session.user.id) return;
+    
+    const newPublicStatus = !currentChat.is_public;
+    
+    const { error } = await supabase
+      .from('chats')
+      .update({ is_public: newPublicStatus })
+      .eq('id', currentChat.id);
+
+    if (!error) {
+      setConversations(prev => prev.map(c => 
+        c.id === currentChat.id ? { ...c, is_public: newPublicStatus } : c
+      ));
+      
+      if (newPublicStatus) {
+        const shareUrl = `${window.location.origin}${window.location.pathname}?chat=${currentChat.id}`;
+        navigator.clipboard.writeText(shareUrl);
+        alert("Link de pesquisa copiado! Agora qualquer pessoa com o link pode visualizar esta conversa.");
+      }
+    }
   };
 
   const currentChat = conversations.find(c => c.id === currentId);
@@ -427,7 +481,7 @@ export default function App() {
     await supabase.auth.signOut();
   };
 
-  if (!session) {
+  if (!session && !currentChat?.is_public) {
     return <LoginPage />;
   }
 
@@ -473,11 +527,17 @@ export default function App() {
         </div>
 
         <div className="sidebar-footer">
-          <div className="user-profile" onClick={handleLogout} title="Clique para sair">
-            <div className="avatar">{session.user.email[0].toUpperCase()}</div>
-            <span className="username">{session.user.email.split('@')[0]}</span>
-            <LogOut size={16} className="settings-icon" />
-          </div>
+          {session ? (
+            <div className="user-profile" onClick={handleLogout} title="Clique para sair">
+              <div className="avatar">{session.user.email[0].toUpperCase()}</div>
+              <span className="username">{session.user.email.split('@')[0]}</span>
+              <LogOut size={16} className="settings-icon" />
+            </div>
+          ) : (
+            <div className="user-profile" onClick={() => window.location.reload()}>
+              <span className="username">Entrar para salvar</span>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -562,13 +622,25 @@ export default function App() {
                <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
                  <Menu size={24} />
                </button>
-               <div className="model-info">
-                 <img src="/Navbar.png" className="logo-topbar" alt="Navbar Logo" />
-               </div>
-               <div className="sync-status">
-                 <ShieldCheck size={14} className="status-icon active" />
-                 <span>Pesquisa em Tempo Real</span>
-               </div>
+                <div className="model-info">
+                  <img src="/Navbar.png" className="logo-topbar" alt="Navbar Logo" />
+                </div>
+                <div className="chat-actions">
+                  {currentChat && session && currentChat.user_id === session.user.id && (
+                    <button 
+                      className={`action-btn share-btn ${currentChat.is_public ? 'active' : ''}`} 
+                      onClick={toggleShare}
+                      title={currentChat.is_public ? "Pesquisa Pública (Clique para tornar privada)" : "Compartilhar Pesquisa"}
+                    >
+                      {currentChat.is_public ? <Check size={18} /> : <Share2 size={18} />}
+                      <span className="btn-text-desktop">{currentChat.is_public ? "Compartilhado" : "Compartilhar"}</span>
+                    </button>
+                  )}
+                  <div className="sync-status">
+                    <ShieldCheck size={14} className="status-icon active" />
+                    <span>Pesquisa em Tempo Real</span>
+                  </div>
+                </div>
             </header>
 
             <div className="chat-container" ref={scrollRef}>

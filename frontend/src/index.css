@@ -386,6 +386,48 @@ body {
   border-bottom: 1px solid var(--border-subtle);
 }
 
+.chat-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-btn:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.share-btn.active {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.btn-text-desktop {
+  display: inline;
+}
+
+@media (max-width: 768px) {
+  .btn-text-desktop {
+    display: none;
+  }
+}
+
 .model-info {
   display: flex;
   align-items: center;
