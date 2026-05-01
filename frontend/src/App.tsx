@@ -43,6 +43,8 @@ const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -64,11 +66,22 @@ const LoginPage = () => {
         setLoading(false);
         return;
       }
-      const { error } = await supabase.auth.signUp({ email, password });
+      
+      const { error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            phone: phone
+          }
+        }
+      });
+
       if (error) {
         setError(error.message === 'User already registered' ? 'Este e-mail já está cadastrado.' : 'Erro ao criar conta. Tente novamente.');
       } else {
-        setSuccess('Conta criada! Verifique seu e-mail para confirmar o cadastro.');
+        setSuccess('Conta criada! Você já pode acessar a biblioteca.');
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -100,6 +113,32 @@ const LoginPage = () => {
         </div>
 
         <form className="login-form" onSubmit={handleSubmit}>
+          {mode === 'signup' && (
+            <>
+              <div className="input-group">
+                <label>Nome Completo</label>
+                <input 
+                  type="text" 
+                  className="login-input" 
+                  placeholder="Seu nome" 
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                />
+              </div>
+              <div className="input-group">
+                <label>Telefone</label>
+                <input 
+                  type="tel" 
+                  className="login-input" 
+                  placeholder="(00) 00000-0000" 
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
+            </>
+          )}
           <div className="input-group">
             <label>E-mail</label>
             <input 
