@@ -1005,13 +1005,21 @@ textarea::placeholder {
   margin-bottom: 1rem;
 }
 
+.sources-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
 .source-item {
-  margin-bottom: 1rem;
-  padding: 1.25rem;
-  background: var(--bg-secondary);
+  margin-bottom: 0;
+  padding: 1rem;
+  background: var(--bg-tertiary);
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
   transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
 }
 
 .source-item:hover {

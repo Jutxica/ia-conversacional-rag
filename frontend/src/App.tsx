@@ -552,47 +552,48 @@ export default function App() {
                         </div>
                       )}
                       {isStreaming && m.content !== '' && idx === currentChat.messages.length - 1 && <span className="typing-cursor"></span>}
-                    </div>
-                    {m.role === 'assistant' && m.citations && m.citations.length > 0 && (
-                      <div className="citations-section">
-                        <div className="section-divider"></div>
-                        <div className="sources-header">Evidências Documentais:</div>
-                        <div className="sources-list">
-                          {m.citations.map((cite, cIdx) => (
-                            <div key={cIdx} className={`source-item stagger-${Math.min(cIdx + 1, 5)}`}>
-                              <div className="source-reference">
-                                <span className="source-link">
-                                  <span className="ref-label">[{cIdx + 1}]</span>
-                                  <span className="source-title">{cite.title}</span>
-                                  {cite.sigla && <span className="source-sigla"> · {cite.sigla}</span>}
-                                  {cite.page_number && <span className="source-sigla"> · p. {cite.page_number}</span>}
-                                </span>
-                                {(cite.page_url || cite.url) && (
-                                  <a
-                                    href={cite.page_url || cite.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="source-open-link"
-                                    title="Abrir fonte original em nova aba"
-                                  >
-                                    <ExternalLink size={13} /> Ver página
-                                  </a>
-                                )}
-                              </div>
-                              {(cite.destinatario || cite.data) && (
-                                <div className="source-meta">
-                                  {cite.destinatario && <span className="source-meta-item"><strong>Para:</strong> {cite.destinatario}</span>}
-                                  {cite.data && <span className="source-meta-item"><strong>Data:</strong> {cite.data}</span>}
+
+                      {m.role === 'assistant' && m.citations && m.citations.length > 0 && (
+                        <div className="citations-section">
+                          <div className="section-divider"></div>
+                          <div className="sources-header">Evidências Documentais:</div>
+                          <div className="sources-list">
+                            {m.citations.map((cite, cIdx) => (
+                              <div key={cIdx} className={`source-item stagger-${Math.min(cIdx + 1, 5)}`}>
+                                <div className="source-reference">
+                                  <span className="source-link">
+                                    <span className="ref-label">[{cIdx + 1}]</span>
+                                    <span className="source-title">{cite.title}</span>
+                                    {cite.sigla && <span className="source-sigla"> · {cite.sigla}</span>}
+                                    {cite.page_number && <span className="source-sigla"> · p. {cite.page_number}</span>}
+                                  </span>
+                                  {(cite.page_url || cite.url) && (
+                                    <a
+                                      href={cite.page_url || cite.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="source-open-link"
+                                      title="Abrir fonte original em nova aba"
+                                    >
+                                      <ExternalLink size={13} /> Ver página
+                                    </a>
+                                  )}
                                 </div>
-                              )}
-                              <div className="source-snippet">
-                                {cite.snippet && (cite.snippet.length > 300 ? cite.snippet.substring(0, 300) + "..." : cite.snippet)}
+                                {(cite.destinatario || cite.data) && (
+                                  <div className="source-meta">
+                                    {cite.destinatario && <span className="source-meta-item"><strong>Para:</strong> {cite.destinatario}</span>}
+                                    {cite.data && <span className="source-meta-item"><strong>Data:</strong> {cite.data}</span>}
+                                  </div>
+                                )}
+                                <div className="source-snippet">
+                                  {cite.snippet && (cite.snippet.length > 300 ? cite.snippet.substring(0, 300) + "..." : cite.snippet)}
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
