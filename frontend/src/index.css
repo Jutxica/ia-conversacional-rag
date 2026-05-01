@@ -337,7 +337,8 @@ body {
 .home-scope {
   margin-top: 1rem;
   width: 100%;
-  justify-content: flex-start;
+  display: flex;
+  justify-content: center;
 }
 
 .suggestion-pills {
@@ -1186,11 +1187,20 @@ textarea::placeholder {
 
   /* Top Bar */
   .top-bar {
-    padding: 0.8rem 1rem;
+    padding: 0.6rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 60px;
+  }
+
+  .model-info {
+    display: flex;
+    align-items: center;
   }
 
   .logo-topbar {
-    height: 24px;
+    height: 32px;
   }
 
   .sync-status span {
@@ -1204,23 +1214,42 @@ textarea::placeholder {
   }
 
   .home-input-wrapper {
-    width: 95%;
+    width: 100%;
     padding: 0 1rem;
   }
 
   .input-container.huge {
-    border-radius: 20px;
-    padding: 0.8rem 1rem;
+    border-radius: 24px;
+    padding: 0.6rem 1rem;
+    min-height: 60px;
+  }
+
+  .home-scope {
+    justify-content: center;
+    margin-top: 0.5rem;
   }
 
   .suggestion-pills {
-    gap: 0.5rem;
-    padding: 0 1rem;
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    width: 100%;
+    padding: 0.5rem 1rem;
+    gap: 0.8rem;
+    justify-content: flex-start;
+    scrollbar-width: none; /* Firefox */
+  }
+
+  .suggestion-pills::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
   }
 
   .pill {
-    font-size: 0.8rem;
-    padding: 0.5rem 0.8rem;
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-size: 0.85rem;
+    padding: 0.6rem 1.2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
   }
 
   /* Chat Layout */
