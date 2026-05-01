@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './index.css';
-import { MessageSquare, Send, ShieldCheck, FileText, Loader2, LogOut, SquarePen, Search, ExternalLink, Menu, X, Share2, Check } from 'lucide-react';
+import { MessageSquare, Send, ShieldCheck, FileText, LogOut, SquarePen, Search, Menu, X, Share2, Check, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from './supabaseClient';
 
@@ -230,7 +230,7 @@ export default function App() {
   const [scope, setScope] = useState('Geral');
   const [isScopeOpen, setIsScopeOpen] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [, setError] = useState<string | null>(null);
+  const [globalError, setGlobalError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAppLoading, setIsAppLoading] = useState(true);
@@ -379,7 +379,7 @@ export default function App() {
 
   const executeChatLogic = async (chatId: string, query: string, currentHistory: Message[]) => {
     setIsStreaming(true);
-    setError(null);
+    setGlobalError(null);
     setInput('');
 
     try {
@@ -391,6 +391,11 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: query, scope: scope, history: historyPayload }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(`Erro do Servidor (${response.status}): ${errorData}`);
+      }
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -537,7 +542,7 @@ export default function App() {
     return (
       <div className="splash-screen">
         <div className="splash-content">
-          <img src="/Login.png" className="splash-logo" alt="Dehon AI" />
+          <img src="/Navbar.png" className="splash-logo" alt="Dehon AI" />
           <div className="splash-loader">
             <div className="loader-bar"></div>
           </div>
@@ -614,7 +619,7 @@ export default function App() {
                <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
                  <Menu size={24} />
                </button>
-               <div className="model-info">
+               <div className="model-info logo-clickable" onClick={() => setCurrentId(null)}>
                  <img src="/Navbar.png" className="logo-topbar" alt="Navbar Logo" />
                </div>
                <div className="sync-status">
@@ -622,8 +627,9 @@ export default function App() {
                  <span>Ambiente Acadêmico</span>
                </div>
                {session && (
-                 <button className="mobile-logout-btn" onClick={handleLogout} title="Sair">
-                   <LogOut size={20} />
+                 <button className="header-logout-btn" onClick={handleLogout} title="Sair">
+                   <LogOut size={18} />
+                   <span>Sair</span>
                  </button>
                )}
             </header>
@@ -693,7 +699,7 @@ export default function App() {
                <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
                  <Menu size={24} />
                </button>
-                <div className="model-info">
+                <div className="model-info logo-clickable" onClick={() => setCurrentId(null)}>
                   <img src="/Navbar.png" className="logo-topbar" alt="Navbar Logo" />
                 </div>
                 <div className="chat-actions">
@@ -712,8 +718,9 @@ export default function App() {
                     <span>Pesquisa em Tempo Real</span>
                   </div>
                   {session && (
-                    <button className="mobile-logout-btn" onClick={handleLogout} title="Sair">
-                      <LogOut size={20} />
+                    <button className="header-logout-btn" onClick={handleLogout} title="Sair">
+                      <LogOut size={18} />
+                      <span>Sair</span>
                     </button>
                   )}
                 </div>

@@ -898,8 +898,8 @@ textarea::placeholder {
 }
 
 .login-logo {
-  width: 70px;
-  height: 70px;
+  width: 80px;
+  height: 80px;
   margin-bottom: 1.5rem;
   filter: drop-shadow(0 0 15px var(--accent-glow));
 }
@@ -1217,6 +1217,85 @@ textarea::placeholder {
   }
 }
 
+/* --- Splash Screen --- */
+.splash-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeOut 0.5s ease-in-out 2.5s forwards;
+}
+
+.splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  animation: scaleIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.splash-logo {
+  width: 120px;
+  height: auto;
+  filter: drop-shadow(0 0 20px rgba(37, 99, 235, 0.1));
+  animation: logoPulse 2s infinite ease-in-out;
+}
+
+.splash-loader {
+  width: 200px;
+  height: 4px;
+  background: #f3f4f6;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+.loader-bar {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+  animation: progressLoad 2.5s ease-in-out forwards;
+}
+
+@keyframes progressLoad {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(0); }
+}
+
+.splash-text {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+@keyframes logoPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.9; }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes fadeOut {
+  to { opacity: 0; visibility: hidden; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .global-error-container {
   padding: 0 2rem;
   margin-top: 1rem;
@@ -1322,7 +1401,7 @@ textarea::placeholder {
 /* --- Mobile Responsiveness --- */
 
 /* Hide mobile elements by default */
-.mobile-menu-btn, .sidebar-close-btn, .mobile-logout-btn {
+.mobile-menu-btn, .sidebar-close-btn {
   display: none;
 }
 
@@ -1373,22 +1452,50 @@ textarea::placeholder {
     border-radius: 8px;
   }
 
-  .mobile-logout-btn {
+  .header-logout-btn {
     display: flex;
     align-items: center;
-    justify-content: center;
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
+    gap: 8px;
+    padding: 8px 14px;
+    background: rgba(239, 68, 68, 0.08);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.1);
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
     cursor: pointer;
-    padding: 0.5rem;
-    border-radius: 8px;
+    transition: all 0.2s ease;
     margin-left: 0.5rem;
   }
 
-  .mobile-logout-btn:hover {
-    background: #fee2e2;
-    color: #991b1b;
+  .header-logout-btn:hover {
+    background: #ef4444;
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+  }
+
+  .header-logout-btn span {
+    display: inline;
+  }
+
+  .logo-clickable {
+    cursor: pointer;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+  }
+
+  .logo-clickable:hover {
+    opacity: 0.8;
+    transform: scale(1.02);
+  }
+
+  @media (max-width: 768px) {
+    .header-logout-btn span {
+      display: none;
+    }
+    .header-logout-btn {
+      padding: 8px;
+    }
   }
 
   .mobile-menu-btn:hover {
@@ -1517,8 +1624,8 @@ textarea::placeholder {
   }
 
   .login-logo {
-    width: 60px;
-    height: 60px;
+    width: 75px;
+    height: 75px;
     margin-bottom: 1rem;
   }
 
@@ -1576,8 +1683,8 @@ textarea::placeholder {
   }
 
   .login-logo {
-    width: 50px;
-    height: 50px;
+    width: 65px;
+    height: 65px;
     margin-bottom: 0.75rem;
   }
 

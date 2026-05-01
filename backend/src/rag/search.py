@@ -11,8 +11,27 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-client_openai = OpenAI(api_key=OPENAI_API_KEY)
+# Validação e Inicialização de Clientes
+supabase: Client = None
+client_openai: OpenAI = None
+
+try:
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        print("AVISO: SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY ausentes!")
+    else:
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        print("Cliente Supabase inicializado com sucesso.")
+except Exception as e:
+    print(f"ERRO ao inicializar Supabase: {e}")
+
+try:
+    if not OPENAI_API_KEY:
+        print("AVISO: OPENAI_API_KEY ausente em search.py!")
+    else:
+        client_openai = OpenAI(api_key=OPENAI_API_KEY)
+        print("Cliente OpenAI inicializado com sucesso em search.py.")
+except Exception as e:
+    print(f"ERRO ao inicializar OpenAI em search.py: {e}")
 
 def get_embedding(text: str) -> List[float]:
     """Gera embedding de 2000 dimensões usando o modelo Large (limite do HNSW)."""
@@ -28,7 +47,15 @@ def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None) 
     Realiza busca híbrida neutra no Supabase.
     O critério de ordenação é puramente a similaridade semântica e lexical (Teor da Pergunta).
     """
-    embedding = get_embedding(query)
+    if not supabase or not client_openai:
+        print("Erro: Clientes de busca não inicializados corretamente.")
+        return {"context": "", "citations": []}
+
+    try:
+        embedding = get_embedding(query)
+    except Exception as e:
+        print(f"Erro ao gerar embedding: {e}")
+        return {"context": "", "citations": []}
     
     # Busca Híbrida via RPC (Vetor + FTS)
     try:
