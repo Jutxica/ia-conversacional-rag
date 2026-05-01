@@ -315,40 +315,24 @@ export default function App() {
   const startNewChatWithInput = (query: string) => {
     if (!query.trim()) return;
 
-    const hour = new Date().getHours();
-    let greeting = 'Boa noite';
-    if (hour >= 5 && hour < 12) greeting = 'Bom dia';
-    else if (hour >= 12 && hour < 18) greeting = 'Boa tarde';
-
-    const userName = session?.user?.email?.split('@')[0] || 'Pesquisador';
-    const formattedName = userName.charAt(0).toUpperCase() + userName.slice(1);
-
-    const initialMessage: Message = {
-      id: Date.now().toString(),
-      role: 'assistant',
-      content: `### ${greeting}, ${formattedName}.\nComo posso guiar sua pesquisa hoje?`,
-      timestamp: new Date(),
-      isGreeting: true
-    };
-
     const userMessage: Message = {
-      id: (Date.now() + 1).toString(),
+      id: Date.now().toString(),
       role: 'user',
       content: query,
       timestamp: new Date()
     };
 
-    const newChatId = Date.now().toString() + '_chat';
+    const newChatId = (Date.now() + 1).toString() + '_chat';
     const newChat: Conversation = {
       id: newChatId,
       title: query.slice(0, 30),
-      messages: [initialMessage, userMessage]
+      messages: [userMessage]
     };
     
     setConversations([newChat, ...conversations]);
     setCurrentId(newChatId);
     
-    executeChatLogic(newChatId, query, [initialMessage]);
+    executeChatLogic(newChatId, query, [userMessage]);
   };
 
   const handleSend = () => {
