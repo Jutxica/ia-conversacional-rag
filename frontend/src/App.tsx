@@ -621,6 +621,11 @@ export default function App() {
                  <ShieldCheck size={14} className="status-icon active" />
                  <span>Ambiente Acadêmico</span>
                </div>
+               {session && (
+                 <button className="mobile-logout-btn" onClick={handleLogout} title="Sair">
+                   <LogOut size={20} />
+                 </button>
+               )}
             </header>
 
             <div className="home-content">
@@ -706,6 +711,11 @@ export default function App() {
                     <ShieldCheck size={14} className="status-icon active" />
                     <span>Pesquisa em Tempo Real</span>
                   </div>
+                  {session && (
+                    <button className="mobile-logout-btn" onClick={handleLogout} title="Sair">
+                      <LogOut size={20} />
+                    </button>
+                  )}
                 </div>
             </header>
 

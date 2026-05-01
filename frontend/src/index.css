@@ -1322,7 +1322,7 @@ textarea::placeholder {
 /* --- Mobile Responsiveness --- */
 
 /* Hide mobile elements by default */
-.mobile-menu-btn, .sidebar-close-btn {
+.mobile-menu-btn, .sidebar-close-btn, .mobile-logout-btn {
   display: none;
 }
 
@@ -1371,6 +1371,24 @@ textarea::placeholder {
     margin-right: 1rem;
     padding: 0.5rem;
     border-radius: 8px;
+  }
+
+  .mobile-logout-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 8px;
+    margin-left: 0.5rem;
+  }
+
+  .mobile-logout-btn:hover {
+    background: #fee2e2;
+    color: #991b1b;
   }
 
   .mobile-menu-btn:hover {
