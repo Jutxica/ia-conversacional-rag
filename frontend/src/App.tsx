@@ -233,6 +233,7 @@ export default function App() {
   const [, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isAppLoading, setIsAppLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -251,7 +252,15 @@ export default function App() {
       loadSharedChat(sharedChatId);
     }
 
-    return () => subscription.unsubscribe();
+    // Finaliza a Splash Screen após um breve delay para garantir imersão
+    const timer = setTimeout(() => {
+      setIsAppLoading(false);
+    }, 2500);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timer);
+    };
   }, []);
 
   const loadSharedChat = async (id: string) => {
@@ -523,6 +532,20 @@ export default function App() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
+
+  if (isAppLoading) {
+    return (
+      <div className="splash-screen">
+        <div className="splash-content">
+          <img src="/Login.png" className="splash-logo" alt="Dehon AI" />
+          <div className="splash-loader">
+            <div className="loader-bar"></div>
+          </div>
+          <p className="splash-text">Iniciando Ambiente Acadêmico...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!session && !currentChat?.is_public) {
     return <LoginPage />;
