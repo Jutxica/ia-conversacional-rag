@@ -107,6 +107,8 @@ def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None) 
         sigla = meta.get('sigla', 'OBRA')
         destinatario = meta.get('destinatario') or meta.get('recipient') or meta.get('addressee') or meta.get('to') or None
         data_doc = meta.get('date') or meta.get('data') or meta.get('year') or None
+        page_url = meta.get('url') or meta.get('source_url') or meta.get('page_url') or None
+        page_number = meta.get('page') or meta.get('page_number') or meta.get('page_num') or None
         
         context_parts.append(f"--- FONTE [{ref_num}]: {title} ({sigla}) ---\n{full_context_text}")
         
@@ -117,8 +119,11 @@ def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None) 
             "destinatario": destinatario,
             "data": data_doc,
             "snippet": content,
-            "score": match.get('similarity', 0)
+            "score": match.get('similarity', 0),
+            "page_url": page_url,
+            "page_number": page_number
         })
+
 
     return {
         "context": "\n\n".join(context_parts),
