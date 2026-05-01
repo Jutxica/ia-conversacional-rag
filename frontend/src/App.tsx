@@ -299,9 +299,7 @@ export default function App() {
             }))
           }));
           setConversations(sanitized);
-          if (sanitized.length > 0 && !currentId) {
-            setCurrentId(sanitized[0].id);
-          }
+          // Removido o auto-set do currentId para sempre iniciar na tela vazia (home)
         }
       } else {
         setConversations([]);
