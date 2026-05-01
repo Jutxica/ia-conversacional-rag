@@ -208,45 +208,62 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
-  // Persistência: Carregar do localStorage quando a sessão mudar
+  // Persistência: Carregar do Supabase quando a sessão mudar
   useEffect(() => {
-    if (session?.user?.id) {
-      const saved = localStorage.getItem(`dehon_chats_${session.user.id}`);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          // Converter strings de data de volta para objetos Date
-          const sanitized = parsed.map((c: any) => ({
-            ...c,
+    async function loadChats() {
+      if (session?.user?.id) {
+        const { data, error } = await supabase
+          .from('chats')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('updated_at', { ascending: false });
+
+        if (error) {
+          console.error("Erro ao carregar histórico do Supabase:", error);
+          return;
+        }
+
+        if (data) {
+          const sanitized = data.map((c: any) => ({
+            id: c.id,
+            title: c.title,
             messages: c.messages.map((m: any) => ({
               ...m,
               timestamp: new Date(m.timestamp)
             }))
           }));
           setConversations(sanitized);
-          if (sanitized.length > 0) {
+          if (sanitized.length > 0 && !currentId) {
             setCurrentId(sanitized[0].id);
           }
-        } catch (e) {
-          console.error("Erro ao carregar histórico:", e);
         }
+      } else {
+        setConversations([]);
+        setCurrentId(null);
       }
-    } else {
-      setConversations([]);
-      setCurrentId(null);
     }
+    loadChats();
   }, [session?.user?.id]);
 
-  // Persistência: Salvar no localStorage sempre que as conversas mudarem
-  useEffect(() => {
-    if (session?.user?.id && conversations.length > 0) {
-      localStorage.setItem(`dehon_chats_${session.user.id}`, JSON.stringify(conversations));
-    }
-  }, [conversations, session?.user?.id]);
+  // Função auxiliar para salvar chat no Supabase
+  const persistChat = async (chat: Conversation) => {
+    if (!session?.user?.id) return;
+    
+    const { error } = await supabase
+      .from('chats')
+      .upsert({
+        id: chat.id,
+        user_id: session.user.id,
+        title: chat.title,
+        messages: chat.messages,
+        updated_at: new Date().toISOString()
+      });
+
+    if (error) console.error("Erro ao salvar chat no Supabase:", error);
+  };
 
   const currentChat = conversations.find(c => c.id === currentId);
 
@@ -338,6 +355,12 @@ export default function App() {
               ));
             } else if (data.type === 'done') {
               setIsStreaming(false);
+              // Salva o estado final da conversa no Supabase ao terminar o streaming
+              setConversations(prev => {
+                const final = prev.find(c => c.id === chatId);
+                if (final) persistChat(final);
+                return prev;
+              });
             }
           }
         }
@@ -393,6 +416,10 @@ export default function App() {
 
     const query = input;
     const currentHistory = targetChat.messages;
+    
+    // Salva a mensagem do usuário imediatamente
+    persistChat({ ...targetChat, messages: [...targetChat.messages, userMessage] });
+    
     executeChatLogic(currentId, query, currentHistory);
   };
 
