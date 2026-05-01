@@ -52,15 +52,18 @@ def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None) 
             fallback_params = {
                 'query_embedding': embedding,
                 'match_threshold': 0.1,
-                'match_count': top_k
+                'match_count': top_k * 5 if filter_siglas else top_k,
+                'filter': {}
             }
-            # O nome correto do parâmetro de filtro no match_documents é 'filter' (não 'filter_siglas')
-            if filter_siglas:
-                fallback_params['filter'] = {'sigla': filter_siglas}
-                
             res = supabase.rpc('match_documents', fallback_params).execute()
-            results = res.data or []
-            print(f"match_documents fallback retornou {len(results)} resultados.")
+            all_results = res.data or []
+            
+            if filter_siglas:
+                results = [r for r in all_results if r.get('metadata', {}).get('sigla') in filter_siglas][:top_k]
+            else:
+                results = all_results[:top_k]
+                
+            print(f"Fallback retornou {len(results)} resultados após filtro.")
         except Exception as e2:
             print(f"Fallback também falhou: {e2}")
             results = []
