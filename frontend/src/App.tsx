@@ -47,9 +47,29 @@ const LoginPage = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [countryCode, setCountryCode] = useState('+55');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const countries = [
+    { code: '+55', flag: '🇧🇷', name: 'Brasil' },
+    { code: '+39', flag: '🇮🇹', name: 'Itália' },
+    { code: '+33', flag: '🇫🇷', name: 'França' },
+    { code: '+49', flag: '🇩🇪', name: 'Alemanha' },
+    { code: '+1', flag: '🇺🇸', name: 'EUA/Canadá' },
+    { code: '+34', flag: '🇪🇸', name: 'Espanha' },
+    { code: '+351', flag: '🇵🇹', name: 'Portugal' },
+    { code: '+54', flag: '🇦🇷', name: 'Argentina' },
+    { code: '+57', flag: '🇨🇴', name: 'Colômbia' },
+    { code: '+56', flag: '🇨🇱', name: 'Chile' },
+    { code: '+52', flag: '🇲🇽', name: 'México' },
+    { code: '+48', flag: '🇵🇱', name: 'Polônia' },
+    { code: '+32', flag: '🇧🇪', name: 'Bélgica' },
+    { code: '+41', flag: '🇨🇭', name: 'Suíça' },
+    { code: '+43', flag: '🇦🇹', name: 'Áustria' },
+    { code: '+31', flag: '🇳🇱', name: 'Holanda' },
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +95,7 @@ const LoginPage = () => {
         options: {
           data: {
             full_name: fullName,
-            phone: phone
+            phone: `${countryCode} ${phone}`
           }
         }
       });
@@ -130,14 +150,27 @@ const LoginPage = () => {
               </div>
               <div className="input-group">
                 <label>Telefone</label>
-                <input 
-                  type="tel" 
-                  className="login-input" 
-                  placeholder="(00) 00000-0000" 
-                  required
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                />
+                <div className="phone-input-container">
+                  <select 
+                    className="country-select"
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
+                  >
+                    {countries.sort((a, b) => a.name.localeCompare(b.name)).map(c => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} {c.code}
+                      </option>
+                    ))}
+                  </select>
+                  <input 
+                    type="tel" 
+                    className="login-input" 
+                    placeholder="Número" 
+                    required
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                  />
+                </div>
               </div>
             </>
           )}
