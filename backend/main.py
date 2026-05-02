@@ -94,11 +94,11 @@ async def chat_response_generator(query: str, scope: str = "Geral", history: lis
     # 1. Recuperação de Contexto (RAG) com Filtro de Escopo
     filter_siglas = None
     if scope == "Espiritualidade e Retiros":
-        filter_siglas = ["ASC", "VAM", "RSC", "RET"]
+        filter_siglas = ["ASC", "VAM", "RSC", "RET", "CAM", "MMR", "DSP"]
     elif scope == "Social e Político":
-        filter_siglas = ["CSC", "MSO", "QSS"]
+        filter_siglas = ["CSC", "DSP", "OEU", "RSO", "NCG", "MSO", "RMP"]
     elif scope == "Vida e Biografia":
-        filter_siglas = ["NHV", "SVN", "1LD"]
+        filter_siglas = ["NHV", "SVN", "1LD", "NQT", "CFL"]
     elif scope == "Correspondência":
         filter_siglas = ["COR", "LC1"]
 
