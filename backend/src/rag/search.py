@@ -233,8 +233,8 @@ def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None) 
         if not page_url:
             doc_id = meta.get('document') or meta.get('source_id')
             if doc_id:
-                # Remove extensão .json se houver
-                doc_id_clean = doc_id.replace('.json', '')
+                # Remove .json, .pdf ou qualquer outra extensão antes de adicionar .pdf
+                doc_id_clean = doc_id.split('.')[0]
                 page_url = f"https://www.dehondocsoriginals.org/pdf/{doc_id_clean}.pdf"
         
         page_number = meta.get('page') or meta.get('page_number') or meta.get('page_num') or None
