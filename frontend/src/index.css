@@ -1792,3 +1792,118 @@ textarea::placeholder {
     transform: translateY(0);
   }
 }
+
+/* --- Animations --- */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+  100% { opacity: 0.4; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+/* --- Assistant Loading & Reveal --- */
+.thinking-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  width: fit-content;
+  max-width: 300px;
+  margin-top: 0.5rem;
+}
+
+.thinking-trace {
+  height: 3px;
+  width: 40px;
+  background: var(--accent-primary);
+  border-radius: 2px;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+.thinking-text {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-style: italic;
+}
+
+.gradual-reveal {
+  animation: fadeIn 0.6s ease-out forwards;
+}
+
+.typing-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background: var(--accent-primary);
+  margin-left: 2px;
+  vertical-align: middle;
+  animation: pulse 1s infinite;
+}
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 640px) {
+  .home-greeting {
+    font-size: 1.8rem !important;
+    padding: 0 1rem;
+    margin-bottom: 1.5rem !important;
+  }
+  
+  .chat-container {
+    padding: 0.75rem !important;
+  }
+  
+  .message-container {
+    gap: 0.5rem !important;
+  }
+  
+  .bot-avatar {
+    width: 34px !important;
+    height: 34px !important;
+  }
+  
+  .message-row {
+    padding: 0.5rem 0.5rem !important;
+  }
+  
+  .message-row.user .message-body {
+    max-width: 90% !important;
+    font-size: 0.95rem !important;
+  }
+  
+  .message-body {
+    font-size: 0.95rem !important;
+  }
+  
+  .top-bar {
+    padding: 0.75rem 1rem !important;
+  }
+  
+  .logo-topbar {
+    height: 28px !important;
+  }
+  
+  .sidebar {
+    width: 280px !important;
+  }
+}
