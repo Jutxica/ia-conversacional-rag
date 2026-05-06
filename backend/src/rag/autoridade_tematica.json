@@ -1,27 +1,71 @@
 {
   "justica_social": {
-    "nucleo": ["CSC", "CS", "CAT", "SOC", "DIR", "REV", "CHR"],
-    "complemento": ["ART", "CON"],
-    "contexto": ["COR", "1LD", "LC1", "NQT"]
+    "triggers": [
+      "justiça",
+      "social",
+      "operário",
+      "economia",
+      "pobre"
+    ],
+    "weights": {
+      "nucleo": {
+        "siglas": [
+          "CSC",
+          "CS",
+          "CAT",
+          "SOC"
+        ],
+        "boost": 0.30
+      },
+      "complemento": {
+        "siglas": [
+          "ART",
+          "CON"
+        ],
+        "boost": 0.15
+      },
+      "contexto": {
+        "siglas": [
+          "COR",
+          "1LD",
+          "NQT"
+        ],
+        "boost": 0.05
+      }
+    }
   },
   "reparacao_oblacao": {
-    "nucleo": ["VAM", "VPR", "VES", "ESP", "RSO", "OSP"],
-    "complemento": ["MED", "RET", "DIR"],
-    "contexto": ["COR", "1LD", "LC1", "NQT"]
-  },
-  "espiritualidade_mariana": {
-    "nucleo": ["MAI", "MED"],
-    "complemento": ["ESP"],
-    "contexto": ["COR", "1LD", "LC1", "NQT"]
-  },
-  "vida_institucional": {
-    "nucleo": ["REG", "OSP", "DIR"],
-    "complemento": ["CAT"],
-    "contexto": ["COR", "1LD", "LC1", "NQT", "JRN"]
-  },
-  "historia_biografia": {
-    "nucleo": ["NQT", "JRN", "COR", "1LD", "LC1"],
-    "complemento": ["ART"],
-    "contexto": ["REG", "OSP"]
+    "triggers": [
+      "reparação",
+      "oblação",
+      "vítima",
+      "coração",
+      "amor"
+    ],
+    "weights": {
+      "nucleo": {
+        "siglas": [
+          "VAM",
+          "VPR",
+          "VES",
+          "OSP"
+        ],
+        "boost": 0.30
+      },
+      "complemento": {
+        "siglas": [
+          "MED",
+          "RET"
+        ],
+        "boost": 0.15
+      },
+      "contexto": {
+        "siglas": [
+          "COR",
+          "1LD"
+        ],
+        "boost": 0.05
+      }
+    }
   }
 }

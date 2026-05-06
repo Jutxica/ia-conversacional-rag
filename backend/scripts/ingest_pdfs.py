@@ -67,8 +67,28 @@ def extract_sigla(filename):
         return parts[1]
     return "OBRA"
 
+def extract_recipient(text):
+    """Tenta extrair o destinatário do início do texto (comum em cartas)."""
+    # Procura padrões como "Ao Padre...", "A Monsenhor...", "Sr. ..."
+    first_lines = text[:500]
+    match = re.search(r'(?:Ao|A|Para|Sr\.)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)', first_lines)
+    if match:
+        return match.group(1)
+    return None
+
 def ingest_pdf(file_path):
-    print(f"\n>>> Lendo PDF: {os.path.basename(file_path)}", flush=True)
+    filename = os.path.basename(file_path)
+    
+    # --- NOVO: Lógica de Skip (Verifica se já existe no banco) ---
+    try:
+        existing = supabase.table("documents").select("id").eq("metadata->>source_id", filename).limit(1).execute()
+        if existing.data:
+            print(f">>> Pulando {filename} (já processado).", flush=True)
+            return
+    except:
+        pass
+
+    print(f"\n>>> Lendo PDF: {filename}", flush=True)
     reader = PdfReader(file_path)
     
     full_text = ""
@@ -78,9 +98,13 @@ def ingest_pdf(file_path):
     # Divide em parágrafos (tentativa baseada em quebras duplas)
     paragraphs = [p.strip() for p in full_text.split('\n') if len(p.strip()) > 20]
     
-    filename = os.path.basename(file_path)
     sigla = extract_sigla(filename)
     title = SIGLARIO.get(sigla, filename.replace('.pdf', ''))
+    
+    # --- NOVO: Extração de Destinatário ---
+    recipient = extract_recipient(full_text)
+    if recipient:
+        print(f"    [INFO] Destinatário detectado: {recipient}")
     
     print(f"Total de fragmentos brutos: {len(paragraphs)}", flush=True)
     
@@ -107,6 +131,7 @@ def ingest_pdf(file_path):
                 "dehonquote": f"{sigla} PDF",
                 "document_name": filename,
                 "source_id": filename,
+                "recipient": recipient,
                 "chunk_index": chunk_index,
                 "ingested_at": time.strftime("%Y-%m-%d %H:%M:%S"),
                 "is_complete_work": True

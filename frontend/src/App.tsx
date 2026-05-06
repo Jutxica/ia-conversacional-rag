@@ -408,28 +408,32 @@ export default function App() {
           : c
       ));
 
+      let buffer = '';
       while (true) {
         const { done, value } = await reader!.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
 
-        for (const line of lines) {
+        for (let line of lines) {
+          line = line.trim();
           if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.slice(6));
-            
-            if (data.type === 'token') {
-              setConversations(prev => prev.map(c => 
-                c.id === chatId 
-                  ? { 
-                      ...c, 
-                      messages: c.messages.map(m => 
-                        m.id === assistantMessageId ? { ...m, content: m.content + data.content } : m
-                      ) 
-                    }
-                  : c
-              ));
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.type === 'token') {
+                setConversations(prev => prev.map(c => 
+                  c.id === chatId 
+                    ? { 
+                        ...c, 
+                        messages: c.messages.map(m => 
+                          m.id === assistantMessageId ? { ...m, content: m.content + data.content } : m
+                        ) 
+                      }
+                    : c
+                ));
             } else if (data.type === 'citations') {
               setConversations(prev => prev.map(c => 
                 c.id === chatId 
@@ -453,13 +457,16 @@ export default function App() {
                   : c
               ));
             } else if (data.type === 'done') {
-              setIsStreaming(false);
-              // Salva o estado final da conversa no Supabase ao terminar o streaming
-              setConversations(prev => {
-                const final = prev.find(c => c.id === chatId);
-                if (final) persistChat(final);
-                return prev;
-              });
+                setIsStreaming(false);
+                // Salva o estado final da conversa no Supabase ao terminar o streaming
+                setConversations(prev => {
+                  const final = prev.find(c => c.id === chatId);
+                  if (final) persistChat(final);
+                  return prev;
+                });
+              }
+            } catch (parseError) {
+              console.error("Failed to parse line:", line, parseError);
             }
           }
         }

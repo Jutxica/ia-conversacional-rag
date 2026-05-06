@@ -44,5 +44,23 @@
     "sinonimo": ["André Prévot", "Prévot", "Prevot", "Padre Prévot", "Père Prévot"],
     "relacionado": ["primeiro noviço", "conselheiro geral", "espiritualidade", "correspondência"],
     "historico": ["1878: entra no noviciado", "1884: secretário e confidente de Dehon", "1900-1920: principal correspondente sobre temas de espiritualidade interior"]
+  },
+  "ressel": {
+    "sinonimo": ["Pe. Ressel", "Ressel", "Rëssel", "Padre Ressel", "Père Ressel", "Adolphe Ressel", "Adolph Ressel"],
+    "relacionado": ["correspondência", "biografia", "amigo pessoal", "seminário de Santa Clara"],
+    "historico": ["1864: correspondência durante os estudos em Roma", "Amigo de infância e confidente de Dehon"]
+  },
+  "dupanloup": {
+    "sinonimo": ["Mons. Dupanloup", "Dupanloup", "Monsenhor Dupanloup", "Félix Dupanloup", "Bispo Dupanloup"],
+    "relacionado": ["influência intelectual", "bispo de Orléans", "Educação Cristã", "liberalismo católico"],
+    "historico": ["Referência de Dehon para temas de educação e política eclesial na França"]
+  },
+  "perruchot": {
+    "sinonimo": ["Pe. Perruchot", "Perruchot", "Padre Perruchot"],
+    "relacionado": ["superior provincial", "correspondência administrativa"]
+  },
+  "charcosset": {
+    "sinonimo": ["Pe. Charcosset", "Charcosset", "Padre Charcosset"],
+    "relacionado": ["teologia", "correspondência"]
   }
 }

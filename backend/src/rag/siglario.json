@@ -1,62 +1,352 @@
 {
   "works": {
-    "1LD": {"title": "Cartas de Padre Dehon", "category": "Correspondência", "url_code": "COR", "weight": 7},
-    "ACD": {"title": "Atividade de Padre Dehon", "category": "Inéditos", "url_code": "INE", "weight": 5},
-    "ADP": {"title": "Para além dos Pirineus", "category": "Viagens", "url_code": "VOY", "weight": 4},
-    "APD": {"title": "Sobre Padre Dehon", "category": "Inéditos", "url_code": "INE", "weight": 5},
-    "ARP": {"title": "Associação Reparadora", "category": "Inéditos", "url_code": "INE", "weight": 5},
-    "ASC": {"title": "O Ano com o Sagrado Coração de Jesus", "category": "Obras Espirituais", "url_code": "OSP", "weight": 9},
-    "CAM": {"title": "Coroas de Amor", "category": "Obras Espirituais", "url_code": "OSP", "weight": 9},
-    "CFL": {"title": "Cadernos Falleur", "category": "Obras Diversas", "url_code": "OEU", "weight": 4},
-    "CHR": {"title": "Crônicas do Reino", "category": "Artigos", "url_code": "OEU", "weight": 6},
-    "CON": {"title": "Conferências", "category": "Inéditos", "url_code": "INE", "weight": 5},
-    "CSC": {"title": "Catecismo social", "category": "Obras Sociais", "url_code": "OSC", "weight": 10},
-    "CSJ": {"title": "Coração Sacerdotal de Jesus", "category": "Obras Espirituais", "url_code": "OSP", "weight": 9},
-    "DIS": {"title": "Discursos", "category": "Inéditos", "url_code": "INE", "weight": 5},
-    "DJU": {"title": "Documentos jurídicos", "category": "Inéditos", "url_code": "INE", "weight": 5},
-    "DPS": {"title": "Direções Pontifícias, Políticas e Sociais", "category": "Obras Sociais", "url_code": "OSC", "weight": 8},
-    "DRD": {"title": "Discursos, relatórios, debates", "category": "Obras Sociais", "url_code": "OSC", "weight": 8},
-    "DSC": {"title": "A Devoção ao Sagrado Coração de Jesus", "category": "Obras Espirituais", "url_code": "OSP", "weight": 9},
-    "DSP": {"title": "Diretório Espiritual", "category": "Obras Espirituais", "url_code": "OSP", "weight": 9},
-    "DSS": {"title": "Documentos para a Santa Sé", "category": "Inéditos", "url_code": "INE", "weight": 5},
-    "ECD": {"title": "Escritos duvidosos", "category": "Inéditos", "url_code": "INE", "weight": 3},
-    "ENT": {"title": "Arredores", "category": "Inéditos", "url_code": "INE", "weight": 4},
-    "ESC": {"title": "Estudos sobre o Sagrado Coração de Jesus", "category": "Obras Espirituais", "url_code": "OSP", "weight": 9},
-    "EXC": {"title": "Extratos", "category": "Inéditos", "url_code": "INE", "weight": 5},
-    "EXT": {"title": "Extras", "category": "Artigos", "url_code": "OEU", "weight": 6},
-    "LC1": {"title": "Cartas a Padre Dehon", "category": "Correspondência", "url_code": "COR", "weight": 6},
-    "LCC": {"title": "Cartas Circulares", "category": "Correspondência", "url_code": "COR", "weight": 7},
-    "MIS": {"title": "Missões", "category": "Inéditos", "url_code": "INE", "weight": 5},
-    "MLA": {"title": "Mil léguas na América do Sul", "category": "Viagens", "url_code": "VOY", "weight": 4},
-    "MMR": {"title": "Mês de Maria", "category": "Obras Espirituais", "url_code": "OSP", "weight": 8},
-    "MSC": {"title": "Mês do Sagrado Coração de Jesus", "category": "Obras Espirituais", "url_code": "OSP", "weight": 9},
-    "MSO": {"title": "Manual Social Cristão", "category": "Obras Sociais", "url_code": "OSC", "weight": 8},
-    "NCG": {"title": "Nossos Congressos", "category": "Obras Sociais", "url_code": "OSC", "weight": 7},
-    "NHV": {"title": "Notas sobre a História da minha Vida", "category": "Diários", "url_code": "JRN", "weight": 10},
-    "NQT": {"title": "Notas quotidianas", "category": "Diários", "url_code": "JRN", "weight": 10},
-    "NTD": {"title": "Notas diversas", "category": "Inéditos", "url_code": "INE", "weight": 5},
-    "NTO": {"title": "Notas sobre a obra", "category": "Inéditos", "url_code": "INE", "weight": 5},
-    "PDR": {"title": "Pequeno Diretório para os Reitores", "category": "Obras Espirituais", "url_code": "OSP", "weight": 9},
-    "PFM": {"title": "O Plano da Franco-Maçonaria...", "category": "Obras Sociais", "url_code": "OSC", "weight": 7},
-    "PRI": {"title": "Orações", "category": "Inéditos", "url_code": "INE", "weight": 8},
-    "PSC": {"title": "Um Sacerdote do Sagrado Coração de Jesus", "category": "Obras Espirituais", "url_code": "OSP", "weight": 9},
-    "PVA": {"title": "Prefácio à vida do Padre André", "category": "Obras Espirituais", "url_code": "OSP", "weight": 7},
-    "QSS": {"title": "Questões sociais", "category": "Inéditos", "url_code": "INE", "weight": 5},
-    "RET": {"title": "Retiros", "category": "Inéditos", "url_code": "INE", "weight": 6},
-    "REV": {"title": "Críticas", "category": "Artigos", "url_code": "OEU", "weight": 6},
-    "RMP": {"title": "Riqueza, Moderação ou Pobreza", "category": "Obras Sociais", "url_code": "OSC", "weight": 7},
-    "RSC": {"title": "Retiro do Sagrado Coração", "category": "Obras Espirituais", "url_code": "OSP", "weight": 9},
-    "RSO": {"title": "Renovação social cristã", "category": "Obras Sociais", "url_code": "OSC", "weight": 8},
-    "SAC": {"title": "Sicília, Norte de África e Calábria", "category": "Viagens", "url_code": "VOY", "weight": 4},
-    "SMJ": {"title": "Irmã Maria de Jesus", "category": "Obras Espirituais", "url_code": "OSP", "weight": 8},
-    "SVN": {"title": "Memórias", "category": "Obras Espirituais", "url_code": "OSP", "weight": 8},
-    "THD": {"title": "Tese de Doutoramento", "category": "Obras Sociais", "url_code": "OSC", "weight": 7},
-    "THE": {"title": "Thesaurus Precum", "category": "Obras Espirituais", "url_code": "OSP", "weight": 9},
-    "THL": {"title": "Tese para a Licença", "category": "Obras Sociais", "url_code": "OSC", "weight": 7},
-    "UTP": {"title": "A Usura no tempo presente", "category": "Obras Sociais", "url_code": "OSC", "weight": 7},
-    "VAM": {"title": "Uma vida de amor ao Sagrado Coração de Jesus", "category": "Obras Espirituais", "url_code": "OSP", "weight": 9},
-    "VES": {"title": "Vida Interior: Exercícios Espirituais", "category": "Obras Espirituais", "url_code": "OSP", "weight": 9},
-    "VPR": {"title": "Vida Interior: Princípios", "category": "Obras Espirituais", "url_code": "OSP", "weight": 9},
-    "VYG": {"title": "Viagens", "category": "Inéditos", "url_code": "VOY", "weight": 4}
+    "1LD": {
+      "title": "Cartas de Padre Dehon",
+      "category": "Correspondência",
+      "url_code": "COR",
+      "weight": 7
+    },
+    "ACD": {
+      "title": "Atividade de Padre Dehon",
+      "category": "Inéditos",
+      "url_code": "INE",
+      "weight": 5
+    },
+    "ADP": {
+      "title": "Para além dos Pirineus",
+      "category": "Viagens",
+      "url_code": "VOY",
+      "weight": 4
+    },
+    "APD": {
+      "title": "Sobre Padre Dehon",
+      "category": "Inéditos",
+      "url_code": "INE",
+      "weight": 5
+    },
+    "ARP": {
+      "title": "Associação Reparadora",
+      "category": "Inéditos",
+      "url_code": "INE",
+      "weight": 5
+    },
+    "ASC": {
+      "title": "O Ano com o Sagrado Coração de Jesus",
+      "category": "Obras Espirituais",
+      "url_code": "OSP",
+      "weight": 9
+    },
+    "CAM": {
+      "title": "Coroas de Amor",
+      "category": "Obras Espirituais",
+      "url_code": "OSP",
+      "weight": 9
+    },
+    "CFL": {
+      "title": "Cadernos Falleur",
+      "category": "Obras Diversas",
+      "url_code": "OEU",
+      "weight": 4
+    },
+    "CHR": {
+      "title": "Crônicas do Reino",
+      "category": "Artigos",
+      "url_code": "OEU",
+      "weight": 6
+    },
+    "CON": {
+      "title": "Conferências",
+      "category": "Inéditos",
+      "url_code": "INE",
+      "weight": 5
+    },
+    "CSC": {
+      "title": "Catecismo social",
+      "category": "Obras Sociais",
+      "url_code": "OSC",
+      "weight": 10
+    },
+    "CSJ": {
+      "title": "Coração Sacerdotal de Jesus",
+      "category": "Obras Espirituais",
+      "url_code": "OSP",
+      "weight": 9
+    },
+    "DIS": {
+      "title": "Discursos",
+      "category": "Inéditos",
+      "url_code": "INE",
+      "weight": 5
+    },
+    "DJU": {
+      "title": "Documentos jurídicos",
+      "category": "Inéditos",
+      "url_code": "INE",
+      "weight": 5
+    },
+    "DPS": {
+      "title": "Direções Pontifícias, Políticas e Sociais",
+      "category": "Obras Sociais",
+      "url_code": "OSC",
+      "weight": 8
+    },
+    "DRD": {
+      "title": "Discursos, relatórios, debates",
+      "category": "Obras Sociais",
+      "url_code": "OSC",
+      "weight": 8
+    },
+    "DSC": {
+      "title": "A Devoção ao Sagrado Coração de Jesus",
+      "category": "Obras Espirituais",
+      "url_code": "OSP",
+      "weight": 9
+    },
+    "DSP": {
+      "title": "Diretório Espiritual",
+      "category": "Obras Espirituais",
+      "url_code": "OSP",
+      "weight": 9
+    },
+    "DSS": {
+      "title": "Documentos para a Santa Sé",
+      "category": "Inéditos",
+      "url_code": "INE",
+      "weight": 5
+    },
+    "ECD": {
+      "title": "Escritos duvidosos",
+      "category": "Inéditos",
+      "url_code": "INE",
+      "weight": 3
+    },
+    "ENT": {
+      "title": "Arredores",
+      "category": "Inéditos",
+      "url_code": "INE",
+      "weight": 4
+    },
+    "ESC": {
+      "title": "Estudos sobre o Sagrado Coração de Jesus",
+      "category": "Obras Espirituais",
+      "url_code": "OSP",
+      "weight": 9
+    },
+    "EXC": {
+      "title": "Extratos",
+      "category": "Inéditos",
+      "url_code": "INE",
+      "weight": 5
+    },
+    "EXT": {
+      "title": "Extras",
+      "category": "Artigos",
+      "url_code": "OEU",
+      "weight": 6
+    },
+    "LC1": {
+      "title": "Cartas a Padre Dehon",
+      "category": "Correspondência",
+      "url_code": "COR",
+      "weight": 6
+    },
+    "LCC": {
+      "title": "Cartas Circulares",
+      "category": "Correspondência",
+      "url_code": "COR",
+      "weight": 7
+    },
+    "MIS": {
+      "title": "Missões",
+      "category": "Inéditos",
+      "url_code": "INE",
+      "weight": 5
+    },
+    "MLA": {
+      "title": "Mil léguas na América do Sul",
+      "category": "Viagens",
+      "url_code": "VOY",
+      "weight": 4
+    },
+    "MMR": {
+      "title": "Mês de Maria",
+      "category": "Obras Espirituais",
+      "url_code": "OSP",
+      "weight": 8
+    },
+    "MSC": {
+      "title": "Mês do Sagrado Coração de Jesus",
+      "category": "Obras Espirituais",
+      "url_code": "OSP",
+      "weight": 9
+    },
+    "MSO": {
+      "title": "Manual Social Cristão",
+      "category": "Obras Sociais",
+      "url_code": "OSC",
+      "weight": 8
+    },
+    "NCG": {
+      "title": "Nossos Congressos",
+      "category": "Obras Sociais",
+      "url_code": "OSC",
+      "weight": 7
+    },
+    "NHV": {
+      "title": "Notas sobre a História da minha Vida",
+      "category": "Diários",
+      "url_code": "JRN",
+      "weight": 10
+    },
+    "NQT": {
+      "title": "Notas quotidianas",
+      "category": "Diários",
+      "url_code": "JRN",
+      "weight": 10
+    },
+    "NTD": {
+      "title": "Notas diversas",
+      "category": "Inéditos",
+      "url_code": "INE",
+      "weight": 5
+    },
+    "NTO": {
+      "title": "Notas sobre a obra",
+      "category": "Inéditos",
+      "url_code": "INE",
+      "weight": 5
+    },
+    "PDR": {
+      "title": "Pequeno Diretório para os Reitores",
+      "category": "Obras Espirituais",
+      "url_code": "OSP",
+      "weight": 9
+    },
+    "PFM": {
+      "title": "O Plano da Franco-Maçonaria...",
+      "category": "Obras Sociais",
+      "url_code": "OSC",
+      "weight": 7
+    },
+    "PRI": {
+      "title": "Orações",
+      "category": "Inéditos",
+      "url_code": "INE",
+      "weight": 8
+    },
+    "PSC": {
+      "title": "Um Sacerdote do Sagrado Coração de Jesus",
+      "category": "Obras Espirituais",
+      "url_code": "OSP",
+      "weight": 9
+    },
+    "PVA": {
+      "title": "Prefácio à vida do Padre André",
+      "category": "Obras Espirituais",
+      "url_code": "OSP",
+      "weight": 7
+    },
+    "QSS": {
+      "title": "Questões sociais",
+      "category": "Inéditos",
+      "url_code": "INE",
+      "weight": 5
+    },
+    "RET": {
+      "title": "Retiros",
+      "category": "Inéditos",
+      "url_code": "INE",
+      "weight": 6
+    },
+    "REV": {
+      "title": "Críticas",
+      "category": "Artigos",
+      "url_code": "OEU",
+      "weight": 6
+    },
+    "RMP": {
+      "title": "Riqueza, Moderação ou Pobreza",
+      "category": "Obras Sociais",
+      "url_code": "OSC",
+      "weight": 7
+    },
+    "RSC": {
+      "title": "Retiro do Sagrado Coração",
+      "category": "Obras Espirituais",
+      "url_code": "OSP",
+      "weight": 9
+    },
+    "RSO": {
+      "title": "Renovação social cristã",
+      "category": "Obras Sociais",
+      "url_code": "OSC",
+      "weight": 8
+    },
+    "SAC": {
+      "title": "Sicília, Norte de África e Calábria",
+      "category": "Viagens",
+      "url_code": "VOY",
+      "weight": 4
+    },
+    "SMJ": {
+      "title": "Irmã Maria de Jesus",
+      "category": "Obras Espirituais",
+      "url_code": "OSP",
+      "weight": 8
+    },
+    "SVN": {
+      "title": "Memórias",
+      "category": "Obras Espirituais",
+      "url_code": "OSP",
+      "weight": 8
+    },
+    "THD": {
+      "title": "Tese de Doutoramento",
+      "category": "Obras Sociais",
+      "url_code": "OSC",
+      "weight": 7
+    },
+    "THE": {
+      "title": "Thesaurus Precum",
+      "category": "Obras Espirituais",
+      "url_code": "OSP",
+      "weight": 9
+    },
+    "THL": {
+      "title": "Tese para a Licença",
+      "category": "Obras Sociais",
+      "url_code": "OSC",
+      "weight": 7
+    },
+    "UTP": {
+      "title": "A Usura no tempo presente",
+      "category": "Obras Sociais",
+      "url_code": "OSC",
+      "weight": 7
+    },
+    "VAM": {
+      "title": "Uma vida de amor ao Sagrado Coração de Jesus",
+      "category": "Obras Espirituais",
+      "url_code": "OSP",
+      "weight": 9
+    },
+    "VES": {
+      "title": "Vida Interior: Exercícios Espirituais",
+      "category": "Obras Espirituais",
+      "url_code": "OSP",
+      "weight": 9
+    },
+    "VPR": {
+      "title": "Vida Interior: Princípios",
+      "category": "Obras Espirituais",
+      "url_code": "OSP",
+      "weight": 9
+    },
+    "VYG": {
+      "title": "Viagens",
+      "category": "Inéditos",
+      "url_code": "VOY",
+      "weight": 4
+    }
   }
 }

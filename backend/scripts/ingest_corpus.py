@@ -83,11 +83,13 @@ def get_entities_for_range(data: Dict, start_par: int, end_par: int) -> Dict[str
     """Extrai entidades (pessoas, lugares, conceitos) mencionadas em um intervalo de parágrafos."""
     entities = {"people": [], "places": [], "concepts": []}
     
-    # Mapeamentos no JSON original
+    # Busca maps no root ou no documentRef (Correção de Bug)
+    doc_ref = data.get('documentRef', {}) if isinstance(data.get('documentRef'), dict) else {}
+    
     maps = {
-        "people": data.get('peoplemap', {}),
-        "places": data.get('placesmap', {}),
-        "concepts": data.get('conceptsmap', {})
+        "people": data.get('peoplemap') or doc_ref.get('peoplemap') or {},
+        "places": data.get('placesmap') or doc_ref.get('placesmap') or {},
+        "concepts": data.get('conceptsmap') or doc_ref.get('conceptsmap') or {}
     }
     
     # Se os mapas vierem como string JSON (como vi em alguns arquivos)
@@ -99,12 +101,19 @@ def get_entities_for_range(data: Dict, start_par: int, end_par: int) -> Dict[str
                 maps[key] = {}
 
     for category, mapping in maps.items():
+        if not isinstance(mapping, dict): continue
         for entity_name, mentions in mapping.items():
+            if not isinstance(mentions, list): continue
             for mention in mentions:
                 par_index = mention.get('par')
-                if par_index is not None and start_par <= int(par_index) <= end_par:
-                    if entity_name not in entities[category]:
-                        entities[category].append(entity_name)
+                if par_index is not None:
+                    try:
+                        p_idx = int(par_index)
+                        if start_par <= p_idx <= end_par:
+                            if entity_name not in entities[category]:
+                                entities[category].append(entity_name)
+                    except:
+                        continue
     
     return entities
 
@@ -179,12 +188,18 @@ def ingest_file(file_path: str):
             
             entities = get_entities_for_range(data, start_par, end_par)
             
+            # Destinatários e Metadados de Correspondência
+            receivers = ps.get('receivers', [])
+            destinatario = ps.get('receiver') or ps.get('destinatario')
+            
             chunks_data.append({
                 "content": f"SEÇÃO: {bkm.get('text', 'Geral')}\n\n{chunk_text}",
                 "metadata": {
                     "title": title,
                     "section_title": bkm.get('text'),
                     "entities": entities,
+                    "receivers": receivers,
+                    "destinatario": destinatario,
                     "par_range": [start_par, end_par],
                     "sigla": sigla,
                     "document_weight": WEIGHT_MAP.get(sigla.split('-')[0], 5),
@@ -202,11 +217,17 @@ def ingest_file(file_path: str):
             chunk_text = " ".join([par_map[p] for p in window_indices])
             entities = get_entities_for_range(data, start_par, end_par)
             
+            # Destinatários e Metadados de Correspondência
+            receivers = ps.get('receivers', [])
+            destinatario = ps.get('receiver') or ps.get('destinatario')
+            
             chunks_data.append({
                 "content": chunk_text,
                 "metadata": {
                     "title": title,
                     "entities": entities,
+                    "receivers": receivers,
+                    "destinatario": destinatario,
                     "par_range": [start_par, end_par],
                     "sigla": sigla,
                     "document_weight": WEIGHT_MAP.get(sigla.split('-')[0], 5),

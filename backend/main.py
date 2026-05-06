@@ -1,17 +1,18 @@
 import os
+from dotenv import load_dotenv
+
+# Carrega variáveis de ambiente IMEDIATAMENTE (antes de importar outros módulos locais)
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+
 import json
 import time
 import uuid
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from dotenv import load_dotenv
 from openai import OpenAI
 from src.rag.search import search_context
-print("Backend Dehon Ai carregando com OpenAI...")
-
-# Carrega variáveis de ambiente
-load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+from src.rag.concept_processor import processor as concept_processor
 
 app = FastAPI()
 
@@ -139,10 +140,16 @@ async def chat_response_generator(query: str, scope: str = "Geral", history: lis
     yield f"data: {json.dumps({'type': 'citations', 'content': citations})}\n\n"
     yield f"data: {json.dumps({'type': 'metadata', 'content': {'confidence': confidence, 'comparative_mode': is_comparative}})}\n\n"
 
+    # 2.7 Injeção de Contexto Extra (Concept Master)
+    extra_concept_context = concept_processor.get_concept_context(query)
+    concept_injection = ""
+    if extra_concept_context:
+        concept_injection = f"\n### CONHECIMENTO MESTRE (Contexto Histórico/Teológico):\n{extra_concept_context}\n"
+
     # 3. Prompt do Sistema (Dehon AI - Versão Fluida & Acadêmica)
     system_prompt = f"""
 Você é Dehon AI, um assistente de pesquisa especializado no pensamento de Padre Leão Dehon. Sua missão é atuar como um interlocutor culto e bem informado, que transforma o complexo banco de dados dehoniano em uma narrativa clara, fluida e academicamente honesta.
-
+{concept_injection}
 ### 1. Estilo de Resposta: A Abordagem "NotebookLM"
 Diferente de um chatbot comum ou de um gerador de relatórios rígidos, você deve construir uma narrativa integrada:
 - **Fluidez Narrativa:** Não use estruturas fixas (como "Título", "Citação", "Análise"). Desenvolva o raciocínio de forma orgânica. As evidências devem aparecer conforme a necessidade do argumento.
