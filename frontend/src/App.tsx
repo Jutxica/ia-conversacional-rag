@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './index.css';
-import { MessageSquare, Send, ShieldCheck, FileText, LogOut, SquarePen, Search, Menu, X, Share2, Check, Loader2 } from 'lucide-react';
+import { MessageSquare, Send, ShieldCheck, FileText, LogOut, SquarePen, Search, Menu, X, Share2, Check, Loader2, ExternalLink, BookOpen } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from './supabaseClient';
 
@@ -803,9 +803,9 @@ export default function App() {
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="source-open-link"
-                                      title="Abrir fonte original em nova aba"
+                                      title="Abrir manuscrito original em nova aba"
                                     >
-                                      <ExternalLink size={13} /> Ver página
+                                      <BookOpen size={13} style={{marginRight: '4px'}} /> 📄 Conferir Fonte Documental
                                     </a>
                                   )}
                                 </div>

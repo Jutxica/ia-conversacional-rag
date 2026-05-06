@@ -228,6 +228,15 @@ def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None) 
         destinatario = meta.get('destinatario') or meta.get('recipient') or meta.get('addressee') or meta.get('to') or None
         data_doc = meta.get('date') or meta.get('data') or meta.get('year') or None
         page_url = meta.get('url') or meta.get('source_url') or meta.get('page_url') or None
+        
+        # Se não tiver link vindo do banco, geramos o link direto para o PDF original
+        if not page_url:
+            doc_id = meta.get('document') or meta.get('source_id')
+            if doc_id:
+                # Remove extensão .json se houver
+                doc_id_clean = doc_id.replace('.json', '')
+                page_url = f"https://www.dehondocsoriginals.org/pdf/{doc_id_clean}.pdf"
+        
         page_number = meta.get('page') or meta.get('page_number') or meta.get('page_num') or None
         
         context_parts.append(f"--- FONTE [{ref_num}]: {title} ({sigla}) ---\n{full_context_text}")
