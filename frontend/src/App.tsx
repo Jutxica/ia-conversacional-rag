@@ -604,19 +604,23 @@ export default function App() {
           ))}
         </div>
 
-        <div className="sidebar-footer">
-          {session ? (
-            <div className="user-profile" onClick={handleLogout} title="Clique para sair">
-              <div className="avatar">{session.user.email[0].toUpperCase()}</div>
-              <span className="username">{session.user.email.split('@')[0]}</span>
-              <LogOut size={16} className="settings-icon" />
+          <div className="sidebar-footer">
+            <div className="developer-credit">
+              <span className="credit-text">Alta Pesquisa Dehoniana</span>
+              <span className="author-name">Fr. Utxica, scj</span>
             </div>
-          ) : (
-            <div className="user-profile" onClick={() => window.location.reload()}>
-              <span className="username">Entrar para salvar</span>
-            </div>
-          )}
-        </div>
+            {session ? (
+              <div className="user-profile" onClick={handleLogout} title="Clique para sair">
+                <div className="avatar">{session.user.email[0].toUpperCase()}</div>
+                <span className="username">{session.user.email.split('@')[0]}</span>
+                <LogOut size={16} className="settings-icon" />
+              </div>
+            ) : (
+              <div className="user-profile" onClick={() => window.location.reload()}>
+                <span className="username">Entrar para salvar</span>
+              </div>
+            )}
+          </div>
       </aside>
 
       <main className="main-content">
@@ -697,6 +701,10 @@ export default function App() {
                  <button className="pill" onClick={() => startNewChatWithInput('Resuma O Catecismo Social')}><FileText size={14} /> Resumo: O Catecismo Social</button>
                  <button className="pill" onClick={() => startNewChatWithInput('O que é a Teologia da Reparação?')}><FileText size={14} /> Teologia da Reparação</button>
                  <button className="pill" onClick={() => startNewChatWithInput('Quais as principais Cartas aos Escolásticos?')}><FileText size={14} /> Cartas aos Escolásticos</button>
+               </div>
+
+               <div className="home-footer-identity">
+                 Sistema de Alta Pesquisa desenvolvido por <strong>Fr. João Rodrigues Utxica, scj</strong>
                </div>
             </div>
           </div>
