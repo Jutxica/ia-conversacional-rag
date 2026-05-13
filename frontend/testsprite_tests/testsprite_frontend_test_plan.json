@@ -1,0 +1,266 @@
+[
+  {
+    "id": "TC001",
+    "title": "Ask a social scope question and review cited sources",
+    "description": "This verifies that a user can ask a social-scope question, receive a grounded answer, and inspect the supporting source references.",
+    "category": "Conversational RAG Interface",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the chat interface"
+      },
+      {
+        "type": "action",
+        "description": "Select the Social scope"
+      },
+      {
+        "type": "action",
+        "description": "Fill in a corpus question about a social theme into the chat input"
+      },
+      {
+        "type": "action",
+        "description": "Submit the question"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an answer is displayed with source references"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the selected scope remains Social while reviewing the response"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC002",
+    "title": "Ask about André Prévot in biographical scope and inspect recipient sources",
+    "description": "This verifies that a biographical question about André Prévot returns relevant documents and shows the cited sources in the panel.",
+    "category": "Conversational RAG Interface",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the chat interface"
+      },
+      {
+        "type": "action",
+        "description": "Select the Biographical scope"
+      },
+      {
+        "type": "action",
+        "description": "Fill in a question about André Prévot as a recipient into the chat input"
+      },
+      {
+        "type": "action",
+        "description": "Submit the question"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an answer is displayed with biographical source references"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify document metadata and source details are available in the source panel"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC003",
+    "title": "Search an exact theological term and compare the retrieved sources",
+    "description": "This verifies that an exact term search for oblação returns lexically relevant evidence with anchored citations and multilingual source support.",
+    "category": "Conversational RAG Interface",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the chat interface"
+      },
+      {
+        "type": "action",
+        "description": "Select the most relevant scope for theological content"
+      },
+      {
+        "type": "action",
+        "description": "Fill in a question containing the exact term oblação into the chat input"
+      },
+      {
+        "type": "action",
+        "description": "Submit the question"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an answer is displayed with anchored citations"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the cited sources include multilingual or translated material when available"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC004",
+    "title": "Keep scope context after an insufficient-evidence answer",
+    "description": "This verifies that a Social-scope question with limited evidence produces an honest uncertainty response while preserving the selected scope for continued research.",
+    "category": "Conversational RAG Interface",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the chat interface"
+      },
+      {
+        "type": "action",
+        "description": "Select the Social scope"
+      },
+      {
+        "type": "action",
+        "description": "Fill in a question that is unlikely to have sufficient evidence into the chat input"
+      },
+      {
+        "type": "action",
+        "description": "Submit the question"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an honest uncertainty or no-results state is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the Social scope remains selected"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC005",
+    "title": "Switch scope and ask a new question without losing context",
+    "description": "This verifies that changing between scopes updates retrieval behavior and allows a new question to be asked from the same conversation flow.",
+    "category": "Conversational RAG Interface",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the chat interface"
+      },
+      {
+        "type": "action",
+        "description": "Select one scope"
+      },
+      {
+        "type": "action",
+        "description": "Fill in a first corpus question into the chat input"
+      },
+      {
+        "type": "action",
+        "description": "Submit the question"
+      },
+      {
+        "type": "action",
+        "description": "Select a different scope"
+      },
+      {
+        "type": "action",
+        "description": "Fill in a second corpus question into the chat input"
+      },
+      {
+        "type": "action",
+        "description": "Submit the question"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the latest answer reflects the newly selected scope"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the conversation remains available for continued research"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC006",
+    "title": "Verify backend connectivity through the health check",
+    "description": "This verifies that the basic connectivity check endpoint returns a visible successful status used by the interface as a health placeholder.",
+    "category": "Conversational RAG Interface",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the connectivity or diagnostic view of the chat interface"
+      },
+      {
+        "type": "action",
+        "description": "Trigger the backend connectivity check"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a successful connectivity state is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC007",
+    "title": "Review source metadata after receiving a cited answer",
+    "description": "This verifies that after an answer is generated, the user can open source details and inspect metadata such as authority and language.",
+    "category": "Conversational RAG Interface",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the chat interface"
+      },
+      {
+        "type": "action",
+        "description": "Select a scope"
+      },
+      {
+        "type": "action",
+        "description": "Fill in a corpus question into the chat input"
+      },
+      {
+        "type": "action",
+        "description": "Submit the question"
+      },
+      {
+        "type": "action",
+        "description": "Open the source details panel for one cited item"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify source metadata is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify authority and language information are visible"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC008",
+    "title": "Handle a malformed chat request gracefully",
+    "description": "This verifies that submitting an incomplete chat request produces a clear validation error and preserves the conversation UI.",
+    "category": "Conversational RAG Interface",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the chat interface"
+      },
+      {
+        "type": "action",
+        "description": "Select any available scope"
+      },
+      {
+        "type": "action",
+        "description": "Submit the chat form without entering a question"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a validation error state is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the chat interface remains usable after the error"
+      }
+    ],
+    "priority": "Low"
+  }
+]

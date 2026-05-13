@@ -1,0 +1,22 @@
+version: "2"
+type: frontend
+tech_stack:
+  - react
+  - vite
+  - typescript
+  - supabase
+features:
+  - name: Conversational RAG Interface
+    description: Chat interface for RAG
+    files:
+      - src/App.tsx
+      - src/supabaseClient.ts
+    endpoints:
+      - method: GET
+        path: /api/dummy
+        description: Dummy endpoint to satisfy schema
+        auth_required: false
+        response_schema:
+          "200": string
+    depends_on: []
+known_limitations: []

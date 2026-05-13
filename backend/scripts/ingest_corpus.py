@@ -10,6 +10,10 @@ from supabase import create_client, Client
 from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 from bs4 import BeautifulSoup
+import tiktoken
+
+# Inicializa tokenizer para contagem precisa de tokens (modelo cl100k_base usado pelo gpt-4o/text-embedding-3)
+tokenizer = tiktoken.get_encoding("cl100k_base")
 
 # Configuração de Logging Profissional
 logging.basicConfig(
@@ -46,6 +50,17 @@ WEIGHT_MAP = {
     "ART": 10,  # Artigos / Crônicas
     "OUTROS": 5
 }
+
+def normalize_text(text: str) -> str:
+    """Normaliza texto removendo artefatos de OCR e excesso de espaços."""
+    if not text: return ""
+    # Remove excesso de espaços e quebras de linha duplicadas
+    text = re.sub(r'\s+', ' ', text)
+    # Remove caracteres de controle e artefatos comuns de OCR/HTML
+    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
+    # Padroniza aspas e hifens
+    text = text.replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
+    return text.strip()
 
 def clean_html_text(html_content: str) -> Dict[int, str]:
     """Extrai parágrafos do HTML e mapeia para seus números (ID pXXX)."""
@@ -162,10 +177,13 @@ def ingest_file(file_path: str):
         summary_text = ps.get('content', '')
         if summary_text:
             logger.info(f"Usando fallback prosearch.content para {os.path.basename(file_path)}")
-            par_map = {0: summary_text}
+            par_map = {0: normalize_text(summary_text)}
         else:
             logger.warning(f"Arquivo sem conteúdo detectado: {file_path}")
             return
+    else:
+        # Normaliza todos os parágrafos coletados
+        par_map = {k: normalize_text(v) for k, v in par_map.items()}
 
     # Chunking Temático baseado em Bookmarks
     bookmarks = data.get('bookmarks') or (data.get('documentRef', {}).get('bookmarks') if isinstance(data.get('documentRef'), dict) else None)
@@ -209,30 +227,69 @@ def ingest_file(file_path: str):
             })
     else:
         # Modo Sliding Window: Para documentos sem bookmarks (como cartas curtas)
-        window_size = 8 # parágrafos
-        for i, start_idx in enumerate(range(0, len(sorted_pars), window_size - 2)):
-            window_indices = sorted_pars[start_idx:start_idx + window_size]
-            start_par, end_par = window_indices[0], window_indices[-1]
+        # Otimizado para densidade de tokens (Token Guard)
+        current_chunk_pars = []
+        current_token_count = 0
+        MAX_TOKENS = 800  # Tamanho ideal para densidade semântica sem diluição
+        OVERLAP_TOKENS = 150
+        
+        for p_num in sorted_pars:
+            text = par_map[p_num]
+            tokens = len(tokenizer.encode(text))
             
-            chunk_text = " ".join([par_map[p] for p in window_indices])
-            entities = get_entities_for_range(data, start_par, end_par)
-            
-            # Destinatários e Metadados de Correspondência
-            receivers = ps.get('receivers', [])
-            destinatario = ps.get('receiver') or ps.get('destinatario')
-            
+            if current_token_count + tokens > MAX_TOKENS and current_chunk_pars:
+                # Fecha o chunk atual
+                start_par, end_par = current_chunk_pars[0], current_chunk_pars[-1]
+                chunk_text = " ".join([par_map[p] for p in current_chunk_pars])
+                entities = get_entities_for_range(data, start_par, end_par)
+                
+                chunks_data.append({
+                    "content": chunk_text,
+                    "metadata": {
+                        "title": title,
+                        "entities": entities,
+                        "receivers": ps.get('receivers', []),
+                        "destinatario": ps.get('receiver') or ps.get('destinatario'),
+                        "par_range": [start_par, end_par],
+                        "sigla": sigla,
+                        "document_weight": WEIGHT_MAP.get(sigla.split('-')[0], 5),
+                        "source_id": os.path.basename(file_path),
+                        "chunk_index": len(chunks_data)
+                    }
+                })
+                
+                # Reinicia com overlap (mantém parágrafos até atingir o overlap desejado)
+                overlap_pars = []
+                overlap_tokens = 0
+                for p in reversed(current_chunk_pars):
+                    p_tokens = len(tokenizer.encode(par_map[p]))
+                    if overlap_tokens + p_tokens <= OVERLAP_TOKENS:
+                        overlap_pars.insert(0, p)
+                        overlap_tokens += p_tokens
+                    else:
+                        break
+                current_chunk_pars = overlap_pars
+                current_token_count = overlap_tokens
+
+            current_chunk_pars.append(p_num)
+            current_token_count += tokens
+
+        # Adiciona o último fragmento se houver
+        if current_chunk_pars:
+            start_par, end_par = current_chunk_pars[0], current_chunk_pars[-1]
+            chunk_text = " ".join([par_map[p] for p in current_chunk_pars])
             chunks_data.append({
                 "content": chunk_text,
                 "metadata": {
                     "title": title,
-                    "entities": entities,
-                    "receivers": receivers,
-                    "destinatario": destinatario,
+                    "entities": get_entities_for_range(data, start_par, end_par),
+                    "receivers": ps.get('receivers', []),
+                    "destinatario": ps.get('receiver') or ps.get('destinatario'),
                     "par_range": [start_par, end_par],
                     "sigla": sigla,
                     "document_weight": WEIGHT_MAP.get(sigla.split('-')[0], 5),
                     "source_id": os.path.basename(file_path),
-                    "chunk_index": i
+                    "chunk_index": len(chunks_data)
                 }
             })
 
