@@ -100,9 +100,11 @@ def extract_person_from_query(query: str) -> List[str]:
         print(f"Erro na extração de pessoas: {e}")
     return list(set(people_detected))
 
+from src.rag.reranker import reranker
+
 def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None) -> Dict[str, Any]:
     """
-    Realiza busca híbrida e aplica boosting por autoridade temática e destinatários.
+    Realiza busca híbrida, aplica boosting e re-ranqueamento com Cross-Encoder.
     """
     if not supabase or not client_openai:
         print("Erro: Clientes de busca não inicializados corretamente.")
@@ -125,11 +127,12 @@ def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None) 
         return {"context": "", "citations": []}
     
     # Busca Híbrida via RPC (Vetor + FTS)
+    # Buscamos um set maior (top_k * 10) para o re-ranker processar
     try:
         rpc_params = {
             'query_text': expanded_query,
             'query_embedding': embedding,
-            'match_count': top_k * 5,
+            'match_count': top_k * 10,
             'full_text_weight': 1.0,
             'vector_weight': 1.0,
         }
@@ -143,7 +146,6 @@ def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None) 
             res = supabase.rpc('hybrid_search', rpc_params).execute()
         except Exception as e:
             if "target_entities" in str(e):
-                # Fallback se a função no DB ainda não foi atualizada
                 print("  [AVISO] RPC 'hybrid_search' antigo detectado. Usando fallback sem target_entities.")
                 rpc_params.pop('target_entities')
                 res = supabase.rpc('hybrid_search', rpc_params).execute()
@@ -167,29 +169,36 @@ def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None) 
         
         # 2. Boost de Destinatário/Pessoa (Pesado - Python Side)
         if target_people:
-            meta_entities = match.get('metadata', {}).get('entities', {})
-            people_in_meta = meta_entities.get('people', [])
-            receivers_in_meta = match.get('metadata', {}).get('receivers', [])
-            destinatario_str = match.get('metadata', {}).get('destinatario', '') or ''
+            meta_entities = match.get('metadata', {})
+            # Tratamento defensivo caso 'entities' seja None
+            entities_dict = meta_entities.get('entities') or {}
+            people_in_meta = entities_dict.get('people', []) if isinstance(entities_dict, dict) else []
+            receivers_in_meta = meta_entities.get('receivers', []) or []
+            destinatario_str = meta_entities.get('destinatario', '') or ''
             
             for person in target_people:
                 person_low = person.lower()
-                # Verifica no texto, nos metadados de entidades e nos campos de destinatário
                 in_content = person_low in content
                 in_entities = any(person_low in str(p).lower() for p in people_in_meta)
                 in_receivers = any(person_low in str(r).lower() for r in receivers_in_meta)
                 is_destinatario = person_low in destinatario_str.lower()
                 
                 if in_content or in_entities or in_receivers or is_destinatario:
-                    boost += 0.80 # Aumenta MUITO a chance de aparecer (mais que o 0.40 anterior)
-                    # print(f"    [DEST] Nome {person} encontrado. Boost pesado aplicado.")
+                    boost += 0.40  # Reduzido de 0.80 para uma escala mais sã
 
         if boost > 0:
             original_score = match.get('similarity', 0)
-            match['similarity'] = min(1.0, original_score + boost)
+            # Boost assintótico (nunca passa de 1.0 e não achata no teto)
+            # Ex: score 0.6 com boost 0.4 -> 0.6 + (0.4 * 0.4) = 0.76
+            match['similarity'] = original_score + ((1.0 - original_score) * min(boost, 0.9))
 
-    # Re-ordena após o boost e seleciona top_k
-    results = sorted(results, key=lambda x: x.get('similarity', 0), reverse=True)[:top_k]
+    # --- NOVO: Etapa de Re-ranking Cirúrgico ---
+    print(f"  [ALGO] Re-ranqueando {len(results)} candidatos com Cross-Encoder...")
+    try:
+        results = reranker.rerank(expanded_query, results, top_k=top_k)
+    except Exception as e:
+        print(f"  [AVISO] Falha no Re-ranking: {e}. Usando ordenação original.")
+        results = sorted(results, key=lambda x: x.get('similarity', 0), reverse=True)[:top_k]
 
     # Look-around: busca todos os vizinhos (chunk_index ± 1) em uma única query
     neighbors_by_key: Dict[tuple, str] = {}
@@ -204,6 +213,7 @@ def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None) 
                 .select("content, metadata") \
                 .in_("metadata->>source_id", source_ids) \
                 .execute()
+            
             for n in (neighbors_res.data or []):
                 n_meta = n.get('metadata', {}) or {}
                 n_source = n_meta.get('source_id')
@@ -211,7 +221,7 @@ def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None) 
                 if n_source is not None and n_chunk is not None:
                     neighbors_by_key[(n_source, int(n_chunk))] = n.get('content', '')
         except Exception as e:
-            print(f"[neighbor-fetch] {e}")
+            print(f"[neighbor-fetch] Erro na busca em lote: {e}")
 
     context_parts = []
     citations = []
@@ -223,10 +233,10 @@ def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None) 
         content = match.get('content', '')
 
         full_context_text = content
-
         if source_id and chunk_index is not None:
             prev_content = neighbors_by_key.get((source_id, chunk_index - 1))
             next_content = neighbors_by_key.get((source_id, chunk_index + 1))
+            
             if prev_content or next_content:
                 parts = []
                 if prev_content: parts.append(prev_content)
@@ -241,11 +251,9 @@ def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None) 
         data_doc = meta.get('date') or meta.get('data') or meta.get('year') or None
         page_url = meta.get('url') or meta.get('source_url') or meta.get('page_url') or None
         
-        # Se não tiver link vindo do banco, geramos o link direto para o PDF original
         if not page_url:
             doc_id = meta.get('document') or meta.get('source_id')
             if doc_id:
-                # Remove .json, .pdf ou qualquer outra extensão antes de adicionar .pdf
                 doc_id_clean = doc_id.split('.')[0]
                 page_url = f"https://www.dehondocsoriginals.org/pdf/{doc_id_clean}.pdf"
         
@@ -264,7 +272,6 @@ def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None) 
             "page_url": page_url,
             "page_number": page_number
         })
-
 
     return {
         "context": "\n\n".join(context_parts),

@@ -60,9 +60,16 @@ const MessageList: React.FC<MessageListProps> = ({
                 {m.role === 'user' ? 'Pesquisador' : 'Padre Dehon'}
               </span>
               {m.role === 'assistant' && m.metadata && (
-                <span className={`confidence-badge ${m.metadata.confidence.level.toLowerCase()}`}>
-                  Confiança {m.metadata.confidence.percentage}%
-                </span>
+                <div className="metadata-badges">
+                  <span className={`confidence-badge ${m.metadata.confidence.level.toLowerCase()}`}>
+                    Confiança {m.metadata.confidence.percentage}%
+                  </span>
+                  {m.metadata.intent && (
+                    <span className={`intent-badge ${m.metadata.intent.toLowerCase()}`}>
+                      {m.metadata.intent}
+                    </span>
+                  )}
+                </div>
               )}
             </div>
 

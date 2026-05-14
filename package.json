@@ -1,0 +1,9 @@
+{
+  "name": "ia-conversacional-rag-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Root configuration to satisfy Archon validation checks",
+  "scripts": {
+    "validate": "cd frontend && npm run lint"
+  }
+}
