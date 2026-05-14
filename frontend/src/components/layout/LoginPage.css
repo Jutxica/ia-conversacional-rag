@@ -602,63 +602,63 @@
     0 4px 10px -3px rgba(59, 130, 246, 0.2);
 }
 
-/* --- Responsive: Mobile Stack --- */
 @media (max-width: 768px) {
+  .login-overlay {
+    overflow-y: auto;
+    align-items: flex-start;
+  }
+
   .login-split {
     flex-direction: column;
-    max-height: 100vh;
+    min-height: 100dvh;
+    height: auto;
+    max-height: none;
     border-radius: 0;
     max-width: 100%;
+    border: none;
   }
 
   .login-brand-panel {
-    padding: 2rem 1.5rem;
-    min-height: auto;
-  }
-
-  .brand-features {
-    display: none;
-  }
-
-  .brand-footer {
-    display: none;
-  }
-
-  .brand-title {
-    font-size: 1.5rem;
+    display: none; /* Hide redundant brand panel on mobile to save vertical space */
   }
 
   .login-form-panel {
-    padding: 1.5rem;
-    flex: 1;
+    padding: 2rem 1.5rem;
+    flex: 1 1 auto;
+    overflow: visible;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
 
   .login-card {
     max-width: 100%;
+    margin: auto;
+    padding-top: 0;
   }
 }
 
 @media (max-width: 480px) {
-  .login-brand-panel {
-    padding: 1.5rem 1rem;
-  }
-
-  .brand-icon-wrapper {
-    width: 56px;
-    height: 56px;
-    border-radius: 14px;
-  }
-
-  .brand-icon-wrapper svg {
-    width: 28px;
-    height: 28px;
-  }
-
   .login-form-panel {
-    padding: 1rem;
+    padding: 1.5rem 1rem;
   }
 
   .login-logo {
     height: 72px;
+    margin-bottom: 1rem;
+  }
+  
+  .card-header {
+    margin-bottom: 1.5rem;
+    padding-top: 0;
+  }
+
+  .phone-input-container {
+    flex-direction: column;
+  }
+  
+  .country-select {
+    width: 100%;
   }
 }

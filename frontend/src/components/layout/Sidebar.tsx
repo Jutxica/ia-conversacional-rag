@@ -14,6 +14,9 @@ import {
   BookOpen,
   Clock,
   Trash2,
+  Check,
+  Settings2,
+  Zap,
 } from 'lucide-react';
 import { magneticEffect } from '../../utils/transitions';
 
@@ -36,6 +39,10 @@ interface SidebarProps {
   onLogout: () => void;
   theme: 'light' | 'midnight';
   onThemeToggle: () => void;
+  scope: string;
+  onScopeChange: (scope: string) => void;
+  autoCleanup: { enabled: boolean; maxDays: number; maxCount: number };
+  onAutoCleanupChange: (settings: any) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -52,9 +59,23 @@ const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
   theme,
   onThemeToggle,
+  scope,
+  onScopeChange,
+  autoCleanup,
+  onAutoCleanupChange,
 }) => {
   const newChatRef = React.useRef<HTMLButtonElement>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [isScopeOpen, setIsScopeOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  const scopes = [
+    'Geral',
+    'Espiritualidade e Retiros',
+    'Social e Político',
+    'Vida e Biografia',
+    'Correspondência'
+  ];
 
   React.useEffect(() => {
     if (newChatRef.current) magneticEffect(newChatRef.current);
@@ -202,15 +223,83 @@ const Sidebar: React.FC<SidebarProps> = ({
                   <ShieldCheck size={13} className="sb-security-icon" />
                   <span>Sistema Seguro · TLS</span>
                 </div>
-                <div className="sb-security sb-research-badge">
-                  <span className="sb-badge-dot" />
-                  <span>Sistema de Alta Pesquisa</span>
+
+                <div className="sb-scope-wrapper">
+                  <button 
+                    className={`sb-opt-btn sb-scope-trigger ${isScopeOpen ? 'active' : ''}`}
+                    onClick={() => setIsScopeOpen(!isScopeOpen)}
+                  >
+                    <span className="sb-badge-dot" />
+                    <span style={{ flex: 1 }}>{scope}</span>
+                    <BookOpen size={12} style={{ opacity: 0.6 }} />
+                  </button>
+                  
+                  {isScopeOpen && (
+                    <div className="sb-scope-dropdown">
+                      <div className="sb-scope-header">Sistema de Alta Pesquisa</div>
+                      {scopes.map(s => (
+                        <button
+                          key={s}
+                          className={`sb-scope-item ${scope === s ? 'selected' : ''}`}
+                          onClick={() => {
+                            onScopeChange(s);
+                            setIsScopeOpen(false);
+                          }}
+                        >
+                          {s}
+                          {scope === s && <Check size={12} />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <button className="sb-opt-btn sb-opt-logout" onClick={onLogout}>
                   <LogOut size={15} />
                   <span>Sair da Conta</span>
                 </button>
+
+                <div className="sb-settings-wrapper">
+                  <button 
+                    className={`sb-opt-btn sb-settings-trigger ${isSettingsOpen ? 'active' : ''}`}
+                    onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                  >
+                    <Settings2 size={15} />
+                    <span>Gestão de Histórico</span>
+                    <Zap size={12} className={autoCleanup.enabled ? 'sb-cleanup-active' : ''} />
+                  </button>
+
+                  {isSettingsOpen && (
+                    <div className="sb-settings-dropdown">
+                      <div className="sb-settings-header">Configurações Locais</div>
+                      <div className="sb-setting-item">
+                        <label className="sb-switch-label">
+                          <span>Limpeza Automática</span>
+                          <input 
+                            type="checkbox" 
+                            checked={autoCleanup.enabled} 
+                            onChange={(e) => onAutoCleanupChange({ ...autoCleanup, enabled: e.target.checked })}
+                          />
+                        </label>
+                      </div>
+                      {autoCleanup.enabled && (
+                        <>
+                          <div className="sb-setting-info">
+                            Mantém os últimos {autoCleanup.maxCount} chats ou {autoCleanup.maxDays} dias.
+                          </div>
+                          <div className="sb-setting-input-group">
+                            <label>Máximo de Chats:</label>
+                            <input 
+                              type="number" 
+                              value={autoCleanup.maxCount}
+                              onChange={(e) => onAutoCleanupChange({ ...autoCleanup, maxCount: parseInt(e.target.value) || 1 })}
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* User profile */}

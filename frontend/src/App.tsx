@@ -59,6 +59,14 @@ export default function App() {
   const [isAppLoading, setIsAppLoading] = useState(true);
   const [theme, setTheme] = useState<'light' | 'midnight'>((localStorage.getItem('dehon-theme') as any) || 'light');
   const [activeCitationMessageId, setActiveCitationMessageId] = useState<string | null>(null);
+  const [autoCleanup, setAutoCleanup] = useState(() => {
+    const saved = localStorage.getItem('dehon-auto-cleanup');
+    return saved ? JSON.parse(saved) : { enabled: true, maxDays: 30, maxCount: 50 };
+  });
+
+  useEffect(() => {
+    localStorage.setItem('dehon-auto-cleanup', JSON.stringify(autoCleanup));
+  }, [autoCleanup]);
 
   // --- Auth & Session ---
   useEffect(() => {
@@ -170,17 +178,14 @@ export default function App() {
     }
   };
 
-  // --- Auto-cleanup: max 50 conversations, auto-delete older than 30 days ---
   useEffect(() => {
-    async function autoCleanup() {
-      if (!session?.user?.id) return;
+    async function runAutoCleanup() {
+      if (!session?.user?.id || !autoCleanup.enabled) return;
 
-      const MAX_CONVERSATIONS = 50;
-      const MAX_AGE_DAYS = 30;
       const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - MAX_AGE_DAYS);
+      cutoffDate.setDate(cutoffDate.getDate() - autoCleanup.maxDays);
 
-      // Delete conversations older than 30 days
+      // Delete conversations older than maxDays
       await supabase
         .from('chats')
         .delete()
@@ -194,16 +199,16 @@ export default function App() {
         .eq('user_id', session.user.id)
         .order('updated_at', { ascending: false });
 
-      if (data && data.length > MAX_CONVERSATIONS) {
-        const toDelete = data.slice(MAX_CONVERSATIONS).map((c: any) => c.id);
+      if (data && data.length > autoCleanup.maxCount) {
+        const toDelete = data.slice(autoCleanup.maxCount).map((c: any) => c.id);
         await supabase
           .from('chats')
           .delete()
           .in('id', toDelete);
       }
     }
-    autoCleanup();
-  }, [session?.user?.id]);
+    runAutoCleanup();
+  }, [session?.user?.id, autoCleanup]);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'midnight' : 'light');
@@ -395,6 +400,10 @@ export default function App() {
         onLogout={handleLogout}
         theme={theme}
         onThemeToggle={toggleTheme}
+        scope={scope}
+        onScopeChange={setScope}
+        autoCleanup={autoCleanup}
+        onAutoCleanupChange={setAutoCleanup}
       />
 
       <main className="main-viewport">
@@ -423,8 +432,6 @@ export default function App() {
                 input={input}
                 onInputChange={setInput}
                 onSend={handleSend}
-                scope={scope}
-                onScopeChange={setScope}
                 isStreaming={isStreaming}
                 onSuggestionClick={(q) => { setInput(q); handleSend(); }}
               />
@@ -442,8 +449,6 @@ export default function App() {
                       input={input}
                       onInputChange={setInput}
                       onSend={handleSend}
-                      scope={scope}
-                      onScopeChange={setScope}
                       isStreaming={isStreaming}
                     />
                   </div>

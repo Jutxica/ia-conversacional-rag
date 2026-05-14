@@ -201,3 +201,60 @@
   color: var(--text-secondary);
   font-weight: 600;
 }
+
+@media (max-width: 768px) {
+  .home-container {
+    justify-content: flex-start;
+    padding: 10rem 1.5rem 4rem; /* Increased top padding significantly as requested */
+  }
+
+  .home-hero {
+    margin-bottom: 2rem;
+  }
+
+  .home-title {
+    font-size: clamp(1.6rem, 8vw, 2.1rem);
+    line-height: 1.2;
+  }
+
+  .home-subtitle {
+    font-size: 0.9rem;
+    padding: 0 0.5rem;
+  }
+
+  .home-input-section {
+    margin-bottom: 1.5rem;
+  }
+
+  .suggestion-card {
+    width: 100%;
+    max-width: 100%;
+    justify-content: space-between;
+    padding: 0.75rem 1.125rem;
+  }
+
+  .suggestion-category {
+    font-size: 0.6rem;
+    padding: 0.15rem 0.45rem;
+    flex-shrink: 0;
+  }
+
+  .home-footer {
+    padding-top: 2rem;
+    padding-bottom: 5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .home-container {
+    padding-top: 12rem; /* Even lower for very small screens */
+  }
+
+  .home-title {
+    font-size: 1.5rem;
+  }
+
+  .suggestion-card {
+    font-size: 0.75rem;
+  }
+}

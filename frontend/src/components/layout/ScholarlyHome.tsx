@@ -8,8 +8,6 @@ interface ScholarlyHomeProps {
   input: string;
   onInputChange: (value: string) => void;
   onSend: () => void;
-  scope: string;
-  onScopeChange: (scope: string) => void;
   isStreaming: boolean;
   onSuggestionClick: (query: string) => void;
 }
@@ -18,8 +16,6 @@ const ScholarlyHome: React.FC<ScholarlyHomeProps> = ({
   input,
   onInputChange,
   onSend,
-  scope,
-  onScopeChange,
   isStreaming,
   onSuggestionClick
 }) => {
@@ -54,8 +50,6 @@ const ScholarlyHome: React.FC<ScholarlyHomeProps> = ({
           input={input}
           onInputChange={onInputChange}
           onSend={onSend}
-          scope={scope}
-          onScopeChange={onScopeChange}
           isStreaming={isStreaming}
         />
       </div>

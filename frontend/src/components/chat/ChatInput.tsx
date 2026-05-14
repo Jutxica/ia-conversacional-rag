@@ -7,8 +7,6 @@ interface ChatInputProps {
   input: string;
   onInputChange: (value: string) => void;
   onSend: () => void;
-  scope: string;
-  onScopeChange: (scope: string) => void;
   isStreaming: boolean;
 }
 
@@ -16,25 +14,14 @@ const ChatInput: React.FC<ChatInputProps> = ({
   input,
   onInputChange,
   onSend,
-  scope,
-  onScopeChange,
   isStreaming
 }) => {
-  const [isScopeOpen, setIsScopeOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sendBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (sendBtnRef.current) magneticEffect(sendBtnRef.current);
   }, []);
-
-  const scopes = [
-    'Geral',
-    'Espiritualidade e Retiros',
-    'Social e Político',
-    'Vida e Biografia',
-    'Correspondência'
-  ];
 
   // Auto-resize textarea
   useEffect(() => {
@@ -80,37 +67,6 @@ const ChatInput: React.FC<ChatInputProps> = ({
       </div>
 
       <div className="input-footer">
-        <div className="scope-selector">
-          <button
-            className="scope-btn"
-            onClick={() => setIsScopeOpen(!isScopeOpen)}
-            type="button"
-            aria-haspopup="listbox"
-            aria-expanded={isScopeOpen}
-            aria-label={`Selecionar escopo de pesquisa. Escopo atual: ${scope}`}
-          >
-            <BookOpen size={14} />
-            <span>Escopo: {scope}</span>
-            <ChevronUp size={14} style={{ transform: isScopeOpen ? 'rotate(0)' : 'rotate(180deg)', transition: '0.2s' }} />
-          </button>
-
-          {isScopeOpen && (
-            <div className="scope-dropdown">
-              {scopes.map(s => (
-                <div
-                  key={s}
-                  className={`scope-item ${scope === s ? 'selected' : ''}`}
-                  onClick={() => {
-                    onScopeChange(s);
-                    setIsScopeOpen(false);
-                  }}
-                >
-                  {s}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
         <div className="input-hint">Pressione Enter para pesquisar</div>
       </div>
     </div>
