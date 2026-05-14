@@ -186,41 +186,53 @@ def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None) 
 
         if boost > 0:
             original_score = match.get('similarity', 0)
-            match['similarity'] = original_score + boost
+            match['similarity'] = min(1.0, original_score + boost)
 
     # Re-ordena após o boost e seleciona top_k
     results = sorted(results, key=lambda x: x.get('similarity', 0), reverse=True)[:top_k]
 
+    # Look-around: busca todos os vizinhos (chunk_index ± 1) em uma única query
+    neighbors_by_key: Dict[tuple, str] = {}
+    source_ids = list({
+        m.get('metadata', {}).get('source_id')
+        for m in results
+        if m.get('metadata', {}).get('source_id') and m.get('metadata', {}).get('chunk_index') is not None
+    })
+    if source_ids:
+        try:
+            neighbors_res = supabase.table("documents") \
+                .select("content, metadata") \
+                .in_("metadata->>source_id", source_ids) \
+                .execute()
+            for n in (neighbors_res.data or []):
+                n_meta = n.get('metadata', {}) or {}
+                n_source = n_meta.get('source_id')
+                n_chunk = n_meta.get('chunk_index')
+                if n_source is not None and n_chunk is not None:
+                    neighbors_by_key[(n_source, int(n_chunk))] = n.get('content', '')
+        except Exception as e:
+            print(f"[neighbor-fetch] {e}")
+
     context_parts = []
     citations = []
-    
+
     for i, match in enumerate(results):
         meta = match.get('metadata', {})
         source_id = meta.get('source_id')
         chunk_index = meta.get('chunk_index')
         content = match.get('content', '')
-        
+
         full_context_text = content
-        
-        # Expansão de contexto para vizinhos (Look-around)
+
         if source_id and chunk_index is not None:
-            try:
-                # Busca o parágrafo anterior e posterior para dar mais fluidez à resposta
-                neighbors = supabase.table("documents") \
-                    .select("content, metadata->chunk_index") \
-                    .eq("metadata->>source_id", source_id) \
-                    .in_("metadata->chunk_index", [chunk_index - 1, chunk_index + 1]) \
-                    .execute()
-                
-                if neighbors.data:
-                    neighbor_map = {int(n['metadata']['chunk_index']): n['content'] for n in neighbors.data}
-                    parts = []
-                    if chunk_index - 1 in neighbor_map: parts.append(neighbor_map[chunk_index - 1])
-                    parts.append(content)
-                    if chunk_index + 1 in neighbor_map: parts.append(neighbor_map[chunk_index + 1])
-                    full_context_text = "\n[...]\n".join(parts)
-            except:
-                pass
+            prev_content = neighbors_by_key.get((source_id, chunk_index - 1))
+            next_content = neighbors_by_key.get((source_id, chunk_index + 1))
+            if prev_content or next_content:
+                parts = []
+                if prev_content: parts.append(prev_content)
+                parts.append(content)
+                if next_content: parts.append(next_content)
+                full_context_text = "\n[...]\n".join(parts)
 
         ref_num = i + 1
         title = meta.get('title', 'Documento Dehoniano')

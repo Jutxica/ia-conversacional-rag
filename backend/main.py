@@ -89,10 +89,6 @@ def save_blessed_answer(question: str, answer: str):
 async def health_check():
     return {"status": "ok"}
 
-@app.get("/api/dummy")
-async def dummy_endpoint():
-    return {"status": "dummy"}
-
 @app.post("/api/bless", dependencies=[Depends(verify_api_key)])
 async def bless(data: dict):
     try:
@@ -127,7 +123,7 @@ async def chat_response_generator(query: str, scope: str = "Geral", history: lis
 
     try:
         print(f"Buscando contexto para: {query} | Escopo: {scope}")
-        result = search_context(query, top_k=8, filter_siglas=filter_siglas)
+        result = search_context(query, top_k=8)
         context = result["context"]
         citations = result["citations"]
         
