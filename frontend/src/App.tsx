@@ -327,8 +327,14 @@ export default function App() {
           }
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Connection error:', err);
+      const errorMsgId = 'err-' + Date.now().toString();
+      setConversations(prev => prev.map(c => 
+        c.id === chatId 
+          ? { ...c, messages: [...c.messages, { id: errorMsgId, role: 'assistant', content: `**Erro de Conexão:** Não foi possível conectar ao servidor.\n\nSe você está usando o Render, o servidor pode estar em "Cold Start" (demora ~50s para acordar) ou há um bloqueio de CORS. Detalhes técnicos: \`${err.message}\``, timestamp: new Date() }] }
+          : c
+      ));
       setIsStreaming(false);
     }
   };
