@@ -4,9 +4,10 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 -- Adiciona coluna de Full Text Search se não existir
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS fts tsvector;
 
--- Adiciona restrição única para evitar duplicação de blocos
-ALTER TABLE documents DROP CONSTRAINT IF EXISTS unique_source_chunk;
-ALTER TABLE documents ADD CONSTRAINT unique_source_chunk UNIQUE (metadata->>'source_id', metadata->>'chunk_index');
+-- Cria índice único para evitar duplicação de blocos
+DROP INDEX IF EXISTS unique_source_chunk;
+CREATE UNIQUE INDEX unique_source_chunk 
+ON documents ((metadata->>'source_id'), (metadata->>'chunk_index'));
 
 -- Função para converter JSONB array de entidades para texto para o FTS
 CREATE OR REPLACE FUNCTION jsonb_array_to_text(arr jsonb) RETURNS text AS $$
