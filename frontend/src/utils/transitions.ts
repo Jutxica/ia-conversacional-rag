@@ -1,7 +1,8 @@
-import { animate as anime, stagger } from 'animejs';
+import { animate, stagger } from 'animejs';
+
 
 export const fadeIn = (targets: string | HTMLElement | HTMLElement[]) => {
-  return anime({
+  return animate({
     targets,
     opacity: [0, 1],
     translateY: [10, 0],
@@ -11,7 +12,7 @@ export const fadeIn = (targets: string | HTMLElement | HTMLElement[]) => {
 };
 
 export const slideInSidebar = (targets: string | HTMLElement) => {
-  return anime({
+  return animate({
     targets,
     translateX: ['-100%', '0%'],
     duration: 600,
@@ -20,7 +21,7 @@ export const slideInSidebar = (targets: string | HTMLElement) => {
 };
 
 export const stagerReveal = (targets: string | HTMLElement[]) => {
-  return anime({
+  return animate({
     targets,
     opacity: [0, 1],
     translateY: [20, 0],
@@ -38,7 +39,7 @@ export const magneticEffect = (element: HTMLElement) => {
     const x = e.clientX - (left + width / 2);
     const y = e.clientY - (top + height / 2);
 
-    anime({
+    animate({
       targets: element,
       translateX: x * 0.3,
       translateY: y * 0.3,
@@ -48,7 +49,7 @@ export const magneticEffect = (element: HTMLElement) => {
   });
 
   element.addEventListener('mouseleave', () => {
-    anime({
+    animate({
       targets: element,
       translateX: 0,
       translateY: 0,

@@ -68,7 +68,7 @@ def run():
                 cartas_por_ano[str(ano)].append(data)
                 total_processados += 1
         except Exception as e:
-            pass
+            print(f"  Erro ao processar {filename}: {e}")
 
     print(f"Cartas com conteúdo real encontradas: {total_processados}")
     print(f"Documentos ignorados (sem transcrição no original): {total_ignorados}")
@@ -94,7 +94,7 @@ def run():
             
             data_doc = ps.get("date") or "Data desconhecida"
             dest_list = ps.get("receivers", [])
-            destinatario = ps.get("receiver") or ps.get("destinatario") or (dest_list[0] if dest_list else "Não informado")
+            destinatario = ps.get("receiver") or ps.get("destinatario") or (dest_list[0] if isinstance(dest_list, list) and dest_list else "Não informado")
             texto = carta["texto_extraido"]
 
             pdf.add_page()

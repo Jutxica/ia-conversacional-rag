@@ -1,21 +1,21 @@
 import os
 from supabase import create_client
 from dotenv import load_dotenv
-import openai # Precisamos gerar o vetor para a IA entender
+from openai import OpenAI
 
 load_dotenv('backend/.env')
 supabase = create_client(os.getenv('SUPABASE_URL'), os.getenv('SUPABASE_SERVICE_ROLE_KEY'))
-openai.api_key = os.getenv('OPENAI_API_KEY')
+client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
 def inserir_manual(conteudo, sigla, titulo):
     print(f"Inserindo: {titulo} [{sigla}]...")
     
     # 1. Gerar o vetor (Embedding)
-    response = openai.Embedding.create(
+    response = client.embeddings.create(
         input=conteudo,
         model="text-embedding-3-small"
     )
-    embedding = response['data'][0]['embedding']
+    embedding = response.data[0].embedding
     
     # 2. Preparar metadados
     metadata = {

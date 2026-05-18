@@ -69,6 +69,18 @@ def get_thematic_boosts(query: str) -> Dict[str, float]:
         print(f"Erro ao processar autoridade tematica: {e}")
     return boosts
 
+def _is_person_entry(key: str, data: dict) -> bool:
+    """Verifica se uma entrada do conceitos.json é uma pessoa, baseado nos sinônimos."""
+    person_titles = ["pe.", "padre", "père", "mons.", "monsenhor", "bispo", "dom", "fr.", "dom.", "irmão", "irmã"]
+    for syn in data.get("sinonimo", []):
+        syn_lower = syn.lower()
+        if any(syn_lower.startswith(t) or f" {t}" in syn_lower for t in person_titles):
+            return True
+    key_has_uppercase = any(c.isupper() for c in key if c.isalpha())
+    if key_has_uppercase:
+        return True
+    return False
+
 def extract_person_from_query(query: str) -> List[str]:
     """Tenta identificar se a query menciona uma pessoa do nosso dicionário de conceitos."""
     people_detected = []
@@ -82,17 +94,11 @@ def extract_person_from_query(query: str) -> List[str]:
             for key, data in concepts.items():
                 if key.startswith("_"): continue
                 
-                # Sinônimos e variações
                 synonyms = data.get("sinonimo", [])
                 all_names = [key] + synonyms
                 
-                # Se for um conceito de pessoa (identificado por ter nomes próprios ou na categoria certa)
-                # No conceitos.json, pessoas como andre_prevot, ressel, dupanloup etc.
-                is_person = any(c.isupper() for c in key if c.isalpha()) or key in ["ressel", "prevot", "andre_prevot"]
-                
-                if is_person:
+                if _is_person_entry(key, data):
                     for name in all_names:
-                        # Busca exata ou com "Pe." / "Padre"
                         if name.lower() in query_lower:
                             people_detected.append(name)
                             break
@@ -102,9 +108,11 @@ def extract_person_from_query(query: str) -> List[str]:
 
 from src.rag.reranker import reranker
 
-def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None) -> Dict[str, Any]:
+def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None,
+                   fts_weight: float = None, vec_weight: float = None) -> Dict[str, Any]:
     """
     Realiza busca híbrida, aplica boosting e re-ranqueamento com Cross-Encoder.
+    fts_weight e vec_weight permitem ajuste dinâmico por intenção.
     """
     if not supabase or not client_openai:
         print("Erro: Clientes de busca não inicializados corretamente.")
@@ -126,36 +134,46 @@ def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None) 
         print(f"Erro ao gerar embedding: {e}")
         return {"context": "", "citations": []}
     
-    # Busca Híbrida via RPC (Vetor + FTS)
-    # Buscamos um set maior (top_k * 10) para o re-ranker processar
-    try:
-        rpc_params = {
-            'query_text': expanded_query,
-            'query_embedding': embedding,
-            'match_count': top_k * 10,
-            'full_text_weight': 1.0,
-            'vector_weight': 1.0,
-        }
-        if filter_siglas:
-            rpc_params['filter_siglas'] = filter_siglas
-        
-        if target_people:
-            rpc_params['target_entities'] = target_people
-            
+    # Busca Híbrida via RPC (RRF como primário, linear como fallback)
+    rpc_params = {
+        'query_text': expanded_query,
+        'query_embedding': embedding,
+        'match_count': top_k * 10,
+        'full_text_weight': fts_weight if fts_weight is not None else 1.0,
+        'vector_weight': vec_weight if vec_weight is not None else 1.0,
+    }
+    if filter_siglas:
+        rpc_params['filter_siglas'] = filter_siglas
+    if target_people:
+        rpc_params['target_entities'] = target_people
+
+    results = []
+    for rpc_name in ('hybrid_search_rrf', 'hybrid_search'):
         try:
-            res = supabase.rpc('hybrid_search', rpc_params).execute()
+            res = supabase.rpc(rpc_name, rpc_params).execute()
+            results = res.data or []
+            if rpc_name == 'hybrid_search_rrf' and results:
+                print(f"  [ALGO] RRF bem-sucedido: {len(results)} resultados.")
+            break
         except Exception as e:
-            if "target_entities" in str(e):
-                print("  [AVISO] RPC 'hybrid_search' antigo detectado. Usando fallback sem target_entities.")
+            if "target_entities" in str(e) and 'target_entities' in rpc_params:
+                print(f"  [AVISO] {rpc_name} rejeitou target_entities. Removendo.")
                 rpc_params.pop('target_entities')
-                res = supabase.rpc('hybrid_search', rpc_params).execute()
-            else:
-                raise e
-                
-        results = res.data or []
-    except Exception as e:
-        print(f"Erro na busca híbrida: {e}")
-        results = []
+                try:
+                    res = supabase.rpc(rpc_name, rpc_params).execute()
+                    results = res.data or []
+                    break
+                except Exception as e2:
+                    print(f"  [AVISO] {rpc_name} ainda falhou: {e2}")
+                    continue
+            if rpc_name == 'hybrid_search_rrf':
+                print(f"  [AVISO] RRF não disponível. Usando hybrid_search linear.")
+                continue
+            print(f"  [ERRO] {rpc_name}: {e}")
+            continue
+    else:
+        print("  [ERRO] Todas as RPCs de busca falharam.")
+        print("  [DICA] Execute o script backend/scripts/setup_hybrid_search.sql no SQL Editor do Supabase.")
 
     # --- NOVO: Lógica de Autoridade Temática e Destinatários (Boosting) ---
     theme_boosts = get_thematic_boosts(query)
@@ -269,6 +287,7 @@ def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None) 
             "data": data_doc,
             "snippet": content,
             "score": match.get('similarity', 0),
+            "rerank_score": match.get('rerank_score'),
             "page_url": page_url,
             "page_number": page_number
         })

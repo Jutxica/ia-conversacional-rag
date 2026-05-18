@@ -2,13 +2,16 @@ import requests
 import json
 import os
 import time
+import sys
+from pathlib import Path
 
 def download_corpus():
     url = "https://www.dehondocsoriginals.org/api/dehon/fulltext"
     
-    # Pasta onde os documentos serão salvos
-    output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "dehon_corpus")
-    os.makedirs(output_dir, exist_ok=True)
+    # Pasta onde os documentos serão salvos (path absoluto)
+    script_dir = Path(__file__).parent
+    output_dir = script_dir.parent / "data" / "dehon_corpus"
+    output_dir.mkdir(parents=True, exist_ok=True)
     
     headers = {
         "Content-Type": "application/json",
@@ -17,9 +20,10 @@ def download_corpus():
     }
 
     page = 1
-    per_page = 100  # Vamos tentar puxar 100 por vez para acelerar
+    per_page = 100
     total_pages = 1
     total_docs = 0
+    max_retries = 5
 
     print(f"Iniciando download da base do DehonDocs para: {output_dir}")
 
@@ -32,17 +36,23 @@ def download_corpus():
             "perPage": per_page
         }
         
-        try:
-            print(f"Buscando página {page} de {total_pages if total_pages > 1 else '?'}")
-            response = requests.post(url, json=payload, headers=headers)
-            response.raise_for_status()
-            
-            data = response.json()
-            
-            if data.get("success"):
+        retries = 0
+        while retries <= max_retries:
+            try:
+                print(f"Buscando página {page} de {total_pages if total_pages > 1 else '?'}")
+                response = requests.post(url, json=payload, headers=headers, timeout=30)
+                response.raise_for_status()
+                
+                data = response.json()
+                
+                if not data.get("success"):
+                    print(f"Erro na resposta da API na página {page}: {data.get('err')}")
+                    retries += 1
+                    time.sleep(5)
+                    continue
+                
                 result = data.get("list", {})
                 
-                # Atualizar o total de páginas na primeira requisição
                 if page == 1:
                     total_pages = result.get("totalPages", 1)
                     print(f"Total de documentos a baixar: {result.get('total')}")
@@ -52,19 +62,17 @@ def download_corpus():
                 
                 if not items:
                     print("Nenhum item retornado nesta página. Encerrando.")
+                    total_pages = page  # Sai do loop
                     break
                     
                 for item in items:
-                    # Tentar usar o nome do documento como nome de arquivo, ou o ID como fallback
                     doc_ref = item.get("documentRef", {})
                     filename = doc_ref.get("name", item.get("_id", f"doc_pag{page}_{total_docs}"))
                     
-                    # Garantir que o nome do arquivo seja seguro
                     safe_filename = "".join([c if c.isalnum() or c in ['-', '_'] else '_' for c in filename]) + ".json"
-                    filepath = os.path.join(output_dir, safe_filename)
+                    filepath = output_dir / safe_filename
                     
-                    # Salvar apenas se ainda não existir (permite resumir o script)
-                    if not os.path.exists(filepath):
+                    if not filepath.exists():
                         with open(filepath, "w", encoding="utf-8") as f:
                             json.dump(item, f, indent=2, ensure_ascii=False)
                     
@@ -72,20 +80,17 @@ def download_corpus():
                 
                 print(f"Página {page} concluída. Documentos salvos até agora: {total_docs}")
                 page += 1
-                
-                # Pequeno delay para não sobrecarregar o servidor deles
                 time.sleep(1)
+                break  # Sai do loop de retry
                 
-            else:
-                print(f"Erro na resposta da API na página {page}: {data.get('err')}")
-                # Pode tentar continuar se for um erro específico
-                break
-                
-        except Exception as e:
-            print(f"Erro na conexão na página {page}: {e}")
-            print("Aguardando 5 segundos antes de tentar novamente...")
-            time.sleep(5)
-            # Tentar novamente a mesma página
+            except Exception as e:
+                retries += 1
+                print(f"Erro na página {page} (tentativa {retries}/{max_retries}): {e}")
+                if retries > max_retries:
+                    print(f"Falha após {max_retries} tentativas na página {page}. Pulando...")
+                    page += 1
+                    break
+                time.sleep(5)
             
     print(f"\nDownload finalizado! Total de {total_docs} documentos processados e salvos em {output_dir}")
 

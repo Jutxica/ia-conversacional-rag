@@ -26,6 +26,16 @@ backend/data/
 backend/docs/
 backend/scratch/
 *.jsonl
+ingestion_graph.log
+
+# Logs
+*.log
+
+# Ingestão artifacts
+backend/scripts/.ingest_checkpoint
+
+# Debug/test leftovers
+test_firecrawl.py
 
 # IDEs
 .vscode/

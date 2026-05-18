@@ -163,7 +163,7 @@ def main():
     parser.add_argument("--path", help="Caminho específico ou pasta")
     args = parser.parse_args()
 
-    base_dir = args.path or "C:/Users/jutxi/OneDrive/Desktop/OpenSquad/squads/ia-conversacional-rag/backend/docs/Dehondocs"
+    base_dir = args.path or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "pdfs")
     
     if os.path.isfile(base_dir):
         ingest_pdf(base_dir)

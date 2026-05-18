@@ -16,12 +16,12 @@ CREATE INDEX IF NOT EXISTS documents_embedding_idx ON documents USING hnsw (embe
 
 CREATE INDEX IF NOT EXISTS documents_fts_idx ON documents USING GIN (fts);
 
--- Gatilho para FTS
+-- Gatilho para FTS (usando 'simple' para suportar corpus multilingue: francês, português, latim)
 CREATE OR REPLACE FUNCTION documents_fts_trigger() RETURNS trigger AS $$
 BEGIN
   new.fts :=
-    setweight(to_tsvector('portuguese', COALESCE(new.content, '')), 'A') ||
-    setweight(to_tsvector('portuguese', COALESCE(new.metadata->>'title', '')), 'B');
+    setweight(to_tsvector('simple', COALESCE(new.content, '')), 'A') ||
+    setweight(to_tsvector('simple', COALESCE(new.metadata->>'title', '')), 'B');
   RETURN new;
 END
 $$ LANGUAGE plpgsql;

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './ChatInput.css';
-import { Send, ChevronUp, BookOpen } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { magneticEffect } from '../../utils/transitions';
 
 interface ChatInputProps {

@@ -4,13 +4,16 @@ import re
 import time
 import logging
 import argparse
-from typing import List, Dict, Any
+from pathlib import Path
+from typing import List, Dict, Any, Set
 from dotenv import load_dotenv
 from supabase import create_client, Client
 from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 from bs4 import BeautifulSoup
 import tiktoken
+
+CHECKPOINT_FILE = Path(__file__).parent / ".ingest_checkpoint"
 
 # Inicializa tokenizer para contagem precisa de tokens (modelo cl100k_base usado pelo gpt-4o/text-embedding-3)
 tokenizer = tiktoken.get_encoding("cl100k_base")
@@ -32,49 +35,82 @@ load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-CORPUS_DIR = os.getenv("CORPUS_DIR", "backend/data/dehon_corpus")
+_corpus_env = os.getenv("CORPUS_DIR")
+if _corpus_env:
+    CORPUS_DIR = _corpus_env
+else:
+    # Default: path absoluto relativo ao script
+    CORPUS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "dehon_corpus")
 
 if not all([SUPABASE_URL, SUPABASE_KEY, OPENAI_API_KEY]):
     logger.error("Variáveis de ambiente críticas ausentes!")
     exit(1)
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-client_openai = OpenAI(api_key=OPENAI_API_KEY)
+client_openai = OpenAI(api_key=OPENAI_API_KEY, timeout=60.0, max_retries=2)
 
-# Mapeamento de Pesos de Documentos (Conforme Blueprint)
 WEIGHT_MAP = {
-    "ASC": 30,  # Obras Ascéticas
-    "COR": 10,  # Correspondência
-    "CON": 20,  # Conferências
-    "DOC": 15,  # Documentos Oficiais
-    "ART": 10,  # Artigos / Crônicas
+    "ASC": 30, "CON": 20, "DOC": 15, "COR": 10, "ART": 10,
+    "1LD": 10, "LC1": 10, "LC2": 10, "LCC": 10, "1LC": 10, "1LC1": 10,
+    "NHV": 15, "RSO": 10, "DJU": 10, "EXT": 5, "MIS": 8,
+    "NQT": 8, "NTD": 8, "NTO": 8, "ACD": 8, "DIS": 8,
+    "REV": 8, "DRD": 8, "ENT": 8, "QSS": 8, "CFL": 8,
+    "RET": 8, "APD": 8, "DSS": 8, "EXC": 8, "CHR": 8,
+    "PRI": 5, "RMP": 5, "PDR": 5, "SMJ": 5, "MMR": 5,
+    "RSC": 5, "PSC": 5, "SVN": 5, "DSP": 5, "ECD": 5,
+    "ADP": 5, "ARP": 5, "MSO": 5, "MLA": 5, "NCG": 5,
     "OUTROS": 5
 }
 
+LIGATURE_MAP = {
+    '\ufb00': 'ff', '\ufb01': 'fi', '\ufb02': 'fl', '\ufb03': 'ffi', '\ufb04': 'ffl',
+    '\ufb05': 'ft', '\ufb06': 'st', '\u0132': 'IJ', '\u0133': 'ij',
+    '\ufb20': 'ft', '\ufb21': 'st',
+}
+
 def normalize_text(text: str) -> str:
-    """Normaliza texto removendo artefatos de OCR e excesso de espaços."""
+    """Normaliza texto removendo artefatos de OCR, ligaduras e excesso de espaços."""
     if not text: return ""
-    # Remove excesso de espaços e quebras de linha duplicadas
+    import unicodedata
+    # 1. Expande ligaduras tipográficas de scans antigos
+    for lig, replacement in LIGATURE_MAP.items():
+        text = text.replace(lig, replacement)
+    # 2. Normalização Unicode (NFC) para caracteres compostos
+    text = unicodedata.normalize('NFC', text)
+    # 3. Remove tags HTML/XML remanescentes
+    text = re.sub(r'<[^>]+>', '', text)
+    # 4. Remove excesso de espaços e quebras de linha duplicadas
     text = re.sub(r'\s+', ' ', text)
-    # Remove caracteres de controle e artefatos comuns de OCR/HTML
+    # 5. Remove caracteres de controle e artefatos comuns de OCR/HTML
     text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
-    # Padroniza aspas e hifens
-    text = text.replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
+    # 6. Remove entidades HTML numéricas remanescentes (&#...;)
+    text = re.sub(r'&#?\w{0,10};', '', text)
+    # 7. Padroniza aspas e hifens
+    text = text.replace('\u201c', '"').replace('\u201d', '"').replace('\u2018', "'").replace('\u2019', "'")
+    text = text.replace('\u2013', '-').replace('\u2014', '-')
     return text.strip()
 
 def clean_html_text(html_content: str) -> Dict[int, str]:
-    """Extrai parágrafos do HTML e mapeia para seus números (ID pXXX)."""
+    """Extrai parágrafos do HTML e mapeia para seus números (ID pXXX).
+    Suporta múltiplos formatos de parágrafo (<p>, <div>, <span>) e identificadores."""
     soup = BeautifulSoup(html_content, 'html.parser')
+    
+    # Remove scripts, styles e navegação que não fazem parte do conteúdo
+    for tag in soup.find_all(['script', 'style', 'nav', 'header', 'footer']):
+        tag.decompose()
+    
     par_map = {}
     
     # Tenta encontrar parágrafos com IDs (p1, p2...)
-    for p in soup.find_all('p'):
+    for p in soup.find_all(['p', 'div', 'span']):
         # Procura por <a id="p123"> dentro ou antes do parágrafo
         anchor = p.find('a', id=re.compile(r'^p\d+'))
         if anchor:
             try:
                 par_num = int(anchor['id'][1:])
-                par_map[par_num] = p.get_text(strip=True)
+                text = p.get_text(separator=' ', strip=True)
+                if text:
+                    par_map[par_num] = text
             except:
                 continue
         else:
@@ -83,14 +119,19 @@ def clean_html_text(html_content: str) -> Dict[int, str]:
             if span:
                 try:
                     par_num = int(span.get_text(strip=True))
-                    par_map[par_num] = p.get_text(strip=True)
+                    text = p.get_text(separator=' ', strip=True)
+                    if text:
+                        par_map[par_num] = text
                 except:
                     continue
     
     # Se falhou em mapear IDs, retorna como lista simples indexada
     if not par_map:
-        paragraphs = [p.get_text(strip=True) for p in soup.find_all('p') if p.get_text(strip=True)]
-        par_map = {i: text for i, text in enumerate(paragraphs)}
+        for tag in ['p', 'div']:
+            paragraphs = [t.get_text(separator=' ', strip=True) for t in soup.find_all(tag) if t.get_text(separator=' ', strip=True)]
+            if paragraphs:
+                par_map = {i: text for i, text in enumerate(paragraphs)}
+                break
         
     return par_map
 
@@ -134,12 +175,19 @@ def get_entities_for_range(data: Dict, start_par: int, end_par: int) -> Dict[str
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 def get_embeddings_batch(texts: List[str]) -> List[List[float]]:
-    """Gera embeddings em lote (3072 dimensões)."""
-    cleaned_texts = [t[:8000].replace("\n", " ") for t in texts] # Limite seguro de tokens
+    """Gera embeddings em lote (2000 dimensões). Trunca por tokens, não caracteres."""
+    MAX_TOKENS = 8000
+    cleaned_texts = []
+    for t in texts:
+        tokens = tokenizer.encode(t)
+        if len(tokens) > MAX_TOKENS:
+            tokens = tokens[:MAX_TOKENS]
+            t = tokenizer.decode(tokens)
+        cleaned_texts.append(t.replace("\n", " "))
     response = client_openai.embeddings.create(
         input=cleaned_texts, 
         model="text-embedding-3-large",
-        dimensions=2000 # Limite máximo suportado pelo índice HNSW no pgvector
+        dimensions=2000
     )
     return [d.embedding for d in response.data]
 
@@ -194,44 +242,108 @@ def ingest_file(file_path: str):
     chunks_data = []
     sorted_pars = sorted(par_map.keys())
     
+    MAX_CHUNK_TOKENS = 1000
+    THEMATIC_OVERLAP_TOKENS = 150
+
     if bookmarks:
-        # Modo Thematic: Usa os limites dos bookmarks
+        # Modo Thematic: Usa os limites dos bookmarks, com sub-chunking por token
         for idx, bkm in enumerate(bookmarks):
             start_par = int(bkm.get('par', 0))
-            # O fim é o início do próximo bookmark ou o último parágrafo
             end_par = int(bookmarks[idx+1].get('par')) - 1 if idx + 1 < len(bookmarks) else sorted_pars[-1]
-            
-            chunk_text = " ".join([par_map[p] for p in sorted_pars if start_par <= p <= end_par])
-            if len(chunk_text) < 100: continue # Ignora fragmentos muito pequenos
-            
-            entities = get_entities_for_range(data, start_par, end_par)
-            
-            # Destinatários e Metadados de Correspondência
+
+            section_pars = [p for p in sorted_pars if start_par <= p <= end_par]
+            if not section_pars:
+                continue
+
             receivers = ps.get('receivers', [])
             destinatario = ps.get('receiver') or ps.get('destinatario')
-            
-            chunks_data.append({
-                "content": f"SEÇÃO: {bkm.get('text', 'Geral')}\n\n{chunk_text}",
-                "metadata": {
-                    "title": title,
-                    "section_title": bkm.get('text'),
-                    "entities": entities,
-                    "receivers": receivers,
-                    "destinatario": destinatario,
-                    "par_range": [start_par, end_par],
-                    "sigla": sigla,
-                    "document_weight": WEIGHT_MAP.get(sigla.split('-')[0], 5),
-                    "source_id": os.path.basename(file_path),
-                    "chunk_index": idx
+
+            # Sub-chunking por token dentro da seção temática
+            sub_chunk_pars = []
+            sub_token_count = 0
+            sub_chunk_idx = 0
+
+            def flush_sub_chunk(s_c_pars, s_c_idx):
+                if not s_c_pars:
+                    return None
+                text = " ".join([par_map[p] for p in s_c_pars])
+                if len(text) < 100:
+                    return None
+                entities = get_entities_for_range(data, s_c_pars[0], s_c_pars[-1])
+                return {
+                    "content": f"SEÇÃO: {bkm.get('text', 'Geral')}\n\n{text}",
+                    "metadata": {
+                        "title": title,
+                        "section_title": bkm.get('text'),
+                        "entities": entities,
+                        "receivers": receivers,
+                        "destinatario": destinatario,
+                        "par_range": [s_c_pars[0], s_c_pars[-1]],
+                        "sigla": sigla,
+                        "document_weight": WEIGHT_MAP.get(sigla.split('-')[0], 5),
+                        "source_id": os.path.basename(file_path),
+                        "chunk_index": idx * 100 + s_c_idx
+                    }
                 }
-            })
+
+            for p_num in section_pars:
+                text = par_map[p_num]
+                tokens = len(tokenizer.encode(text))
+
+                if tokens > MAX_CHUNK_TOKENS:
+                    fragments = split_oversized_paragraph(text, MAX_CHUNK_TOKENS)
+                    for frag in fragments:
+                        frag_entities = get_entities_for_range(data, p_num, p_num)
+                        chunks_data.append({
+                            "content": f"SEÇÃO: {bkm.get('text', 'Geral')}\n\n{frag}",
+                            "metadata": {
+                                "title": title,
+                                "section_title": bkm.get('text'),
+                                "entities": frag_entities,
+                                "receivers": receivers,
+                                "destinatario": destinatario,
+                                "par_range": [p_num, p_num],
+                                "sigla": sigla,
+                                "document_weight": WEIGHT_MAP.get(sigla.split('-')[0], 5),
+                                "source_id": os.path.basename(file_path),
+                                "chunk_index": idx * 100 + sub_chunk_idx
+                            }
+                        })
+                        sub_chunk_idx += 1
+                    continue
+
+                if sub_token_count + tokens > MAX_CHUNK_TOKENS and sub_chunk_pars:
+                    chunk = flush_sub_chunk(sub_chunk_pars, sub_chunk_idx)
+                    if chunk:
+                        chunks_data.append(chunk)
+                        sub_chunk_idx += 1
+
+                    overlap_pars = []
+                    overlap_tokens = 0
+                    for p in reversed(sub_chunk_pars):
+                        p_tokens = len(tokenizer.encode(par_map[p]))
+                        if overlap_tokens + p_tokens <= THEMATIC_OVERLAP_TOKENS:
+                            overlap_pars.insert(0, p)
+                            overlap_tokens += p_tokens
+                        else:
+                            break
+                    sub_chunk_pars = overlap_pars
+                    sub_token_count = overlap_tokens
+
+                sub_chunk_pars.append(p_num)
+                sub_token_count += tokens
+
+            if sub_chunk_pars:
+                chunk = flush_sub_chunk(sub_chunk_pars, sub_chunk_idx)
+                if chunk:
+                    chunks_data.append(chunk)
     else:
         # Modo Sliding Window: Para documentos sem bookmarks (como cartas curtas)
         # Otimizado para densidade de tokens (Token Guard)
         current_chunk_pars = []
         current_token_count = 0
-        MAX_TOKENS = 800  # Tamanho ideal para densidade semântica sem diluição
-        OVERLAP_TOKENS = 150
+        MAX_TOKENS = MAX_CHUNK_TOKENS
+        OVERLAP_TOKENS = THEMATIC_OVERLAP_TOKENS
         
         for p_num in sorted_pars:
             text = par_map[p_num]
@@ -306,49 +418,91 @@ def ingest_file(file_path: str):
         except Exception as e:
             logger.error(f"Erro no lote do arquivo {file_path}: {e}")
 
+def split_oversized_paragraph(text: str, max_tokens: int) -> List[str]:
+    """Divide um parágrafo grande em fragmentos por sentença, respeitando o limite de tokens."""
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+    fragments = []
+    current = []
+    current_tokens = 0
+    for sent in sentences:
+        sent_tokens = len(tokenizer.encode(sent))
+        if current_tokens + sent_tokens > max_tokens and current:
+            fragments.append(" ".join(current))
+            current = []
+            current_tokens = 0
+        if sent_tokens > max_tokens:
+            for i in range(0, len(sent), max_tokens * 3):
+                fragments.append(sent[i:i + max_tokens * 3])
+            continue
+        current.append(sent)
+        current_tokens += sent_tokens
+    if current:
+        fragments.append(" ".join(current))
+    return fragments if fragments else [text]
+
+def is_mongodb_id(filename: str) -> bool:
+    """True se o nome do arquivo (sem .json) é um ObjectId do MongoDB (24 hex chars)."""
+    stem = Path(filename).stem
+    return bool(re.fullmatch(r'[0-9a-f]{24}', stem, re.IGNORECASE))
+
+def load_checkpoint() -> Set[str]:
+    if CHECKPOINT_FILE.exists():
+        done = {line.strip() for line in CHECKPOINT_FILE.read_text().splitlines() if line.strip()}
+        logger.info(f"Checkpoint encontrado: {len(done)} arquivos já processados")
+        return done
+    return set()
+
+def save_checkpoint(filename: str):
+    with open(CHECKPOINT_FILE, "a") as f:
+        f.write(filename + "\n")
+
+def get_ingested_source_ids(supabase: Client) -> Set[str]:
+    """Consulta source_ids já presentes no banco."""
+    ids: Set[str] = set()
+    offset = 0
+    limit = 1000
+    while True:
+        r = supabase.table("documents").select("metadata->>source_id").range(offset, offset + limit - 1).execute()
+        if not r.data:
+            break
+        for row in r.data:
+            sid = row.get("source_id")
+            if sid:
+                ids.add(sid)
+        if len(r.data) < limit:
+            break
+        offset += limit
+    logger.info(f"Source_ids já no banco: {len(ids)}")
+    return ids
+
 def main():
+    parser = argparse.ArgumentParser(description="Ingere corpus Dehon no Supabase")
+    parser.add_argument("--resume", "-r", action="store_true", help="Pula arquivos já processados (checkpoint + banco)")
+    args = parser.parse_args()
+
     if not os.path.exists(CORPUS_DIR):
         logger.error(f"Diretório não encontrado: {CORPUS_DIR}")
         return
 
-    # Filtra por siglas reais para evitar arquivos de metadados hexadecimais
-    siglas_validas = ('ASC', 'COR', 'CON', 'ART', 'DOC', 'OSC', 'OSP', 'JRN', 'OEU', 'CSC')
-    # Prioriza Obras Sociais e Espirituais no início da carga
-    def priority_sort(filename):
-        if filename.startswith('OSC-'): return 0
-        if filename.startswith('OSP-'): return 1
-        if filename.startswith('ASC-'): return 2
-        return 3
+    checkpoint = load_checkpoint() if args.resume else set()
+    ingested_ids = get_ingested_source_ids(supabase) if args.resume else set()
 
-    all_files = [f for f in os.listdir(CORPUS_DIR) if f.endswith('.json')]
-    files_to_process = []
-    
-    logger.info("Escaneando metadados internos...")
-    for fname in all_files:
-        fpath = os.path.join(CORPUS_DIR, fname)
-        try:
-            # Check prefix in filename OR open and check internal name
-            if any(s in fname for s in siglas_validas):
-                internal_name = fname
-            else:
-                with open(fpath, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    internal_name = str(data.get("name") or data.get("document") or "")
-            
-            if any(s in internal_name for s in siglas_validas):
-                priority = 3
-                files_to_process.append((fpath,))
-        except:
+    all_files = sorted(
+        f for f in os.listdir(CORPUS_DIR)
+        if f.endswith('.json') and not is_mongodb_id(f)
+    )
+    files_to_process = [os.path.join(CORPUS_DIR, f) for f in all_files]
+
+    already_skipped = checkpoint | ingested_ids
+    logger.info(f"Total qualificado: {len(files_to_process)}, já processados: {len(already_skipped)}, pendentes: {len(files_to_process) - len(already_skipped)}")
+
+    for fpath in files_to_process:
+        fname = os.path.basename(fpath)
+        if args.resume and fname in already_skipped:
+            logger.debug(f"Pulando (já processado): {fname}")
             continue
-
-    # Ordenação padrão alfabética (neutra)
-    files_to_process.sort(key=lambda x: str(x[0]))
-    
-    logger.info(f"Total qualificado: {len(files_to_process)}")
-    
-    for fpath_tuple in files_to_process:
-        fpath = fpath_tuple[0]
         ingest_file(fpath)
+        save_checkpoint(fname)
 
 if __name__ == "__main__":
     main()

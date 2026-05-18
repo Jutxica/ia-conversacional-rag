@@ -37,7 +37,18 @@ Este documento registra os marcos alcançados no desenvolvimento do ecossistema 
 
 ---
 
+## 🧪 4. Qualidade, Testes & Analytics (Atualizado em Maio/2026)
+- **Query Intent Detection:** Sistema avançado de classificação de intenção (HISTORICAL, THEOLOGICAL, CITATION, GENERAL) com ajuste dinâmico de pesos de busca.
+- **Dynamic Confidence Score:** Cálculo de confiança baseado no cross-encoder reranker, exposto no metadata do streaming.
+- **RRF (Reciprocal Rank Fusion):** Nova função `hybrid_search_rrf` no Supabase que combina rankings vetorial e FTS de forma mais robusta.
+- **Search Logs & Feedback:** Tabela `search_logs` para analytics de busca + endpoints de feedback (polegar para cima/baixo) e identificação de gaps de conhecimento.
+- **Testes Automatizados:** Suite pytest com 24 testes para intent detector, concept processor e normalização.
+- **Token Guard:** Sub-chunking por token no modo Thematic (bookmarks) + fragmentação de parágrafos gigantes.
+- **Normalização Auditada:** Expansão de ligaduras, normalização Unicode NFC, remoção de HTML residual, padronização de aspas/hífens.
+
 ## 📈 Próximos Passos Imediatos
-1.  Implementação de **Cross-Encoder Re-ranker** para precisão cirúrgica.
-2.  Detecção de **Intenção de Query** (Historical vs Theological).
-3.  Exibição de **Confidence Score** na UI para o usuário final.
+1.  ~~Implementação de **Cross-Encoder Re-ranker** para precisão cirúrgica.~~ ✅
+2.  ~~Detecção de **Intenção de Query** (Historical vs Theological).~~ ✅
+3.  ~~Exibição de **Confidence Score** na UI para o usuário final.~~ ✅
+4.  **WebSocket para logs/admin** — notificar admin quando ingestão termina.
+5.  **Threshold dinâmico auto-ajustável** — calibrar limites de confiança com dados reais.

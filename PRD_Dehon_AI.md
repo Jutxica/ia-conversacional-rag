@@ -51,7 +51,6 @@
 
 ---
 *Última revisão técnica: 14 de Maio de 2026.*
-rvindo apenas como uma camada inteligente de consulta e recuperação referencial.
 
 ---
 *Este documento é uma entidade viva e deve ser atualizado à medida que o motor RAG avança em precisão e os componentes frontend são escalados.*

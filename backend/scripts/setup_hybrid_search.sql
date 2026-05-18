@@ -1,3 +1,27 @@
+-- =============================================================================
+-- VALIDAÇÃO DO ÍNDICE (execute estas queries no SQL Editor do Supabase)
+-- =============================================================================
+-- 
+-- 1. Verificar se o índice HNSW existe com as dimensões corretas:
+--    SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'documents';
+--    Deve mostrar: "documents_embedding_idx" ON documents USING hnsw (embedding vector_cosine_ops)
+--    com m=24, ef_construction=128
+--
+-- 2. Verificar dimensões do embedding:
+--    SELECT vector_dims(embedding) FROM documents LIMIT 1;
+--    Deve retornar 2000
+--
+-- 3. Verificar FTS está populado:
+--    SELECT COUNT(*) FROM documents WHERE fts IS NULL;
+--    Deve retornar 0
+--
+-- 4. Re-indexar FTS se necessário:
+--    UPDATE documents SET fts = 
+--      setweight(to_tsvector('simple', COALESCE(content, '')), 'A') ||
+--      setweight(to_tsvector('simple', COALESCE(metadata->>'title', '')), 'A');
+--
+-- =============================================================================
+
 -- Habilita a extensão pg_trgm para busca por similaridade de texto se necessário
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
@@ -36,16 +60,23 @@ ON documents FOR EACH ROW EXECUTE FUNCTION documents_fts_trigger();
 CREATE INDEX IF NOT EXISTS documents_fts_idx ON documents USING GIN (fts);
 
 -- Cria o índice HNSW para busca vetorial de alta performance (text-embedding-3-large com 2000 dimensões)
-CREATE INDEX IF NOT EXISTS documents_embedding_idx ON documents 
+-- Parâmetros: m=24 (conexões por nó), ef_construction=128 (qualidade do grafo)
+DROP INDEX IF EXISTS documents_embedding_idx;
+CREATE INDEX documents_embedding_idx ON documents 
 USING hnsw (embedding vector_cosine_ops) 
-WITH (m = 24, ef_construction = 128); -- Parâmetros ajustados para maior recall acadêmico
+WITH (m = 24, ef_construction = 128);
 
--- Remove versões anteriores da função
+-- Remove versões anteriores das funções
 DROP FUNCTION IF EXISTS hybrid_search(text, vector, int, float, float);
 DROP FUNCTION IF EXISTS hybrid_search(text, vector, int, float, float, text[]);
 DROP FUNCTION IF EXISTS hybrid_search(text, vector, int, float, float, text[], text[]);
+DROP FUNCTION IF EXISTS hybrid_search_rrf(text, vector, int, float, float, text[], text[]);
+DROP FUNCTION IF EXISTS hybrid_search_rrf(text, vector, int, float, float, text[], text[], float);
 
--- Função de Busca Híbrida (Vetor + FTS) Normalizada
+-- ---------------------------------------------------------------------------
+-- Função 1: Busca Híbrida Linear (Original)
+-- Combinação ponderada de similaridade vetorial + FTS + boost de entidades.
+-- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION hybrid_search(
   query_text TEXT,
   query_embedding VECTOR(2000), 
@@ -67,15 +98,9 @@ BEGIN
     d.content,
     d.metadata,
     (
-      -- Normalização: divide o total pela soma dos pesos máximos possíveis
       (
-        -- Similaridade de Cosseno está em [0, 1]
         (vector_weight * (1 - (d.embedding <=> query_embedding))) +
-        
-        -- Normaliza FTS: ts_rank_cd é pequeno (ex: 0.05). Multiplicar por 10 e limitar a 1.0 aproxima o FTS da escala [0, 1]
         (full_text_weight * LEAST(1.0, ts_rank_cd(d.fts, websearch_to_tsquery('simple', query_text)) * 10.0)) +
-        
-        -- Boost por Entidade Moderado (+0.2 máximo em vez de 1.5)
         CASE 
           WHEN target_entities IS NOT NULL AND (
             d.metadata->'entities'->'people' ?| target_entities OR 
@@ -89,7 +114,71 @@ BEGIN
     )::FLOAT AS similarity
   FROM documents d
   WHERE (filter_siglas IS NULL OR d.metadata->>'sigla' = ANY(filter_siglas))
-    AND (1 - (d.embedding <=> query_embedding)) > 0.15 -- Threshold mínimo de segurança
+    AND (1 - (d.embedding <=> query_embedding)) > 0.15
+  ORDER BY similarity DESC
+  LIMIT match_count;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ---------------------------------------------------------------------------
+-- Função 2: Busca Híbrida com RRF (Reciprocal Rank Fusion)
+-- Mais robusta que a combinação linear: não depende de escalas compatíveis
+-- entre score vetorial e score FTS. k=60 é o valor padrão da literatura.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION hybrid_search_rrf(
+  query_text TEXT,
+  query_embedding VECTOR(2000), 
+  match_count int,
+  full_text_weight float DEFAULT 1.0,
+  vector_weight float DEFAULT 1.0,
+  filter_siglas TEXT[] DEFAULT NULL,
+  target_entities TEXT[] DEFAULT NULL,
+  rrf_k float DEFAULT 60.0
+) RETURNS TABLE (
+  id BIGINT,
+  content TEXT,
+  metadata JSONB,
+  similarity FLOAT
+) AS $$
+BEGIN
+  RETURN QUERY
+  WITH vector_results AS (
+    SELECT d.id, d.content, d.metadata,
+           row_number() OVER (ORDER BY (1 - (d.embedding <=> query_embedding)) DESC) AS rank
+    FROM documents d
+    WHERE (filter_siglas IS NULL OR d.metadata->>'sigla' = ANY(filter_siglas))
+      AND (1 - (d.embedding <=> query_embedding)) > 0.15
+    ORDER BY (1 - (d.embedding <=> query_embedding)) DESC
+    LIMIT match_count * 3
+  ),
+  fts_results AS (
+    SELECT d.id, d.content, d.metadata,
+           row_number() OVER (ORDER BY ts_rank_cd(d.fts, websearch_to_tsquery('simple', query_text)) DESC) AS rank
+    FROM documents d
+    WHERE (filter_siglas IS NULL OR d.metadata->>'sigla' = ANY(filter_siglas))
+      AND d.fts IS NOT NULL
+    ORDER BY ts_rank_cd(d.fts, websearch_to_tsquery('simple', query_text)) DESC
+    LIMIT match_count * 3
+  ),
+  combined AS (
+    SELECT
+      COALESCE(v.id, f.id) AS id,
+      COALESCE(v.content, f.content) AS content,
+      COALESCE(v.metadata, f.metadata) AS metadata,
+      (COALESCE(1.0 / (rrf_k + v.rank), 0.0) * vector_weight +
+       COALESCE(1.0 / (rrf_k + f.rank), 0.0) * full_text_weight +
+       CASE WHEN target_entities IS NOT NULL AND (
+         COALESCE(v.metadata, f.metadata)->'entities'->'people' ?| target_entities OR 
+         COALESCE(v.metadata, f.metadata)->'receivers' ?| target_entities OR
+         COALESCE(v.metadata, f.metadata)->'entities'->'concepts' ?| target_entities OR
+         COALESCE(v.metadata, f.metadata)->>'destinatario' = ANY(target_entities)
+       ) THEN 0.05 ELSE 0.0 END
+      ) / (vector_weight + full_text_weight + 0.05) AS similarity
+    FROM vector_results v
+    FULL OUTER JOIN fts_results f ON v.id = f.id
+  )
+  SELECT c.id, c.content, c.metadata, c.similarity::FLOAT
+  FROM combined c
   ORDER BY similarity DESC
   LIMIT match_count;
 END;

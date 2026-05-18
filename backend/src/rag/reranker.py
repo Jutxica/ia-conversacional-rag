@@ -1,18 +1,39 @@
 import os
+import time
 from typing import List, Dict, Any
-from sentence_transformers import CrossEncoder
 
 class DehonReranker:
     def __init__(self, model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"):
         self.model_name = model_name
         self.model = None
-        # O modelo será carregado sob demanda para evitar overhead se não for usado
+        self._load_attempts = 0
+        self._max_load_attempts = 3
         
     def _load_model(self):
-        if self.model is None:
-            print(f"  [RERANK] Carregando modelo Cross-Encoder: {self.model_name}...")
-            self.model = CrossEncoder(self.model_name)
-            print("  [RERANK] Modelo carregado com sucesso.")
+        if self.model is not None:
+            return
+        enable_reranker = os.getenv("ENABLE_RERANKER", "true").lower() == "true"
+        if not enable_reranker:
+            print("  [RERANK] Re-ranker desativado via configuração (Economia de Memória).")
+            self.model = "DISABLED"
+            return
+
+        while self._load_attempts < self._max_load_attempts:
+            self._load_attempts += 1
+            print(f"  [RERANK] Carregando modelo Cross-Encoder ({self._load_attempts}/{self._max_load_attempts}): {self.model_name}...")
+            try:
+                from sentence_transformers import CrossEncoder
+                self.model = CrossEncoder(self.model_name)
+                print("  [RERANK] Modelo carregado com sucesso.")
+                return
+            except Exception as e:
+                print(f"  [ERRO RERANK] Tentativa {self._load_attempts} falhou: {e}")
+                if self._load_attempts < self._max_load_attempts:
+                    wait = 2 ** self._load_attempts
+                    print(f"  [RERANK] Aguardando {wait}s para nova tentativa...")
+                    time.sleep(wait)
+        print(f"  [RERANK] Falha após {self._max_load_attempts} tentativas. Re-ranker desativado.")
+        self.model = "FAILED"
 
     def rerank(self, query: str, results: List[Dict[str, Any]], top_k: int = 5) -> List[Dict[str, Any]]:
         """
@@ -22,6 +43,9 @@ class DehonReranker:
             return []
 
         self._load_model()
+        
+        if self.model is None or self.model in ("FAILED", "DISABLED"):
+            return results[:top_k]
         
         # Prepara os pares (query, documento) para o Cross-Encoder
         # Usamos o conteúdo do documento para o scoring

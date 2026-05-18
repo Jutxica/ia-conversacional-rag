@@ -9,7 +9,6 @@ import LoginPage from './components/layout/LoginPage';
 import MessageList from './components/chat/MessageList';
 import ChatInput from './components/chat/ChatInput';
 import CitationGrid from './components/ui/CitationGrid';
-
 // Icons
 import { Menu, ShieldCheck, Share2, Check, LogOut, X, BookOpen } from 'lucide-react';
 
@@ -59,6 +58,7 @@ export default function App() {
   const [isAppLoading, setIsAppLoading] = useState(true);
   const [theme, setTheme] = useState<'light' | 'midnight'>((localStorage.getItem('dehon-theme') as any) || 'light');
   const [activeCitationMessageId, setActiveCitationMessageId] = useState<string | null>(null);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [autoCleanup, setAutoCleanup] = useState(() => {
     const saved = localStorage.getItem('dehon-auto-cleanup');
     return saved ? JSON.parse(saved) : { enabled: true, maxDays: 30, maxCount: 50 };
@@ -162,6 +162,7 @@ export default function App() {
     setCurrentId(null);
     setInput('');
     setActiveCitationMessageId(null);
+    setCurrentConversationId(null);
   };
 
   const handleDeleteChat = async (chatId: string) => {
@@ -243,7 +244,7 @@ export default function App() {
 
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/chat';
-      const internalApiKey = import.meta.env.VITE_INTERNAL_API_KEY || 'dehon_secure_access_2026_elite';
+      const internalApiKey = import.meta.env.VITE_INTERNAL_API_KEY;
       
       const historyPayload = history.map(m => ({ role: m.role, content: m.content }));
 
@@ -253,7 +254,7 @@ export default function App() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${internalApiKey}`
         },
-        body: JSON.stringify({ query, scope, history: historyPayload }),
+        body: JSON.stringify({ query, scope, history: historyPayload, conversation_id: currentConversationId }),
       });
 
       if (!response.ok) throw new Error(`Server Error: ${response.status}`);
@@ -281,7 +282,9 @@ export default function App() {
           line = line.trim();
           if (line.startsWith('data: ')) {
             const data = JSON.parse(line.slice(6));
-            if (data.type === 'token') {
+            if (data.type === 'conversation_id') {
+              setCurrentConversationId(data.conversation_id || data.content);
+            } else if (data.type === 'token') {
               setConversations(prev => prev.map(c => 
                 c.id === chatId 
                   ? { 
@@ -481,6 +484,7 @@ export default function App() {
           </div>
         </div>
       </main>
+
     </div>
   );
 }
