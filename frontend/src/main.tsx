@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import AdminApp from './AdminApp.tsx'
 import { supabase } from './supabaseClient'
+import ErrorBoundary from './components/ui/ErrorBoundary'
 
 // Authorized domains/emails for Admin access
 const AUTHORIZED_ADMINS = ['fr.utxicascj@gmail.com']; // Specific emails
@@ -65,6 +66,8 @@ function AppRoot() {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AppRoot />
+    <ErrorBoundary>
+      <AppRoot />
+    </ErrorBoundary>
   </StrictMode>,
 )

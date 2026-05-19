@@ -243,8 +243,7 @@ export default function App() {
     setActiveCitationMessageId(null);
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/chat';
-      const internalApiKey = import.meta.env.VITE_INTERNAL_API_KEY;
+      const apiUrl = import.meta.env.VITE_API_URL || '/api/chat';
       
       const historyPayload = history.map(m => ({ role: m.role, content: m.content }));
 
@@ -252,7 +251,7 @@ export default function App() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${internalApiKey}`
+          'Authorization': `Bearer ${import.meta.env.VITE_API_KEY}`
         },
         body: JSON.stringify({ query, scope, history: historyPayload, conversation_id: currentConversationId }),
       });
@@ -475,7 +474,7 @@ export default function App() {
                       </button>
                     </div>
                     <div className="side-panel-content">
-                      <CitationGrid citations={activeMessageWithCitations.citations || []} />
+                      <CitationGrid citations={activeMessageWithCitations.citations || []} variant="sidebar" />
                     </div>
                   </aside>
                 )}

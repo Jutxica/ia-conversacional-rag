@@ -10,7 +10,7 @@ import uuid
 import tempfile
 import re
 from collections import defaultdict
-from typing import List
+from typing import List, Optional, Union, Dict, Any
 from fastapi import FastAPI, UploadFile, File, Form, Request
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
@@ -100,6 +100,7 @@ class RateLimiter:
         return True
 
 rate_limiter = RateLimiter()
+login_limiter = RateLimiter(max_requests=5, window_seconds=60)  # Stricter for login
 
 # Inicializa cliente OpenAI
 try:
@@ -186,6 +187,25 @@ def save_blessed_answer(question: str, answer: str):
     with open(BLESSED_PATH, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
+def _get_scope_filter(scope: str) -> Optional[List[str]]:
+    """Maps frontend scope to list of siglas (or None for 'Geral')."""
+    CATEGORY_MAP = {
+        "Espiritualidade": "Obras Espirituais",
+        "Social": "Obras Sociais",
+        "Biografia": ["Diários", "Viagens"],
+        "Correspondencia": "Correspondência",
+    }
+    if scope == "Geral":
+        return None
+    target_categories = CATEGORY_MAP.get(scope)
+    if target_categories is None:
+        return None
+    if isinstance(target_categories, str):
+        target_categories = [target_categories]
+    siglario = _load_siglario()
+    return [sigla for sigla, info in siglario.get("works", {}).items()
+            if info.get("category") in target_categories]
+
 def detect_intent(query: str) -> dict:
     """Detecta intenção usando o novo IntentDetector."""
     return intent_detector.detect(query)
@@ -203,8 +223,11 @@ class AdminLoginRequest(BaseModel):
     password: str
 
 @app.post("/api/admin/login")
-async def admin_login(data: AdminLoginRequest):
+async def admin_login(data: AdminLoginRequest, req: Request):
     """Valida credenciais de administrador e retorna JWT."""
+    client_ip = req.client.host if req.client else "unknown"
+    if not login_limiter.is_allowed(client_ip):
+        raise HTTPException(status_code=429, detail="Too many login attempts. Try again in 60 seconds.")
     if data.username != ADMIN_USER or data.password != ADMIN_PASSWORD:
         raise HTTPException(
             status_code=401,
@@ -599,7 +622,7 @@ async def chat_response_generator(query: str, scope: str = "Geral", history: lis
             fts_weight = 1.0
             vec_weight = 1.0
 
-        result = search_context(query, top_k=search_top_k, fts_weight=fts_weight, vec_weight=vec_weight)
+        result = search_context(query, top_k=search_top_k, filter_siglas=_get_scope_filter(scope), fts_weight=fts_weight, vec_weight=vec_weight)
         context = result["context"]
         citations = result["citations"]
         

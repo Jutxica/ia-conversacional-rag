@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Upload, FileText, Trash2, RefreshCw, CheckCircle, AlertTriangle, Loader, Database, X } from 'lucide-react';
 
-const API_BASE = import.meta.env.VITE_API_URL?.replace('/api/chat', '') || 'http://localhost:8000';
-const API_KEY = import.meta.env.VITE_INTERNAL_API_KEY || 'dehon_secure_access_2026_elite';
+const API_BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api/chat', '') : '';
 
 interface DocItem {
   source_id: string;
@@ -36,7 +35,6 @@ export default function AdminDashboard({ onClose }: { onClose: () => void }) {
     setIsLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/admin/documents`, {
-        headers: { Authorization: `Bearer ${API_KEY}` }
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -68,7 +66,6 @@ export default function AdminDashboard({ onClose }: { onClose: () => void }) {
     try {
       const res = await fetch(`${API_BASE}/api/admin/upload`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${API_KEY}` },
         body: formData
       });
 
@@ -115,7 +112,6 @@ export default function AdminDashboard({ onClose }: { onClose: () => void }) {
     try {
       const res = await fetch(`${API_BASE}/api/admin/documents/${encodeURIComponent(sourceId)}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${API_KEY}` }
       });
       const data = await res.json();
       if (res.ok) {

@@ -1,11 +1,124 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&family=Lora:ital,wght@0,400;0,700;1,400&display=swap');
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: #1E40AF;
+    --primary-foreground: #F9FAFB;
+    --secondary: #B45309;
+    --secondary-foreground: #F9FAFB;
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: #B45309;
+    --accent-foreground: #F9FAFB;
+    --destructive: oklch(0.577 0.245 27.325);
+    --destructive-foreground: oklch(0.985 0 0);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.708 0 0);
+    --radius: 0.625rem;
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --sidebar: oklch(0.985 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.97 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.922 0 0);
+    --sidebar-ring: oklch(0.708 0 0);
+  }
+
+  .dark, [data-theme='midnight'] {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: #3B82F6;
+    --primary-foreground: #0A0A0A;
+    --secondary: #F59E0B;
+    --secondary-foreground: #0A0A0A;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: #F59E0B;
+    --accent-foreground: #0A0A0A;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 217 91% 60%;
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  .theme {
+    --font-heading: var(--font-sans);
+    --font-sans: 'Geist Variable', sans-serif;
+  }
+  .dark {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: #3B82F6;
+    --primary-foreground: #0A0A0A;
+    --secondary: #F59E0B;
+    --secondary-foreground: #0A0A0A;
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: #F59E0B;
+    --accent-foreground: #0A0A0A;
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
+  }
+  html {
+    @apply font-sans;
+  }
+}
 
 :root {
   /* Colors - Scholarly Gallery Palette */
   --bg-primary: #F3F4F6;     /* Slightly darker for the outer canvas (Gray-100) */
   --bg-secondary: #FFFFFF;    /* Pure White for the floating panel */
   --bg-tertiary: #F9FAFB;     /* Very light for sidebar (Gray-50) */
-  
+
   --accent-primary: #1E40AF;   /* Intellectual Royal Blue */
   --accent-secondary: #B45309; /* Antique Gold */
   --accent-glow: rgba(30, 64, 175, 0.05);
@@ -26,7 +139,7 @@
   /* Dimensions */
   --sidebar-width: 280px;
   --max-content-width: 900px;
-  
+
   /* Radii */
   --radius-sm: 6px;
   --radius-md: 12px;
@@ -53,7 +166,7 @@
   --bg-primary: #0A0A0A;      /* Pure Black */
   --bg-secondary: #121212;    /* Dark Grey */
   --bg-tertiary: #1E1E1E;
-  
+
   --accent-primary: #3B82F6;   /* Brighter Blue for Dark Mode */
   --accent-secondary: #F59E0B; /* Brighter Gold */
   --accent-glow: rgba(59, 130, 246, 0.12);
