@@ -69,11 +69,27 @@ async def verify_admin_jwt(auth: HTTPAuthorizationCredentials = Security(securit
         payload = pyjwt.decode(auth.credentials, ADMIN_SECRET_KEY, algorithms=[ADMIN_JWT_ALGORITHM])
         if payload.get("sub") != "admin":
             raise ValueError("Subject inválido")
+        return payload
     except pyjwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expirado. Faça login novamente.")
     except Exception:
-        raise HTTPException(status_code=403, detail="Token inválido. Acesso negado.")
-    return payload
+        # Tenta validação via token do Supabase
+        if supabase_admin:
+            try:
+                user_resp = supabase_admin.auth.get_user(auth.credentials)
+                if user_resp and user_resp.user:
+                    email = user_resp.user.email
+                    if email and (
+                        email == "fr.utxicascj@gmail.com" or 
+                        email.endswith("@dehon.ai") or 
+                        email.endswith("@congregacao.org")
+                    ):
+                        return {"sub": "admin", "email": email}
+            except Exception as supabase_e:
+                print(f"[AUTH] Falha na validação do token Supabase: {supabase_e}")
+                
+        raise HTTPException(status_code=403, detail="Token inválido ou acesso negado.")
+
 
 async def verify_api_key(auth: HTTPAuthorizationCredentials = Security(security)):
     if auth.credentials != INTERNAL_API_KEY:
@@ -187,6 +203,70 @@ def save_blessed_answer(question: str, answer: str):
     with open(BLESSED_PATH, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
+def update_blessed_answer(answer_id: str, question: str, answer: str) -> bool:
+    """Atualiza uma resposta validada existente."""
+    if not os.path.exists(BLESSED_PATH):
+        return False
+    with open(BLESSED_PATH, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    updated = False
+    for item in data.get("answers", []):
+        if item.get("id") == answer_id:
+            item["question"] = question
+            item["answer"] = answer
+            item["date"] = time.strftime("%Y-%m-%d %H:%M:%S")
+            updated = True
+            break
+    if updated:
+        with open(BLESSED_PATH, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    return updated
+
+def save_search_log_fallback(log_data: dict):
+    fallback_path = os.path.join(os.path.dirname(__file__), 'data/search_logs_fallback.json')
+    try:
+        os.makedirs(os.path.dirname(fallback_path), exist_ok=True)
+        logs = []
+        if os.path.exists(fallback_path):
+            with open(fallback_path, 'r', encoding='utf-8') as f:
+                logs = json.load(f)
+        
+        # Evita duplicados com base no conversation_id se necessário
+        conv_id = log_data.get("conversation_id")
+        if conv_id:
+            logs = [l for l in logs if l.get("conversation_id") != conv_id]
+            
+        log_data["id"] = len(logs) + 1
+        log_data["created_at"] = datetime.utcnow().isoformat() + "Z"
+        log_data["feedback"] = None
+        log_data["feedback_comment"] = None
+        
+        logs.append(log_data)
+        logs = logs[-1000:]
+        with open(fallback_path, 'w', encoding='utf-8') as f:
+            json.dump(logs, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"[FALLBACK LOG] Error saving: {e}")
+
+def update_search_log_fallback(conversation_id: str, feedback: str, comment: str):
+    fallback_path = os.path.join(os.path.dirname(__file__), 'data/search_logs_fallback.json')
+    try:
+        if not os.path.exists(fallback_path):
+            return
+        with open(fallback_path, 'r', encoding='utf-8') as f:
+            logs = json.load(f)
+        updated = False
+        for log in logs:
+            if log.get("conversation_id") == conversation_id:
+                log["feedback"] = feedback
+                log["feedback_comment"] = comment
+                updated = True
+        if updated:
+            with open(fallback_path, 'w', encoding='utf-8') as f:
+                json.dump(logs, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"[FALLBACK LOG] Error updating: {e}")
+
 def _get_scope_filter(scope: str) -> Optional[List[str]]:
     """Maps frontend scope to list of siglas (or None for 'Geral')."""
     CATEGORY_MAP = {
@@ -250,6 +330,174 @@ def _get_embedding_batch(texts: List[str]) -> List[List[float]]:
     )
     return [d.embedding for d in resp.data]
 
+class UrlIngestRequest(BaseModel):
+    url: str
+    title: str = ""
+    sigla: str = "WEB"
+    document_weight: int = 5
+
+
+@app.post("/api/admin/ingest-url", dependencies=[Depends(verify_admin_jwt)])
+async def admin_ingest_url(data: UrlIngestRequest):
+    """Raspa uma URL com Firecrawl (e fallback BeautifulSoup) e ingere o conteúdo no corpus RAG."""
+    if not supabase_admin:
+        raise HTTPException(status_code=503, detail="Supabase admin não configurado.")
+
+    url = data.url.strip()
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="URL inválida. Deve começar com http:// ou https://")
+
+    markdown_text = None
+
+    # 1. Tenta com Firecrawl se estiver configurado
+    if firecrawl_app:
+        try:
+            result = firecrawl_app.scrape(
+                url,
+                formats=["markdown"],
+                only_main_content=True
+            )
+            if hasattr(result, "markdown") and result.markdown:
+                markdown_text = result.markdown
+            elif isinstance(result, dict):
+                markdown_text = result.get("markdown") or result.get("content", "")
+        except Exception as e:
+            print(f"[URL INGEST] Firecrawl falhou para {url}: {e}. Tentando fallback BeautifulSoup.")
+
+    # 2. Fallback: BeautifulSoup
+    if not markdown_text:
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            }
+            resp = requests.get(url, headers=headers, timeout=15)
+            resp.raise_for_status()
+            
+            resp.encoding = resp.apparent_encoding
+            soup = BeautifulSoup(resp.text, "html.parser")
+            
+            for elem in soup(["script", "style", "nav", "footer", "header", "aside", "noscript", "iframe"]):
+                elem.decompose()
+                
+            lines = []
+            for elem in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li']):
+                text = elem.get_text().strip()
+                if not text:
+                    continue
+                if elem.name.startswith('h'):
+                    level = elem.name[1]
+                    lines.append(f"{'#' * int(level)} {text}")
+                elif elem.name == 'li':
+                    lines.append(f"- {text}")
+                else:
+                    lines.append(text)
+            
+            markdown_text = "\n\n".join(lines)
+        except Exception as e:
+            fc_status = "falhou" if firecrawl_app else "não configurado"
+            raise HTTPException(
+                status_code=422, 
+                detail=f"Falha ao raspar a URL por todos os métodos. Firecrawl: {fc_status}, BeautifulSoup: {e}"
+            )
+
+    if not markdown_text or not markdown_text.strip():
+        raise HTTPException(status_code=422, detail="Nenhum conteúdo extraído da URL.")
+
+    # Normalização
+    import unicodedata
+    markdown_text = unicodedata.normalize('NFC', markdown_text)
+    markdown_text = re.sub(r'<[^>]+>', '', markdown_text)
+    markdown_text = re.sub(r'\s+', ' ', markdown_text)
+    markdown_text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', markdown_text)
+    markdown_text = markdown_text.strip()
+
+    doc_title = data.title or url
+    source_id = url.replace("https://", "").replace("http://", "").replace("/", "_")[:120]
+
+    # Chunking token-aware
+    try:
+        import tiktoken
+        tokenizer = tiktoken.get_encoding("cl100k_base")
+    except ImportError:
+        tokenizer = None
+
+    MAX_TOKENS = 800
+    OVERLAP_TOKENS = 150
+    paragraphs = [p.strip() for p in markdown_text.split('\n') if p.strip()]
+    texts = []
+    current_chunk: List[str] = []
+    current_tokens = 0
+
+    for par in paragraphs:
+        par_tokens = len(tokenizer.encode(par)) if tokenizer else len(par) // 3
+        if current_tokens + par_tokens > MAX_TOKENS and current_chunk:
+            texts.append("\n\n".join(current_chunk))
+            overlap_chunk: List[str] = []
+            overlap_tokens = 0
+            for p in reversed(current_chunk):
+                p_t = len(tokenizer.encode(p)) if tokenizer else len(p) // 3
+                if overlap_tokens + p_t <= OVERLAP_TOKENS:
+                    overlap_chunk.insert(0, p)
+                    overlap_tokens += p_t
+                else:
+                    break
+            current_chunk = overlap_chunk
+            current_tokens = overlap_tokens
+        current_chunk.append(par)
+        current_tokens += par_tokens
+
+    if current_chunk:
+        texts.append("\n\n".join(current_chunk))
+
+    if not texts:
+        raise HTTPException(status_code=422, detail="Nenhum chunk gerado. A página pode estar vazia.")
+
+    # Embedding + Inserção no Supabase (em lotes)
+    BATCH = 50
+    total_inserted = 0
+    for i in range(0, len(texts), BATCH):
+        batch_texts = texts[i:i + BATCH]
+        try:
+            embeddings = _get_embedding_batch(batch_texts)
+        except Exception as emb_err:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Falha ao gerar embeddings (OpenAI). Verifique se a OPENAI_API_KEY está válida no .env. Erro: {str(emb_err)[:120]}"
+            )
+        rows = [
+            {
+                "content": txt,
+                "embedding": emb,
+                "metadata": {
+                    "title": doc_title,
+                    "sigla": data.sigla,
+                    "document_weight": data.document_weight,
+                    "source_id": source_id,
+                    "chunk_index": i + j,
+                    "source_url": url,
+                    "entities": {"people": [], "places": [], "concepts": []},
+                    "receivers": [],
+                    "destinatario": None,
+                    "par_range": [0, 0]
+                }
+            }
+            for j, (txt, emb) in enumerate(zip(batch_texts, embeddings))
+        ]
+        resp = supabase_admin.table("documents").insert(rows).execute()
+        total_inserted += len(resp.data)
+
+    return {
+        "status": "success",
+        "document": doc_title,
+        "source_id": source_id,
+        "url": url,
+        "chunks_inserted": total_inserted,
+        "extraction_method": "firecrawl_url"
+    }
+
 
 @app.post("/api/admin/upload", dependencies=[Depends(verify_admin_jwt)])
 async def admin_upload(file: UploadFile = File(...), sigla: str = Form("PDF"), document_weight: int = Form(5), title: str = Form(None)):
@@ -269,7 +517,7 @@ async def admin_upload(file: UploadFile = File(...), sigla: str = Form("PDF"), d
         tmp_path = tmp.name
 
     try:
-        # 1. Extrai texto do PDF (Firecrawl como primário, PyMuPDF como fallback)
+        # 1. Extrai texto do PDF (Firecrawl como primário, PyMuPDF e pypdf como fallbacks)
         markdown_text = None
 
         if firecrawl_app:
@@ -279,6 +527,7 @@ async def admin_upload(file: UploadFile = File(...), sigla: str = Form("PDF"), d
             except Exception as e:
                 print(f"[UPLOAD] Firecrawl falhou: {e}. Tentando fallback PyMuPDF.")
 
+        # Tenta PyMuPDF
         if not markdown_text:
             try:
                 import fitz
@@ -291,10 +540,25 @@ async def admin_upload(file: UploadFile = File(...), sigla: str = Form("PDF"), d
                         pages.append(text)
                 pdf_doc.close()
                 markdown_text = "\n\n".join(pages)
-            except ImportError:
-                raise HTTPException(status_code=503, detail="Firecrawl não configurado e PyMuPDF não disponível para fallback. Instale: pip install PyMuPDF.")
             except Exception as e:
-                raise HTTPException(status_code=422, detail=f"Falha na extração com PyMuPDF: {e}")
+                print(f"[UPLOAD] PyMuPDF falhou ou não instalado: {e}. Tentando fallback pypdf.")
+
+        # Tenta pypdf (instalado no ambiente virtual)
+        if not markdown_text:
+            try:
+                from pypdf import PdfReader
+                reader = PdfReader(tmp_path)
+                pages = []
+                for page in reader.pages:
+                    text = page.extract_text()
+                    if text and text.strip():
+                        pages.append(text)
+                markdown_text = "\n\n".join(pages)
+            except Exception as e:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Não foi possível extrair texto do PDF por nenhum método. PyMuPDF/pypdf falhou: {e}"
+                )
 
         if not markdown_text or not markdown_text.strip():
             raise HTTPException(status_code=422, detail="Não foi possível extrair texto do PDF.")
@@ -356,7 +620,13 @@ async def admin_upload(file: UploadFile = File(...), sigla: str = Form("PDF"), d
         total_inserted = 0
         for i in range(0, len(texts), BATCH):
             batch_texts = texts[i:i + BATCH]
-            embeddings = _get_embedding_batch(batch_texts)
+            try:
+                embeddings = _get_embedding_batch(batch_texts)
+            except Exception as emb_err:
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"Falha ao gerar embeddings (OpenAI). Verifique se a OPENAI_API_KEY está válida no .env. Erro: {str(emb_err)[:120]}"
+                )
             rows = [
                 {
                     "content": txt,
@@ -574,6 +844,124 @@ async def delete_blessed(answer_id: str):
         json.dump(data, f, indent=2, ensure_ascii=False)
     return {"status": "success"}
 
+@app.post("/api/admin/blessed", dependencies=[Depends(verify_admin_jwt)])
+async def create_blessed_answer_admin(data: dict):
+    question = data.get("question")
+    answer = data.get("answer")
+    if not question or not answer:
+        raise HTTPException(status_code=400, detail="Pergunta e resposta são obrigatórias.")
+    save_blessed_answer(question, answer)
+    return {"status": "success"}
+
+@app.put("/api/admin/blessed/{answer_id}", dependencies=[Depends(verify_admin_jwt)])
+async def edit_blessed_answer_admin(answer_id: str, data: dict):
+    question = data.get("question")
+    answer = data.get("answer")
+    if not question or not answer:
+        raise HTTPException(status_code=400, detail="Pergunta e resposta são obrigatórias.")
+    if update_blessed_answer(answer_id, question, answer):
+        return {"status": "success"}
+    raise HTTPException(status_code=404, detail="Resposta não encontrada")
+
+@app.get("/api/admin/logs", dependencies=[Depends(verify_admin_jwt)])
+async def get_admin_logs():
+    """Retorna os logs de busca (tentando Supabase primeiro, depois arquivo local)."""
+    logs = []
+    using_fallback = False
+    
+    if supabase_admin:
+        try:
+            resp = supabase_admin.table("search_logs") \
+                .select("*") \
+                .order("created_at", desc=True) \
+                .limit(200) \
+                .execute()
+            logs = resp.data or []
+        except Exception as e:
+            print(f"[LOGS] Supabase query failed, using fallback: {e}")
+            using_fallback = True
+    else:
+        using_fallback = True
+
+    if using_fallback:
+        fallback_path = os.path.join(os.path.dirname(__file__), 'data/search_logs_fallback.json')
+        if os.path.exists(fallback_path):
+            try:
+                with open(fallback_path, 'r', encoding='utf-8') as f:
+                    logs = json.load(f)
+                logs = sorted(logs, key=lambda x: x.get("created_at", ""), reverse=True)
+            except Exception as e:
+                print(f"[LOGS] Error reading fallback: {e}")
+        else:
+            logs = []
+
+    return {"logs": logs, "using_fallback": using_fallback}
+
+@app.get("/api/admin/metrics", dependencies=[Depends(verify_admin_jwt)])
+async def get_admin_metrics():
+    """Retorna métricas agregadas do sistema (chats, feedbacks, intenções, gaps)."""
+    logs = []
+    using_fallback = False
+    if supabase_admin:
+        try:
+            resp = supabase_admin.table("search_logs").select("*").execute()
+            logs = resp.data or []
+        except Exception:
+            using_fallback = True
+    else:
+        using_fallback = True
+        
+    if using_fallback:
+        fallback_path = os.path.join(os.path.dirname(__file__), 'data/search_logs_fallback.json')
+        if os.path.exists(fallback_path):
+            try:
+                with open(fallback_path, 'r', encoding='utf-8') as f:
+                    logs = json.load(f)
+            except Exception:
+                logs = []
+                
+    total_chats = len(logs)
+    positive = sum(1 for l in logs if l.get("feedback") == "positivo")
+    negative = sum(1 for l in logs if l.get("feedback") == "negativo")
+    
+    intent_dist = {}
+    for l in logs:
+        intent = l.get("intent", "GENERAL") or "GENERAL"
+        intent_dist[intent] = intent_dist.get(intent, 0) + 1
+        
+    # Gaps (queries with low confidence)
+    low_conf_queries = [l.get("query") for l in logs if l.get("confidence_level") == "Baixa" and l.get("query")]
+    from collections import Counter
+    gaps_counter = Counter(low_conf_queries)
+    top_gaps = [{"term": q, "count": c} for q, c in gaps_counter.most_common(5)]
+    
+    return {
+        "total_chats": total_chats,
+        "feedback": {
+            "positivo": positive,
+            "negativo": negative,
+            "rate": round((positive / (positive + negative) * 100), 1) if (positive + negative) > 0 else 100.0
+        },
+        "intent_distribution": intent_dist,
+        "top_gaps": top_gaps,
+        "using_fallback": using_fallback
+    }
+
+@app.get("/api/admin/documents/{source_id:path}/chunks", dependencies=[Depends(verify_admin_jwt)])
+async def get_document_chunks(source_id: str):
+    """Retorna todos os chunks de um documento específico."""
+    if not supabase_admin:
+        raise HTTPException(status_code=503, detail="Supabase admin não configurado.")
+    try:
+        resp = supabase_admin.table("documents") \
+            .select("id, content, metadata") \
+            .eq("metadata->>source_id", source_id) \
+            .order("metadata->>chunk_index", desc=False) \
+            .execute()
+        return {"chunks": resp.data or []}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar chunks: {e}")
+
 async def chat_response_generator(query: str, scope: str = "Geral", history: list = None, conversation_id: str = None):
     """Realiza busca RAG, constrói a memória e gera resposta usando OpenAI com streaming."""
     
@@ -756,18 +1144,22 @@ DOCUMENTOS RECUPERADOS (Base de Conhecimento):
     yield "data: {\"type\": \"done\"}\n\n"
 
     # Log the search (non-blocking, fire-and-forget)
+    log_data = {
+        "query": query[:500],
+        "intent": intent[:20],
+        "num_citations": len(citations),
+        "confidence_level": confidence.get("level", "Baixa"),
+        "confidence_pct": confidence.get("percentage", 0),
+        "conversation_id": conversation_id,
+    }
     try:
         if supabase_admin:
-            supabase_admin.table("search_logs").insert({
-                "query": query[:500],
-                "intent": intent[:20],
-                "num_citations": len(citations),
-                "confidence_level": confidence.get("level", "Baixa"),
-                "confidence_pct": confidence.get("percentage", 0),
-                "conversation_id": conversation_id,
-            }).execute()
+            supabase_admin.table("search_logs").insert(log_data).execute()
+        else:
+            save_search_log_fallback(log_data)
     except Exception as log_e:
-        print(f"[LOG] Falha ao registrar busca: {log_e}")
+        print(f"[LOG] Falha no registro Supabase, tentando fallback: {log_e}")
+        save_search_log_fallback(log_data)
 
 
 @app.post("/api/feedback", dependencies=[Depends(verify_api_key)])
@@ -781,11 +1173,20 @@ async def submit_feedback(data: dict):
         raise HTTPException(status_code=400, detail="conversation_id e feedback (positivo/negativo) são obrigatórios.")
 
     try:
+        success = False
         if supabase_admin:
-            supabase_admin.table("search_logs") \
-                .update({"feedback": feedback, "feedback_comment": comment}) \
-                .eq("conversation_id", conversation_id) \
-                .execute()
+            try:
+                supabase_admin.table("search_logs") \
+                    .update({"feedback": feedback, "feedback_comment": comment}) \
+                    .eq("conversation_id", conversation_id) \
+                    .execute()
+                success = True
+            except Exception as e:
+                print(f"[FEEDBACK] Supabase update failed, trying fallback: {e}")
+        
+        if not success:
+            update_search_log_fallback(conversation_id, feedback, comment)
+            
         return {"status": "ok"}
     except Exception as e:
         print(f"[FEEDBACK] Erro ao salvar: {e}")
@@ -795,13 +1196,42 @@ async def submit_feedback(data: dict):
 @app.get("/api/feedback/gaps", dependencies=[Depends(verify_admin_jwt)])
 async def get_knowledge_gaps(min_count: int = 3):
     """Retorna termos de busca com baixa confiança (gaps de conhecimento)."""
-    try:
-        if not supabase_admin:
-            raise HTTPException(status_code=503, detail="Supabase admin não configurado.")
-        resp = supabase_admin.rpc("get_gap_terms", {"min_count": min_count}).execute()
-        return {"gaps": resp.data or []}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao buscar gaps: {e}")
+    using_fallback = False
+    gaps = []
+    
+    if supabase_admin:
+        try:
+            resp = supabase_admin.rpc("get_gap_terms", {"min_count": min_count}).execute()
+            gaps = resp.data or []
+        except Exception as e:
+            print(f"[GAPS] Supabase RPC failed, using fallback: {e}")
+            using_fallback = True
+    else:
+        using_fallback = True
+        
+    if using_fallback:
+        fallback_path = os.path.join(os.path.dirname(__file__), 'data/search_logs_fallback.json')
+        if os.path.exists(fallback_path):
+            try:
+                with open(fallback_path, 'r', encoding='utf-8') as f:
+                    logs = json.load(f)
+                low_conf_queries = [log.get("query") for log in logs if log.get("confidence_level") == "Baixa" and log.get("query")]
+                from collections import Counter
+                counts = Counter(low_conf_queries)
+                for query, count in counts.items():
+                    if count >= min_count:
+                        confidences = [log.get("confidence_pct", 0) for log in logs if log.get("query") == query]
+                        avg_conf = sum(confidences) / len(confidences) if confidences else 0
+                        gaps.append({
+                            "term": query,
+                            "frequency": count,
+                            "avg_confidence": round(avg_conf, 2)
+                        })
+                gaps = sorted(gaps, key=lambda x: x["frequency"], reverse=True)
+            except Exception as e:
+                print(f"[GAPS] Error computing fallback gaps: {e}")
+
+    return {"gaps": gaps, "using_fallback": using_fallback}
 
 
 @app.post("/api/chat", dependencies=[Depends(verify_api_key)])

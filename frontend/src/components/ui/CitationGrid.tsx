@@ -72,13 +72,13 @@ export default function CitationGrid({ citations, variant = 'grid' }: CitationGr
         "grid gap-4",
         variant === 'grid' 
           ? "grid-cols-1 md:grid-cols-4 auto-rows-[minmax(180px,auto)] p-4" 
-          : "grid-cols-1 p-0"
+          : "grid-cols-2 auto-rows-[minmax(140px,auto)] p-0"
       )}
     >
       {sorted.map((citation, idx) => {
-        // Bento grid sizing logic only for 'grid' variant
-        const isFeatured = variant === 'grid' && idx === 0 && sorted.length >= 3;
-        const isWide = variant === 'grid' && (idx === 1 || idx === 2) && sorted.length >= 3;
+        // Bento grid sizing logic
+        const isFeatured = idx === 0 && sorted.length >= 2;
+        const isWide = variant === 'grid' ? ((idx === 1 || idx === 2) && sorted.length >= 3) : false;
         
         return (
           <motion.div
@@ -86,9 +86,11 @@ export default function CitationGrid({ citations, variant = 'grid' }: CitationGr
             variants={itemVariants}
             className={cn(
               "flex",
-              isFeatured && "md:col-span-2 md:row-span-2",
-              isWide && "md:col-span-2",
-              variant === 'grid' && !isFeatured && !isWide && "md:col-span-1"
+              variant === 'grid' && isFeatured && "md:col-span-2 md:row-span-2",
+              variant === 'grid' && isWide && "md:col-span-2",
+              variant === 'grid' && !isFeatured && !isWide && "md:col-span-1",
+              variant === 'sidebar' && isFeatured && "col-span-2",
+              variant === 'sidebar' && !isFeatured && "col-span-1"
             )}
           >
             <Card

@@ -59,6 +59,12 @@ Elevar a confiança do sistema para 95%+ e garantir precisão acadêmica cirúrg
 - [x] **CRUD de siglario e blessed_answers** endpoints admin.
 - [x] **Stress Test** script de validação.
 - [x] **Validation Script** para qualidade da ingestão.
+- [x] **Frontend:** Painel Lateral (Side-Drawer) dinâmico para exibição de citações.
+- [x] **Frontend:** Gestão correta do histórico com `conversation_id`.
+- [x] **Frontend:** Streaming de respostas e metadados via SSE implementados.
+- [x] **Frontend:** Otimização global de CSS (remoção de ~430 linhas de código morto no `index.css`).
+- [x] **Frontend:** Bento-Grid de citações no painel lateral de referências documentais.
+- [x] **Frontend:** Refinamentos tipográficos finais ("The Scholarly Gallery") com Lora (serif) no Markdown e textura sutil de papel.
 
 ---
-*Documento atualizado em 18/05/2026.*
+*Documento atualizado em 23/05/2026.*

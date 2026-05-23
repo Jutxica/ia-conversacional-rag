@@ -82,7 +82,7 @@ const MessageList: React.FC<MessageListProps> = ({
                   <span className="agent-status-text">Consultando o acervo dehoniano...</span>
                 </div>
               ) : (
-                <ReactMarkdown>{m.content}</ReactMarkdown>
+                <ReactMarkdown className={m.role === 'assistant' ? "prose dark:prose-invert prose-stone font-serif max-w-none text-[15px] prose-p:leading-relaxed prose-p:mb-4 last:prose-p:mb-0" : ""}>{m.content}</ReactMarkdown>
               )}
               {isStreaming && m.content !== '' && idx === messages.length - 1 && (
                 <span className="typing-cursor"></span>

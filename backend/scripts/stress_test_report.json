@@ -1,0 +1,91 @@
+{
+  "timestamp": "2026-05-19 17:31:34",
+  "total_queries": 10,
+  "success": 10,
+  "errors": 0,
+  "total_time_seconds": 3.88,
+  "avg_time_seconds": 0.384,
+  "slow_queries_count": 0,
+  "results": [
+    {
+      "query": "Qual era a visão de Dehon sobre a justiça social e os operários?",
+      "intent": "THEOLOGICAL",
+      "time_seconds": 1.863,
+      "num_citations": 0,
+      "context_length": 0,
+      "status": "ok"
+    },
+    {
+      "query": "Onde e quando nasceu o Padre Leão Dehon?",
+      "intent": "HISTORICAL",
+      "time_seconds": 0.215,
+      "num_citations": 0,
+      "context_length": 0,
+      "status": "ok"
+    },
+    {
+      "query": "Explique o conceito de reparação na espiritualidade dehoniana",
+      "intent": "THEOLOGICAL",
+      "time_seconds": 0.214,
+      "num_citations": 0,
+      "context_length": 0,
+      "status": "ok"
+    },
+    {
+      "query": "Qual a relação entre o Sagrado Coração de Jesus e a doutrina social de Dehon?",
+      "intent": "THEOLOGICAL",
+      "time_seconds": 0.226,
+      "num_citations": 0,
+      "context_length": 0,
+      "status": "ok"
+    },
+    {
+      "query": "Quem foi o destinatário da carta 1LD e qual o contexto histórico?",
+      "intent": "HISTORICAL",
+      "time_seconds": 0.22,
+      "num_citations": 0,
+      "context_length": 0,
+      "status": "ok"
+    },
+    {
+      "query": "Como Dehon descreve a oblação em seus diários espirituais?",
+      "intent": "THEOLOGICAL",
+      "time_seconds": 0.263,
+      "num_citations": 0,
+      "context_length": 0,
+      "status": "ok"
+    },
+    {
+      "query": "O que é a Congregação dos Sacerdotes do Sagrado Coração de Jesus?",
+      "intent": "THEOLOGICAL",
+      "time_seconds": 0.232,
+      "num_citations": 0,
+      "context_length": 0,
+      "status": "ok"
+    },
+    {
+      "query": "Diferença entre reparação passiva e reparação ativa no pensamento dehoniano",
+      "intent": "THEOLOGICAL",
+      "time_seconds": 0.204,
+      "num_citations": 0,
+      "context_length": 0,
+      "status": "ok"
+    },
+    {
+      "query": "ASC CON COR DOC 1LD siglas significado obras Dehon",
+      "intent": "CITATION",
+      "time_seconds": 0.217,
+      "num_citations": 0,
+      "context_length": 0,
+      "status": "ok"
+    },
+    {
+      "query": "Qual a influência da Rerum Novarum no pensamento social de Dehon?",
+      "intent": "THEOLOGICAL",
+      "time_seconds": 0.183,
+      "num_citations": 0,
+      "context_length": 0,
+      "status": "ok"
+    }
+  ]
+}
