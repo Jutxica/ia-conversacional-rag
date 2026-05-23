@@ -394,6 +394,10 @@ export default function App() {
 
   return (
     <div className="app-container">
+      {/* Morph Gradient Blur Blobs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-blue-400/20 dark:bg-blue-900/10 blur-[120px] pointer-events-none animate-pulse" style={{ animationDuration: '8s' }} />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-amber-400/20 dark:bg-amber-900/10 blur-[120px] pointer-events-none animate-pulse" style={{ animationDuration: '12s' }} />
+      <div className="absolute top-[40%] left-[30%] w-[300px] h-[300px] rounded-full bg-indigo-300/15 dark:bg-indigo-950/5 blur-[100px] pointer-events-none" />
       <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
