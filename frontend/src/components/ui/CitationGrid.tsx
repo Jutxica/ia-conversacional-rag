@@ -72,13 +72,13 @@ export default function CitationGrid({ citations, variant = 'grid' }: CitationGr
         "grid gap-4",
         variant === 'grid' 
           ? "grid-cols-1 md:grid-cols-4 auto-rows-[minmax(180px,auto)] p-4" 
-          : "grid-cols-2 auto-rows-[minmax(140px,auto)] p-0"
+          : "grid-cols-1 auto-rows-auto p-1"
       )}
     >
       {sorted.map((citation, idx) => {
-        // Bento grid sizing logic
-        const isFeatured = idx === 0 && sorted.length >= 2;
-        const isWide = variant === 'grid' ? ((idx === 1 || idx === 2) && sorted.length >= 3) : false;
+        // Bento grid sizing logic only for grid variant
+        const isFeatured = variant === 'grid' && idx === 0 && sorted.length >= 2;
+        const isWide = variant === 'grid' && ((idx === 1 || idx === 2) && sorted.length >= 3);
         
         return (
           <motion.div
@@ -89,15 +89,16 @@ export default function CitationGrid({ citations, variant = 'grid' }: CitationGr
               variant === 'grid' && isFeatured && "md:col-span-2 md:row-span-2",
               variant === 'grid' && isWide && "md:col-span-2",
               variant === 'grid' && !isFeatured && !isWide && "md:col-span-1",
-              variant === 'sidebar' && isFeatured && "col-span-2",
-              variant === 'sidebar' && !isFeatured && "col-span-1"
+              variant === 'sidebar' && "col-span-1"
             )}
           >
             <Card
               className={cn(
                 'group cursor-pointer transition-all duration-500 flex flex-col w-full h-full overflow-hidden relative',
                 'hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5',
-                'bg-card/80 backdrop-blur-sm border-border/50 hover:border-primary/40',
+                variant === 'grid'
+                  ? 'bg-card/80 backdrop-blur-sm border-border/50 hover:border-primary/40'
+                  : 'bg-card/40 backdrop-blur-md border-border/40 hover:border-amber-500/40 dark:hover:border-amber-400/40 shadow-sm',
                 isFeatured && 'bg-gradient-to-br from-card to-primary/5'
               )}
               onClick={() => citation.page_url && window.open(citation.page_url, '_blank')}
@@ -123,18 +124,26 @@ export default function CitationGrid({ citations, variant = 'grid' }: CitationGr
                 <div>
                   <CardTitle className={cn(
                     "font-display leading-tight line-clamp-2 text-foreground/90 transition-colors group-hover:text-primary",
-                    isFeatured ? "text-lg md:text-xl mb-3" : "text-sm mb-2"
+                    isFeatured ? "text-lg md:text-xl mb-3" : "text-sm mb-2",
+                    variant === 'sidebar' && "text-[13px] font-semibold"
                   )}>
                     {citation.title || 'Documento Dehoniano'}
                   </CardTitle>
 
                   {citation.snippet && (
-                    <p className={cn(
-                      "text-muted-foreground/80 leading-relaxed font-serif italic",
-                      isFeatured ? "text-sm line-clamp-6" : "text-xs line-clamp-3"
+                    <div className={cn(
+                      "pl-3 border-l-2 border-amber-500/40 dark:border-amber-400/30",
+                      variant === 'sidebar' ? "my-2" : "my-1"
                     )}>
-                      &ldquo;{citation.snippet}&rdquo;
-                    </p>
+                      <p className={cn(
+                        "text-muted-foreground/80 leading-relaxed font-serif italic",
+                        variant === 'sidebar'
+                          ? "text-[12.5px] line-clamp-5"
+                          : isFeatured ? "text-sm line-clamp-6" : "text-xs line-clamp-3"
+                      )}>
+                        &ldquo;{citation.snippet}&rdquo;
+                      </p>
+                    </div>
                   )}
                 </div>
 

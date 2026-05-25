@@ -73,8 +73,8 @@ const MessageList: React.FC<MessageListProps> = ({
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-    // Apply magnetic effect to all view-citations buttons
-    const buttons = document.querySelectorAll('.view-citations-btn');
+    // Apply magnetic effect to all citation action buttons
+    const buttons = document.querySelectorAll('.citation-action-btn');
     buttons.forEach(btn => magneticEffect(btn as HTMLElement));
   }, [messages, isStreaming]);
 
@@ -130,18 +130,17 @@ const MessageList: React.FC<MessageListProps> = ({
             </div>
 
             {m.role === 'assistant' && m.citations && m.citations.length > 0 && (
-              <div className="sources-section" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <div className="sources-section">
+                <div className="citation-actions-container">
                   <button 
-                    className="view-citations-btn"
+                    className="citation-action-btn primary"
                     onClick={() => onViewCitations?.(m.id)}
                   >
-                    <Book size={14} />
+                    <Book size={13} />
                     <span>Ver {m.citations.length} Referências</span>
                   </button>
                   <button 
-                    className="view-citations-btn"
-                    style={{ background: 'rgba(201, 169, 110, 0.1)', color: '#c9a96e', border: '1px solid rgba(201, 169, 110, 0.3)' }}
+                    className="citation-action-btn secondary"
                     onClick={() => {
                       if (showFormatted === m.id) {
                         setShowFormatted(null);
@@ -151,27 +150,26 @@ const MessageList: React.FC<MessageListProps> = ({
                       }
                     }}
                   >
-                    <Download size={14} />
+                    <Download size={13} />
                     <span>Exportar (.ris + ABNT)</span>
                   </button>
                 </div>
                 
                 {showFormatted === m.id && (
-                  <div className="abnt-format-box animate-fade-in" style={{
-                    marginTop: '8px', padding: '12px', background: '#0d1117', 
-                    border: '1px solid #30363d', borderRadius: '6px', fontSize: '13px',
-                    position: 'relative'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#8b949e' }}>
-                      <strong style={{ color: '#e6edf3' }}>Formatação ABNT</strong>
-                      <button onClick={() => copyToClipboard(getABNT(m.citations!).replace(/\*\*/g, ''))} style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', background: 'transparent', border: 'none', color: copied ? '#3fb950' : '#8b949e' }}>
-                        {copied ? <Check size={14} /> : <Copy size={14} />}
-                        {copied ? 'Copiado!' : 'Copiar'}
+                  <div className="abnt-format-box animate-fade-in">
+                    <div className="abnt-header">
+                      <strong className="abnt-title">Formatação ABNT</strong>
+                      <button 
+                        className={`abnt-copy-btn ${copied ? 'copied' : ''}`}
+                        onClick={() => copyToClipboard(getABNT(m.citations!).replace(/\*\*/g, ''))}
+                      >
+                        {copied ? <Check size={13} /> : <Copy size={13} />}
+                        <span>{copied ? 'Copiado!' : 'Copiar'}</span>
                       </button>
                     </div>
-                    <div style={{ color: '#c9d1d9', lineHeight: '1.6' }}>
+                    <div className="abnt-content">
                       {getABNT(m.citations!).split('\n\n').map((cite, i) => (
-                        <p key={i} style={{ marginBottom: '8px' }}>
+                        <p key={i}>
                           <ReactMarkdown>{cite}</ReactMarkdown>
                         </p>
                       ))}
