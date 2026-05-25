@@ -72,6 +72,7 @@ export default function AdminApp({ onBackToChat }: AdminAppProps) {
 
   const userEmail = session.user?.email || '';
   const isAdmin = userEmail === 'fr.utxicascj@gmail.com' ||
+                  userEmail === 'jutxica2202@gmail.com' ||
                   userEmail.endsWith('@dehon.ai') ||
                   userEmail.endsWith('@congregacao.org');
 

@@ -440,8 +440,6 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
       <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
-        isAdmin={isAdmin}
-        onSwitchToAdmin={onSwitchToAdmin}
         onNewChat={startNewChat}
         conversations={conversations}
         currentId={currentId}

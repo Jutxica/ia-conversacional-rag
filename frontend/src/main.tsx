@@ -7,7 +7,7 @@ import { supabase } from './supabaseClient'
 import ErrorBoundary from './components/ui/ErrorBoundary'
 
 // Authorized domains/emails for Admin access
-const AUTHORIZED_ADMINS = ['fr.utxicascj@gmail.com']; // Specific emails
+const AUTHORIZED_ADMINS = ['fr.utxicascj@gmail.com', 'jutxica2202@gmail.com']; // Specific emails
 const AUTHORIZED_DOMAINS = ['dehon.ai', 'congregacao.org']; // Domains
 
 function AppRoot() {
@@ -16,8 +16,11 @@ function AppRoot() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    // Check initial path
-    if (window.location.pathname === '/admin') {
+    const hostname = window.location.hostname;
+    const isSubdomainAdmin = hostname.startsWith('admin.');
+
+    // Check initial path or subdomain
+    if (window.location.pathname === '/admin' || isSubdomainAdmin) {
       setView('admin');
     } else if (window.location.pathname === '/secret-admin') {
       setView('secret-admin');
