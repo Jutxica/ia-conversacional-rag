@@ -10,7 +10,7 @@ import MessageList from './components/chat/MessageList';
 import ChatInput from './components/chat/ChatInput';
 import CitationGrid from './components/ui/CitationGrid';
 // Icons
-import { Menu, ShieldCheck, Share2, Check, LogOut, X, BookOpen } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, ShieldCheck, Share2, Check, LogOut, X, BookOpen } from 'lucide-react';
 
 // --- Types ---
 interface Citation {
@@ -457,7 +457,13 @@ export default function App() {
       <main className="main-viewport">
         <div className="page-panel">
           <header className="top-nav">
-            <button className="menu-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)}><Menu size={20} /></button>
+            <button 
+              className="menu-toggle" 
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              title={isSidebarOpen ? "Recolher barra lateral" : "Expandir barra lateral"}
+            >
+              {isSidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
+            </button>
             <div className="nav-brand" onClick={startNewChat}>
               <img src="/Navbar.png" alt="Dehon AI" />
             </div>

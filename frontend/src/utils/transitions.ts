@@ -32,7 +32,8 @@ export const stagerReveal = (targets: string | HTMLElement[]) => {
 };
 
 export const magneticEffect = (element: HTMLElement) => {
-  if (!element) return;
+  if (!element || element.dataset.magnetic === 'true') return;
+  element.dataset.magnetic = 'true';
 
   element.addEventListener('mousemove', (e: MouseEvent) => {
     const { left, top, width, height } = element.getBoundingClientRect();
