@@ -15,7 +15,7 @@ services:
       - key: PYTHONPATH
         value: "."
       - key: ALLOWED_ORIGINS
-        value: "https://dehon-ai.onrender.com,https://dehon-ai-frontend.onrender.com,http://localhost:5173"
+        value: "https://dehon-ai.onrender.com,https://dehon-ai-frontend.onrender.com,http://localhost:5173,https://dehonia.conventinho.org.br,https://www.dehonia.conventinho.org.br,https://dehon-ai.conventinho.org.br"
       - key: ENABLE_RERANKER
         value: "false"
 
@@ -24,6 +24,10 @@ services:
     env: static
     buildCommand: "cd frontend && npm install && npm run build"
     staticPublishPath: "./frontend/dist"
+    routes:
+      - type: rewrite
+        source: "/*"
+        destination: "/index.html"
     envVars:
       - key: VITE_API_URL
         value: "https://dehon-ai-backend.onrender.com/api/chat"

@@ -46,7 +46,12 @@ interface Conversation {
   user_id?: string;
 }
 
-export default function App() {
+interface AppProps {
+  isAdmin: boolean;
+  onSwitchToAdmin: () => void;
+}
+
+export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: AppProps) {
   const [session, setSession] = useState<any>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -435,6 +440,8 @@ export default function App() {
       <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
+        isAdmin={isAdmin}
+        onSwitchToAdmin={onSwitchToAdmin}
         onNewChat={startNewChat}
         conversations={conversations}
         currentId={currentId}

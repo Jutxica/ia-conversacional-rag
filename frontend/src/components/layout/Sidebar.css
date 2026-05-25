@@ -452,6 +452,19 @@
   background: rgba(239, 68, 68, 0.07);
 }
 
+.sb-opt-admin {
+  color: var(--accent-primary);
+  border: 1px dashed rgba(30, 64, 175, 0.25);
+  background: var(--accent-glow);
+  margin-bottom: 8px;
+}
+
+.sb-opt-admin:hover {
+  background: var(--accent-primary);
+  color: var(--bg-primary);
+  border-color: var(--accent-primary);
+}
+
 /* Security badge */
 .sb-security {
   display: flex;

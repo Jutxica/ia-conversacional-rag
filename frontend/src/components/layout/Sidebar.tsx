@@ -45,6 +45,8 @@ interface SidebarProps {
   onAutoCleanupChange: (settings: any) => void;
   categories: string[];
   onCategoriesChange: (categories: string[]) => void;
+  isAdmin?: boolean;
+  onSwitchToAdmin?: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -67,6 +69,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onAutoCleanupChange,
   categories,
   onCategoriesChange,
+  isAdmin = false,
+  onSwitchToAdmin,
 }) => {
   const newChatRef = React.useRef<HTMLButtonElement>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -327,6 +331,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                   )}
                 </div>
+
+                {isAdmin && onSwitchToAdmin && (
+                  <button className="sb-opt-btn sb-opt-admin" onClick={onSwitchToAdmin}>
+                    <ShieldCheck size={15} />
+                    <span>Painel Administrativo</span>
+                  </button>
+                )}
 
                 <button className="sb-opt-btn sb-opt-logout" onClick={onLogout}>
                   <LogOut size={15} />
