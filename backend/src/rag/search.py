@@ -250,17 +250,21 @@ def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None,
         chunk_index = meta.get('chunk_index')
         content = match.get('content', '')
 
-        full_context_text = content
-        if source_id and chunk_index is not None:
-            prev_content = neighbors_by_key.get((source_id, chunk_index - 1))
-            next_content = neighbors_by_key.get((source_id, chunk_index + 1))
-            
-            if prev_content or next_content:
-                parts = []
-                if prev_content: parts.append(prev_content)
-                parts.append(content)
-                if next_content: parts.append(next_content)
-                full_context_text = "\n[...]\n".join(parts)
+        parent_text = meta.get('parent_text')
+        if parent_text:
+            full_context_text = parent_text
+        else:
+            full_context_text = content
+            if source_id and chunk_index is not None:
+                prev_content = neighbors_by_key.get((source_id, chunk_index - 1))
+                next_content = neighbors_by_key.get((source_id, chunk_index + 1))
+                
+                if prev_content or next_content:
+                    parts = []
+                    if prev_content: parts.append(prev_content)
+                    parts.append(content)
+                    if next_content: parts.append(next_content)
+                    full_context_text = "\n[...]\n".join(parts)
 
         ref_num = i + 1
         title = meta.get('title', 'Documento Dehoniano')

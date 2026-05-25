@@ -18,13 +18,18 @@
 - [x] **Chat em Tempo Real:** Interface fluida com streaming (Implementado).
 - [x] **Scholarly Design:** Estética minimalista e sofisticada (Implementado).
 - [x] **Gestão de Histórico:** Sidebar funcional com CRUD de conversas (Implementado).
-- [ ] **Indicadores de Estado (Agentic UI):** Refinar frases descritivas do processo de busca (Em progresso).
-- [ ] **Citações Inline e Side Panel:** Visualização detalhada de fragmentos (Próxima etapa).
+- [x] **Indicadores de Estado (Agentic UI):** Refinar frases descritivas do processo de busca (Implementado).
+- [x] **Citações Inline e Side Panel:** Visualização detalhada de fragmentos no painel lateral bento-grid (Implementado).
+- [x] **Painel de Ingestão de Logs (SSE):** Monitoramento visual de uploads e parsing (Implementado).
+- [x] **Visualizador e Editor de Chunks:** Visualização e edição inline do corpus com badge `EDITADO` (Implementado).
 
 ### 5.2. Motor de Busca e IA (Backend RAG)
 - [x] **Busca Híbrida Inteligente:** Vetores + Keyword via Supabase (Implementado).
 - [x] **Chunking com Overlap:** Preservação de semântica entre parágrafos (Implementado).
-- [ ] **Etapa de Re-ranking:** Integração de Cross-Encoder (Planejado).
+- [x] **Etapa de Re-ranking:** Integração de Cross-Encoder (`ms-marco-MiniLM-L-6-v2`) e cálculo de score de confiança dinâmico (Implementado).
+- [x] **Incremental Record Manager:** Deduplicação inteligente de arquivos por hash SHA-256 (Implementado).
+- [x] **Fatiamento Dual (Parent-Child):** Divisão em chunks de representação (200 tokens) e chunks de contexto (1000 tokens) com mapeamento no `parent_text` (Implementado).
+- [x] **Cache Semântico:** TTLCache para query embeddings no backend (Implementado).
 - [x] **Multilinguismo:** Suporte a documentos em Latim/Francês (Implementado via LLM).
 
 ---

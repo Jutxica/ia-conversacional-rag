@@ -4,6 +4,8 @@ import {
   Settings, BarChart3, Search, Plus, Edit2, X, Info, Calendar, ThumbsUp, ThumbsDown, 
   MessageSquare, HelpCircle, BookOpen, AlertCircle, Sun, Moon
 } from 'lucide-react';
+import LiveLogsPanel from './LiveLogsPanel';
+import AnalyticsDashboard from './AnalyticsDashboard';
 
 const API_BASE = import.meta.env.VITE_API_URL?.replace('/api/chat', '') || 'http://localhost:8000';
 
@@ -81,7 +83,22 @@ interface Props {
   onBackToChat?: () => void;
 }
 
-type ActiveSection = 'metrics' | 'corpus' | 'upload' | 'url-ingest' | 'siglario' | 'blessed' | 'logs';
+type ActiveSection = 'metrics' | 'corpus' | 'upload' | 'url-ingest' | 'siglario' | 'blessed' | 'logs' | 'analytics';
+
+/** Converte erros Pydantic (array de objetos) ou strings em texto legível */
+function parseDetail(detail: any, fallback = 'Erro no servidor.'): string {
+  if (!detail) return fallback;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((e: any) => {
+        const field = Array.isArray(e.loc) ? e.loc.filter((l: any) => l !== 'body').join(' → ') : '';
+        return field ? `${field}: ${e.msg}` : e.msg;
+      })
+      .join('\n');
+  }
+  return fallback;
+}
 
 export default function AdminDashboardPage({ token, onLogout, onBackToChat }: Props) {
   const [activeSection, setActiveSection] = useState<ActiveSection>('metrics');
@@ -109,12 +126,20 @@ export default function AdminDashboardPage({ token, onLogout, onBackToChat }: Pr
   const [docChunks, setDocChunks] = useState<DocChunk[]>([]);
   const [isLoadingChunks, setIsLoadingChunks] = useState(false);
   const [isChunksModalOpen, setIsChunksModalOpen] = useState(false);
+
+  // Chunk Editor State
+  const [editingChunkId, setEditingChunkId] = useState<string | null>(null);
+  const [editingChunkContent, setEditingChunkContent] = useState<string>('');
+  const [isSavingChunk, setIsSavingChunk] = useState<boolean>(false);
   
   // Upload State
   const [isDragging, setIsDragging] = useState(false);
   const [upload, setUpload] = useState<UploadState>({ status: 'idle', message: '' });
   const [sigla, setSigla] = useState('PDF');
   const [docTitle, setDocTitle] = useState('');
+  const [docAuthor, setDocAuthor] = useState('');
+  const [docYear, setDocYear] = useState('');
+  const [docCategory, setDocCategory] = useState('Obras Espirituais');
   const [weight, setWeight] = useState(5);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -149,6 +174,9 @@ export default function AdminDashboardPage({ token, onLogout, onBackToChat }: Pr
   // URL Ingest State
   const [urlIngestUrl, setUrlIngestUrl] = useState('');
   const [urlIngestTitle, setUrlIngestTitle] = useState('');
+  const [urlIngestAuthor, setUrlIngestAuthor] = useState('');
+  const [urlIngestYear, setUrlIngestYear] = useState('');
+  const [urlIngestCategory, setUrlIngestCategory] = useState('Obras Espirituais');
   const [urlIngestSigla, setUrlIngestSigla] = useState('WEB');
   const [urlIngestWeight, setUrlIngestWeight] = useState(5);
   const [urlIngest, setUrlIngest] = useState<UploadState>({ status: 'idle', message: '' });
@@ -195,6 +223,45 @@ export default function AdminDashboardPage({ token, onLogout, onBackToChat }: Pr
       setDocChunks([]);
     } finally {
       setIsLoadingChunks(false);
+    }
+  };
+
+  const handleUpdateChunk = async (chunkId: string) => {
+    if (!editingChunkContent.trim()) return;
+    setIsSavingChunk(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/chunks/${encodeURIComponent(chunkId)}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ content: editingChunkContent })
+      });
+      if (res.status === 401 || res.status === 403) { onLogout(); return; }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      
+      // Update local state
+      setDocChunks(prev => prev.map(c => {
+        if (c.id === chunkId) {
+          return {
+            ...c,
+            content: editingChunkContent,
+            metadata: {
+              ...c.metadata,
+              edited: true
+            }
+          };
+        }
+        return c;
+      }));
+      
+      setEditingChunkId(null);
+    } catch (e) {
+      console.error('Erro ao atualizar chunk:', e);
+      alert('Erro ao atualizar fragmento. Tente novamente.');
+    } finally {
+      setIsSavingChunk(false);
     }
   };
 
@@ -415,7 +482,10 @@ export default function AdminDashboardPage({ token, onLogout, onBackToChat }: Pr
     formData.append('file', file);
     formData.append('sigla', sigla);
     formData.append('document_weight', String(weight));
-    if (docTitle.trim()) formData.append('title', docTitle.trim());
+    formData.append('title', docTitle.trim() || file.name.replace(".pdf", ""));
+    formData.append('author', docAuthor.trim());
+    formData.append('year', docYear.toString());
+    formData.append('category', docCategory);
 
     try {
       const res = await fetch(`${API_BASE}/api/admin/upload`, {
@@ -428,7 +498,7 @@ export default function AdminDashboardPage({ token, onLogout, onBackToChat }: Pr
       const data = await res.json();
 
       if (!res.ok) {
-        setUpload({ status: 'error', message: data.detail || 'Erro ao processar PDF no servidor.' });
+        setUpload({ status: 'error', message: parseDetail(data.detail, 'Erro ao processar PDF no servidor.') });
         return;
       }
 
@@ -438,6 +508,9 @@ export default function AdminDashboardPage({ token, onLogout, onBackToChat }: Pr
         chunks: data.chunks_inserted,
       });
       setDocTitle('');
+      setDocAuthor('');
+      setDocYear('');
+      setDocCategory('Obras Espirituais');
       setSigla('PDF');
       setWeight(5);
     } catch (e: any) {
@@ -465,7 +538,10 @@ export default function AdminDashboardPage({ token, onLogout, onBackToChat }: Pr
           headers: authHeaders,
           body: JSON.stringify({
             url: currentUrl,
-            title: urls.length === 1 ? (urlIngestTitle.trim() || undefined) : undefined,
+            title: urls.length === 1 ? (urlIngestTitle.trim() || currentUrl) : currentUrl,
+            author: urlIngestAuthor.trim() || "Autor Desconhecido",
+            year: parseInt(urlIngestYear) || new Date().getFullYear(),
+            category: urlIngestCategory,
             sigla: urlIngestSigla,
             document_weight: urlIngestWeight,
           }),
@@ -478,7 +554,7 @@ export default function AdminDashboardPage({ token, onLogout, onBackToChat }: Pr
           successCount++;
           totalChunks += (data.chunks_inserted || 0);
         } else {
-          console.error(`Erro ao indexar ${currentUrl}:`, data.detail);
+          console.error(`Erro ao indexar ${currentUrl}:`, parseDetail(data.detail));
         }
       } catch (err: any) {
          console.error(`Erro na requisição para ${currentUrl}:`, err.message);
@@ -493,6 +569,9 @@ export default function AdminDashboardPage({ token, onLogout, onBackToChat }: Pr
       });
       setUrlIngestUrl('');
       setUrlIngestTitle('');
+      setUrlIngestAuthor('');
+      setUrlIngestYear('');
+      setUrlIngestCategory('Obras Espirituais');
       setUrlIngestSigla('WEB');
       setUrlIngestWeight(5);
     } else {
@@ -580,17 +659,24 @@ export default function AdminDashboardPage({ token, onLogout, onBackToChat }: Pr
         </div>
 
         <nav className="adm-nav">
-          <button
-            className={`adm-nav-item ${activeSection === 'metrics' ? 'active' : ''}`}
+          <div className="adm-nav-group-title">OPERAÇÃO</div>
+          <button 
             onClick={() => setActiveSection('metrics')}
+            className={`adm-nav-item ${activeSection === 'metrics' ? 'active' : ''}`}
           >
-            <BarChart3 size={16} />
-            <span>Métricas</span>
+            <BarChart3 size={18} />
+            <span>Painel Geral</span>
           </button>
-          
-          <button
-            className={`adm-nav-item ${activeSection === 'corpus' ? 'active' : ''}`}
+          <button 
+            onClick={() => setActiveSection('analytics')}
+            className={`adm-nav-item ${activeSection === 'analytics' ? 'active' : ''}`}
+          >
+            <Database size={18} />
+            <span>Analytics</span>
+          </button>
+          <button 
             onClick={() => setActiveSection('corpus')}
+            className={`adm-nav-item ${activeSection === 'corpus' ? 'active' : ''}`}
           >
             <Database size={16} />
             <span>Corpus Dehoniano</span>
@@ -670,8 +756,9 @@ export default function AdminDashboardPage({ token, onLogout, onBackToChat }: Pr
               {activeSection === 'siglario' && 'Dicionário de Siglas (Siglário)'}
               {activeSection === 'blessed' && 'Respostas Curadas (Blessed Answers)'}
               {activeSection === 'logs' && 'Logs de Auditoria e Feedback'}
+              {activeSection === 'analytics' && 'Analytics do Sistema'}
             </h1>
-            <p className="adm-page-desc">
+            <p className="adm-header-desc">
               {activeSection === 'metrics' && 'Visão consolidada da operação, satisfação dos pesquisadores e lacunas detectadas.'}
               {activeSection === 'corpus' && 'Gerencie os livros, diários e cartas indexados na base RAG.'}
               {activeSection === 'upload' && 'Faça o upload de documentos PDF. Os textos serão processados via Firecrawl e vetorizados.'}
@@ -679,6 +766,7 @@ export default function AdminDashboardPage({ token, onLogout, onBackToChat }: Pr
               {activeSection === 'siglario' && 'Abreviações e siglas das obras do Padre Dehon usadas na expansão de busca.'}
               {activeSection === 'blessed' && 'Respostas de especialistas injetadas no contexto RAG para perguntas críticas.'}
               {activeSection === 'logs' && 'Histórico de perguntas, intenções, scores de confiança e avaliações dos usuários.'}
+              {activeSection === 'analytics' && 'Estatísticas de documentos, interações e performance do cache.'}
             </p>
           </div>
           
@@ -808,6 +896,13 @@ export default function AdminDashboardPage({ token, onLogout, onBackToChat }: Pr
           </div>
         )}
 
+        {/* --- SECTION: ANALYTICS --- */}
+        {activeSection === 'analytics' && (
+          <div className="adm-content">
+            <AnalyticsDashboard token={token} />
+          </div>
+        )}
+
         {/* --- SECTION: CORPUS --- */}
         {activeSection === 'corpus' && (
           <div className="adm-content">
@@ -926,14 +1021,48 @@ export default function AdminDashboardPage({ token, onLogout, onBackToChat }: Pr
             <div className="adm-upload-wrap">
               <div className="adm-meta-grid">
                 <div className="adm-meta-field">
-                  <label>Título do documento</label>
+                  <label>Título do documento *</label>
                   <input
                     type="text"
                     placeholder="Ex: Diário do Padre Dehon - Vol II"
                     value={docTitle}
                     onChange={e => setDocTitle(e.target.value)}
                     className="adm-input"
+                    required
                   />
+                </div>
+                <div className="adm-meta-field">
+                  <label>Autor *</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Leão Dehon"
+                    value={docAuthor}
+                    onChange={e => setDocAuthor(e.target.value)}
+                    className="adm-input"
+                    required
+                  />
+                </div>
+                <div className="adm-meta-field adm-meta-field--sm">
+                  <label>Ano *</label>
+                  <input
+                    type="number"
+                    placeholder="Ex: 1889"
+                    value={docYear}
+                    onChange={e => setDocYear(e.target.value)}
+                    className="adm-input"
+                    required
+                  />
+                </div>
+                <div className="adm-meta-field">
+                  <label>Categoria *</label>
+                  <select
+                    value={docCategory}
+                    onChange={e => setDocCategory(e.target.value)}
+                    className="adm-input"
+                    style={{ background: '#161b22', border: '1px solid #30363d', color: '#f0f6fc' }}
+                  >
+                    {CATEGORIES.filter(c => c !== 'Todas').map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
                 </div>
                 <div className="adm-meta-field adm-meta-field--sm">
                   <label>Sigla da Obra</label>
@@ -1009,6 +1138,8 @@ export default function AdminDashboardPage({ token, onLogout, onBackToChat }: Pr
                   <button onClick={() => setUpload({ status: 'idle', message: '' })} className="adm-feedback-close">✕</button>
                 </div>
               )}
+              
+              <LiveLogsPanel token={token} />
             </div>
           </div>
         )}
@@ -1042,7 +1173,44 @@ export default function AdminDashboardPage({ token, onLogout, onBackToChat }: Pr
                         onChange={e => setUrlIngestTitle(e.target.value)}
                         className="adm-input"
                         disabled={urlIngest.status === 'uploading'}
+                        required
                       />
+                    </div>
+                    <div className="adm-meta-field">
+                      <label>Autor *</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: Leão Dehon"
+                        value={urlIngestAuthor}
+                        onChange={e => setUrlIngestAuthor(e.target.value)}
+                        className="adm-input"
+                        disabled={urlIngest.status === 'uploading'}
+                        required
+                      />
+                    </div>
+                    <div className="adm-meta-field adm-meta-field--sm">
+                      <label>Ano *</label>
+                      <input
+                        type="number"
+                        placeholder="Ex: 1889"
+                        value={urlIngestYear}
+                        onChange={e => setUrlIngestYear(e.target.value)}
+                        className="adm-input"
+                        disabled={urlIngest.status === 'uploading'}
+                        required
+                      />
+                    </div>
+                    <div className="adm-meta-field">
+                      <label>Categoria *</label>
+                      <select
+                        value={urlIngestCategory}
+                        onChange={e => setUrlIngestCategory(e.target.value)}
+                        className="adm-input"
+                        disabled={urlIngest.status === 'uploading'}
+                        style={{ background: '#161b22', border: '1px solid #30363d', color: '#f0f6fc' }}
+                      >
+                        {CATEGORIES.filter(c => c !== 'Todas').map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
                     </div>
                     <div className="adm-meta-field adm-meta-field--sm">
                       <label>Sigla da Obra</label>
@@ -1130,6 +1298,8 @@ export default function AdminDashboardPage({ token, onLogout, onBackToChat }: Pr
                   <li>O campo <strong>source_url</strong> é salvo nos metadados para rastreabilidade.</li>
                 </ul>
               </div>
+              
+              <LiveLogsPanel token={token} />
             </div>
           </div>
         )}
@@ -1472,17 +1642,81 @@ export default function AdminDashboardPage({ token, onLogout, onBackToChat }: Pr
               ) : docChunks.length === 0 ? (
                 <p style={{ color: '#8b949e', fontSize: '13px', textAlign: 'center' }}>Nenhum detalhe do chunk retornado pelo banco.</p>
               ) : (
-                docChunks.map((chunk, idx) => (
-                  <div key={chunk.id || idx} style={{ background: '#0d1117', border: '1px solid #21262d', borderRadius: '8px', padding: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #21262d', paddingBottom: '8px', marginBottom: '10px', fontSize: '11px', color: '#8b949e' }}>
-                      <span>Fragmento #{chunk.metadata?.chunk_index ?? idx + 1}</span>
-                      <span style={{ fontFamily: 'monospace' }}>ID: {chunk.id}</span>
+                docChunks.map((chunk, idx) => {
+                  const isEditing = editingChunkId === chunk.id;
+                  const isEdited = chunk.metadata?.edited === true;
+                  return (
+                    <div key={chunk.id || idx} style={{ background: '#0d1117', border: '1px solid #21262d', borderRadius: '8px', padding: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #21262d', paddingBottom: '8px', marginBottom: '10px', fontSize: '11px', color: '#8b949e' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span>Fragmento #{chunk.metadata?.chunk_index ?? idx + 1}</span>
+                          {isEdited && (
+                            <span style={{ background: 'rgba(201, 169, 110, 0.1)', color: '#c9a96e', padding: '1px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600 }}>
+                              EDITADO
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span style={{ fontFamily: 'monospace' }}>ID: {chunk.id}</span>
+                          {!isEditing && (
+                            <button
+                              onClick={() => {
+                                setEditingChunkId(chunk.id);
+                                setEditingChunkContent(chunk.content);
+                              }}
+                              style={{ background: 'none', border: 'none', color: '#c9a96e', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: 0 }}
+                              title="Editar este fragmento"
+                            >
+                              <Edit2 size={12} />
+                              <span>Editar</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {isEditing ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          <textarea
+                            className="adm-input"
+                            style={{ width: '100%', minHeight: '120px', fontSize: '13px', lineHeight: 1.6, background: '#0d1117', border: '1px solid #30363d', color: '#c9d1d9', borderRadius: '6px', padding: '10px', resize: 'vertical' }}
+                            value={editingChunkContent}
+                            onChange={e => setEditingChunkContent(e.target.value)}
+                            disabled={isSavingChunk}
+                          />
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                            <button 
+                              className="adm-sec-btn"
+                              style={{ padding: '6px 12px', fontSize: '12px' }}
+                              onClick={() => setEditingChunkId(null)}
+                              disabled={isSavingChunk}
+                            >
+                              Cancelar
+                            </button>
+                            <button 
+                              className="adm-cta-btn"
+                              style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                              onClick={() => handleUpdateChunk(chunk.id)}
+                              disabled={isSavingChunk}
+                            >
+                              {isSavingChunk ? (
+                                <>
+                                  <Loader size={12} className="spinning" />
+                                  <span>Salvando...</span>
+                                </>
+                              ) : (
+                                <span>Salvar Alterações</span>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: '13px', color: '#c9d1d9', lineHeight: 1.6, whiteSpace: 'pre-wrap', margin: 0 }}>
+                          {chunk.content}
+                        </p>
+                      )}
                     </div>
-                    <p style={{ fontSize: '13px', color: '#c9d1d9', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-                      {chunk.content}
-                    </p>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

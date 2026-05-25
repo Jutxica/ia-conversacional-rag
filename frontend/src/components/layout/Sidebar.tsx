@@ -43,6 +43,8 @@ interface SidebarProps {
   onScopeChange: (scope: string) => void;
   autoCleanup: { enabled: boolean; maxDays: number; maxCount: number };
   onAutoCleanupChange: (settings: any) => void;
+  categories: string[];
+  onCategoriesChange: (categories: string[]) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -63,11 +65,43 @@ const Sidebar: React.FC<SidebarProps> = ({
   onScopeChange,
   autoCleanup,
   onAutoCleanupChange,
+  categories,
+  onCategoriesChange,
 }) => {
   const newChatRef = React.useRef<HTMLButtonElement>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isScopeOpen, setIsScopeOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isCollectionsOpen, setIsCollectionsOpen] = useState(false);
+
+  const availableCategories = [
+    'Obras Espirituais',
+    'Obras Sociais',
+    'Diários',
+    'Viagens',
+    'Correspondência',
+    'Inéditos e Outros'
+  ];
+
+  const handleCategoryToggle = (cat: string) => {
+    if (categories.includes(cat)) {
+      onCategoriesChange(categories.filter(c => c !== cat));
+    } else {
+      onCategoriesChange([...categories, cat]);
+    }
+  };
+
+  const selectAllCategories = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onCategoriesChange(availableCategories);
+  };
+
+  const clearAllCategories = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onCategoriesChange([]);
+  };
 
   const scopes = [
     'Geral',
@@ -250,6 +284,46 @@ const Sidebar: React.FC<SidebarProps> = ({
                           {scope === s && <Check size={12} />}
                         </button>
                       ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="sb-collections-wrapper">
+                  <button 
+                    className={`sb-opt-btn sb-collections-trigger ${isCollectionsOpen ? 'active' : ''}`}
+                    onClick={() => setIsCollectionsOpen(!isCollectionsOpen)}
+                  >
+                    <Library size={15} />
+                    <span style={{ flex: 1 }}>Coleções ({categories.length})</span>
+                    <Settings2 size={12} style={{ opacity: 0.6 }} />
+                  </button>
+                  
+                  {isCollectionsOpen && (
+                    <div className="sb-collections-dropdown">
+                      <div className="sb-collections-header">
+                        <span>Coleções de Obras</span>
+                        <div className="sb-collections-actions">
+                          <button onClick={selectAllCategories} className="sb-action-link">Todas</button>
+                          <span style={{ opacity: 0.3, fontSize: '9px', margin: '0 4px', color: 'var(--text-muted)' }}>|</span>
+                          <button onClick={clearAllCategories} className="sb-action-link">Limpar</button>
+                        </div>
+                      </div>
+                      <div className="sb-collections-list">
+                        {availableCategories.map(cat => {
+                          const isChecked = categories.includes(cat);
+                          return (
+                            <label key={cat} className="sb-collection-checkbox-item">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => handleCategoryToggle(cat)}
+                                className="sb-checkbox"
+                              />
+                              <span className="sb-checkbox-label">{cat}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>

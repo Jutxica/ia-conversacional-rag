@@ -30,16 +30,37 @@ Elevar a confiança do sistema para 95%+ e garantir precisão acadêmica cirúrg
 
 ---
 
-## 🚀 Próxima Fase: Analytics e Refinamento
+## 🚀 Próxima Fase: Ingestão de Alta Confiança, Edição e Escalabilidade ✅ Concluído
 
-### 4. WebSocket para Logs/Admin
-- Notificar admin quando uma ingestão é concluída ou quando há erros.
+### 4. SSE (Server-Sent Events) para Logs de Ingestão ✅
+- **O que é:** Transmissão unidirecional e estável do progresso de processamento de documentos e links do backend para o admin.
+- **Implementação:** Stream de logs de progresso e estatísticas de OCR.
 
-### 5. Threshold Dinâmico Auto-ajustável
-- Calibrar limites de confiança com base em dados reais de feedback dos usuários.
+### 5. Record Manager e Ingestão Incremental ✅
+- **O que é:** Sistema de deduplicação inteligente baseado em SHA-256.
+- **Implementação:** Pula arquivos idênticos e reconstrói/remove de forma limpa os modificados.
 
-### 6. Cache de Embeddings Frequentes
-- Evitar chamadas repetidas à OpenAI para queries similares.
+### 6. Ingestão Parent-Child (Dupla Camada) ✅
+- **O que é:** Separação estrutural de chunks de representação semântica (Children de 200 tokens) e chunks de contexto (Parent de 1000 tokens) para máxima acurácia vetorial.
+
+### 7. Edição Inline de Chunks ✅
+- **O que é:** Interface visual e endpoint `PUT /api/admin/chunks/{chunk_id}` para corrigir falhas de OCR/transcrição histórica e atualizar o embedding.
+
+### 8. Cache Semântico de queries ✅
+- **O que é:** TTLCache para os embeddings das perguntas no backend, minimizando latência e custos.
+
+---
+
+## 🎯 Próximos Passos (Semana 3-4)
+
+### 9. Checkboxes de Coleção/Escopo na UI
+- **O que é:** Permitir que o usuário no chat filtre o escopo de busca semântica para obras específicas (ex: Diários, Cartas, Obras Gerais).
+
+### 10. Re-ranking Híbrido Local (ONNX/WebGPU)
+- **O que é:** Mover a execução do re-ranker para o navegador via WebAssembly/ONNX, reduzindo o tempo de resposta e poupando recursos do servidor.
+
+### 11. Visualizador de Embeddings 3D (t-SNE / UMAP)
+- **O que é:** Uma interface geométrica no painel administrativo para visualizar graficamente a distribuição espacial dos vetores e clusters temáticos do acervo.
 
 ---
 
@@ -52,10 +73,15 @@ Elevar a confiança do sistema para 95%+ e garantir precisão acadêmica cirúrg
 - [x] **RRF (Reciprocal Rank Fusion)** no SQL (`hybrid_search_rrf`).
 - [x] **Query Intent Detection** com ajuste dinâmico de pesos.
 - [x] **Dynamic Confidence Score** via cross-encoder.
-- [x] **Token Guard** no chunking temático.
+- [x] **Token Guard** no chunking temático com proteção robusta para longos parágrafos sem pontuação.
 - [x] **Auditoria de Normalização** (ligaduras, HTML, Unicode).
 - [x] **Search Logs & Feedback** endpoint + analytics.
-- [x] **Testes Automatizados** (24 testes pytest).
+- [x] **Record Manager & Ingestão Incremental** com deduplicação via SHA-256.
+- [x] **Estratégia Parent-Child (Dupla Camada)** vinculada a `parent_text` nos metadados.
+- [x] **Visualizador e Editor de Chunks** com badge `EDITADO` na interface e re-vetorização.
+- [x] **Logs SSE & Analytics** painéis admin integrados no frontend.
+- [x] **Cache Semântico** de query embeddings no backend.
+- [x] **Testes Automatizados** suite estendida de 24 para **30 testes unitários** no pytest.
 - [x] **CRUD de siglario e blessed_answers** endpoints admin.
 - [x] **Stress Test** script de validação.
 - [x] **Validation Script** para qualidade da ingestão.
@@ -67,4 +93,4 @@ Elevar a confiança do sistema para 95%+ e garantir precisão acadêmica cirúrg
 - [x] **Frontend:** Refinamentos tipográficos finais ("The Scholarly Gallery") com Lora (serif) no Markdown e textura sutil de papel.
 
 ---
-*Documento atualizado em 23/05/2026.*
+*Documento atualizado em 25/05/2026.*

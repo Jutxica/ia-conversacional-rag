@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import './MessageList.css';
-import { Book } from 'lucide-react';
+import { Book, Download, Copy, Check } from 'lucide-react';
 import { magneticEffect } from '../../utils/transitions';
 
 interface Message {
@@ -28,6 +28,46 @@ const MessageList: React.FC<MessageListProps> = ({
   onViewCitations 
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [showFormatted, setShowFormatted] = React.useState<string | null>(null);
+  const [copied, setCopied] = React.useState(false);
+
+  const handleExport = (citations: any[]) => {
+    // 1. Download RIS
+    let ris = '';
+    citations.forEach(c => {
+      ris += `TY  - BOOK\n`;
+      ris += `TI  - ${c.title || 'Referência Dehoniana'}\n`;
+      if (c.author) ris += `AU  - ${c.author}\n`;
+      const year = c.year || c.data || new Date().getFullYear();
+      ris += `PY  - ${year}\n`;
+      if (c.url) ris += `UR  - ${c.url}\n`;
+      ris += `ER  - \n\n`;
+    });
+    const blob = new Blob([ris], { type: 'application/x-research-info-systems' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'referencias_dehon.ris';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const getABNT = (citations: any[]) => {
+    return citations.map(c => {
+      const author = c.author ? c.author.toUpperCase() : 'DEHON, Leão';
+      const year = c.year || c.data || 's.d.';
+      const title = c.title ? `**${c.title}**` : '**Obra Dehoniana**';
+      return `${author}. ${title}. ${year}.`;
+    }).join('\n\n');
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -90,14 +130,54 @@ const MessageList: React.FC<MessageListProps> = ({
             </div>
 
             {m.role === 'assistant' && m.citations && m.citations.length > 0 && (
-              <div className="sources-section">
-                <button 
-                  className="view-citations-btn"
-                  onClick={() => onViewCitations?.(m.id)}
-                >
-                  <Book size={14} />
-                  <span>Ver {m.citations.length} Referências no Painel</span>
-                </button>
+              <div className="sources-section" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button 
+                    className="view-citations-btn"
+                    onClick={() => onViewCitations?.(m.id)}
+                  >
+                    <Book size={14} />
+                    <span>Ver {m.citations.length} Referências</span>
+                  </button>
+                  <button 
+                    className="view-citations-btn"
+                    style={{ background: 'rgba(201, 169, 110, 0.1)', color: '#c9a96e', border: '1px solid rgba(201, 169, 110, 0.3)' }}
+                    onClick={() => {
+                      if (showFormatted === m.id) {
+                        setShowFormatted(null);
+                      } else {
+                        setShowFormatted(m.id);
+                        handleExport(m.citations!);
+                      }
+                    }}
+                  >
+                    <Download size={14} />
+                    <span>Exportar (.ris + ABNT)</span>
+                  </button>
+                </div>
+                
+                {showFormatted === m.id && (
+                  <div className="abnt-format-box animate-fade-in" style={{
+                    marginTop: '8px', padding: '12px', background: '#0d1117', 
+                    border: '1px solid #30363d', borderRadius: '6px', fontSize: '13px',
+                    position: 'relative'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#8b949e' }}>
+                      <strong style={{ color: '#e6edf3' }}>Formatação ABNT</strong>
+                      <button onClick={() => copyToClipboard(getABNT(m.citations!).replace(/\*\*/g, ''))} style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', background: 'transparent', border: 'none', color: copied ? '#3fb950' : '#8b949e' }}>
+                        {copied ? <Check size={14} /> : <Copy size={14} />}
+                        {copied ? 'Copiado!' : 'Copiar'}
+                      </button>
+                    </div>
+                    <div style={{ color: '#c9d1d9', lineHeight: '1.6' }}>
+                      {getABNT(m.citations!).split('\n\n').map((cite, i) => (
+                        <p key={i} style={{ marginBottom: '8px' }}>
+                          <ReactMarkdown>{cite}</ReactMarkdown>
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

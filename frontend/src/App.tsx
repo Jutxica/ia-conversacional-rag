@@ -52,6 +52,40 @@ export default function App() {
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [scope, setScope] = useState('Geral');
+  const [categories, setCategories] = useState<string[]>(['Obras Espirituais', 'Obras Sociais', 'Diários', 'Viagens', 'Correspondência', 'Inéditos e Outros']);
+
+  const handleScopeChange = (newScope: string) => {
+    setScope(newScope);
+    if (newScope === 'Geral') {
+      setCategories(['Obras Espirituais', 'Obras Sociais', 'Diários', 'Viagens', 'Correspondência', 'Inéditos e Outros']);
+    } else if (newScope === 'Espiritualidade e Retiros' || newScope === 'Espiritualidade') {
+      setCategories(['Obras Espirituais']);
+    } else if (newScope === 'Social e Político' || newScope === 'Social') {
+      setCategories(['Obras Sociais']);
+    } else if (newScope === 'Vida e Biografia' || newScope === 'Biografia') {
+      setCategories(['Diários', 'Viagens']);
+    } else if (newScope === 'Correspondência' || newScope === 'Correspondencia') {
+      setCategories(['Correspondência']);
+    }
+  };
+
+  const handleCategoriesChange = (newCategories: string[]) => {
+    setCategories(newCategories);
+    const allCats = ['Obras Espirituais', 'Obras Sociais', 'Diários', 'Viagens', 'Correspondência', 'Inéditos e Outros'];
+    if (newCategories.length === allCats.length) {
+      setScope('Geral');
+    } else if (newCategories.length === 1 && newCategories[0] === 'Obras Espirituais') {
+      setScope('Espiritualidade e Retiros');
+    } else if (newCategories.length === 1 && newCategories[0] === 'Obras Sociais') {
+      setScope('Social e Político');
+    } else if (newCategories.length === 2 && newCategories.includes('Diários') && newCategories.includes('Viagens')) {
+      setScope('Vida e Biografia');
+    } else if (newCategories.length === 1 && newCategories[0] === 'Correspondência') {
+      setScope('Correspondência');
+    } else {
+      setScope('Personalizado');
+    }
+  };
   const [isStreaming, setIsStreaming] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Sidebar aberta por padrão conforme pedido
@@ -253,7 +287,7 @@ export default function App() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${import.meta.env.VITE_API_KEY}`
         },
-        body: JSON.stringify({ query, scope, history: historyPayload, conversation_id: currentConversationId }),
+        body: JSON.stringify({ query, scope, history: historyPayload, conversation_id: currentConversationId, categories }),
       });
 
       if (!response.ok) throw new Error(`Server Error: ${response.status}`);
@@ -413,7 +447,9 @@ export default function App() {
         theme={theme}
         onThemeToggle={toggleTheme}
         scope={scope}
-        onScopeChange={setScope}
+        onScopeChange={handleScopeChange}
+        categories={categories}
+        onCategoriesChange={handleCategoriesChange}
         autoCleanup={autoCleanup}
         onAutoCleanupChange={setAutoCleanup}
       />

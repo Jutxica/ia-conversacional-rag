@@ -70,5 +70,13 @@ O estado atual do projeto apresenta alta densidade em arquivos únicos, o que di
 
 ---
 
+## 5. Checklist de Implementação (Fase 2) ✅ CONCLUÍDO
+
+- [x] **Painel de Logs SSE (`LiveLogsPanel`)**: Implementação de visualizador de logs em tempo real para monitorar processos de ingestão e normalização de PDFs e URLs.
+- [x] **Visualizador e Editor de Chunks**: Edição direta do conteúdo bruto dos fragmentos com recalculagem imediata de embeddings e marcação com badge `EDITADO`.
+- [x] **Página de Analytics**: Cards informativos com estatísticas de chats ativos, contagem de vetores e eficiência do cache de embeddings.
+
+---
+
 > [!TIP]
 > **Design Pro**: "Menos é mais". Na estética Scholarly, o espaço em branco (white space) é seu melhor amigo. Ele transmite autoridade e foco no conteúdo sagrado/acadêmico.

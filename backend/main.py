@@ -9,10 +9,12 @@ import time
 import uuid
 import tempfile
 import re
+import hashlib
 from collections import defaultdict
 from typing import List, Optional, Union, Dict, Any
-from fastapi import FastAPI, UploadFile, File, Form, Request
+from fastapi import FastAPI, UploadFile, File, Form, Request, HTTPException, Depends
 from pydantic import BaseModel
+from cachetools import TTLCache
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -37,7 +39,7 @@ app.add_middleware(
 )
 
 # --- Camada de Segurança: Autenticação ---
-from fastapi import Header, HTTPException, Depends, Security
+from fastapi import Header, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt as pyjwt
 from datetime import datetime, timedelta
@@ -117,6 +119,28 @@ class RateLimiter:
 
 rate_limiter = RateLimiter()
 login_limiter = RateLimiter(max_requests=5, window_seconds=60)  # Stricter for login
+
+import asyncio
+
+class LogBroadcaster:
+    def __init__(self):
+        self.queues = []
+
+    async def broadcast(self, log_type: str, message: str):
+        log_entry = json.dumps({"type": log_type, "message": message, "timestamp": datetime.utcnow().isoformat() + "Z"})
+        for q in self.queues:
+            await q.put(log_entry)
+
+    def subscribe(self):
+        q = asyncio.Queue()
+        self.queues.append(q)
+        return q
+
+    def unsubscribe(self, q):
+        if q in self.queues:
+            self.queues.remove(q)
+
+log_broadcaster = LogBroadcaster()
 
 # Inicializa cliente OpenAI
 try:
@@ -267,22 +291,47 @@ def update_search_log_fallback(conversation_id: str, feedback: str, comment: str
     except Exception as e:
         print(f"[FALLBACK LOG] Error updating: {e}")
 
-def _get_scope_filter(scope: str) -> Optional[List[str]]:
-    """Maps frontend scope to list of siglas (or None for 'Geral')."""
+def _get_scope_filter(scope: str, categories: List[str] = None) -> Optional[List[str]]:
+    """Maps frontend scope or custom categories to list of siglas (or None for 'Geral')."""
+    siglario = _load_siglario()
+    
+    # Se o usuário passou categorias diretamente, mapeia elas para siglas
+    if categories is not None:
+        expanded_categories = []
+        for cat in categories:
+            if cat == "Inéditos e Outros":
+                expanded_categories.extend(["Inéditos", "Obras Diversas", "Artigos"])
+            else:
+                expanded_categories.append(cat)
+                
+        matched_siglas = []
+        for sigla, info in siglario.get("works", {}).items():
+            if info.get("category") in expanded_categories:
+                matched_siglas.append(sigla)
+        return matched_siglas
+
+    # Mapeamento do escopo legados ou amigáveis do frontend
     CATEGORY_MAP = {
         "Espiritualidade": "Obras Espirituais",
+        "Espiritualidade e Retiros": "Obras Espirituais",
         "Social": "Obras Sociais",
+        "Social e Político": "Obras Sociais",
         "Biografia": ["Diários", "Viagens"],
+        "Vida e Biografia": ["Diários", "Viagens"],
         "Correspondencia": "Correspondência",
+        "Correspondência": "Correspondência",
     }
-    if scope == "Geral":
+    
+    if scope == "Geral" or not scope:
         return None
+        
     target_categories = CATEGORY_MAP.get(scope)
     if target_categories is None:
         return None
+        
     if isinstance(target_categories, str):
         target_categories = [target_categories]
-    siglario = _load_siglario()
+        
     return [sigla for sigla, info in siglario.get("works", {}).items()
             if info.get("category") in target_categories]
 
@@ -297,6 +346,52 @@ async def health_check():
 # ─────────────────────────────────────────────
 # ADMIN ENDPOINTS (Gestão do Corpus Dehoniano)
 # ─────────────────────────────────────────────
+
+@app.get("/api/admin/logs/stream")
+async def stream_admin_logs(req: Request, token: str):
+    """SSE endpoint for real-time admin logs."""
+    # Simple token verification for SSE (can't easily use headers in EventSource)
+    try:
+        payload = pyjwt.decode(token, ADMIN_SECRET_KEY, algorithms=[ADMIN_JWT_ALGORITHM])
+        if payload.get("sub") != "admin":
+            raise ValueError("Subject inválido")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+    async def event_generator():
+        q = log_broadcaster.subscribe()
+        try:
+            while True:
+                if await req.is_disconnected():
+                    break
+                message = await q.get()
+                yield f"data: {message}\n\n"
+        finally:
+            log_broadcaster.unsubscribe(q)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+@app.get("/api/admin/analytics")
+async def get_analytics(token: str):
+    """Retorna estatísticas gerais do sistema."""
+    try:
+        payload = pyjwt.decode(token, ADMIN_SECRET_KEY, algorithms=[ADMIN_JWT_ALGORITHM])
+        if payload.get("sub") != "admin":
+            raise ValueError("Subject inválido")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+    try:
+        docs_res = supabase_admin.table('documents').select('id', count='exact').execute()
+        chats_res = supabase_admin.table('chats').select('id', count='exact').execute()
+        
+        return {
+            "total_documents": docs_res.count if hasattr(docs_res, 'count') else 0,
+            "total_chats": chats_res.count if hasattr(chats_res, 'count') else 0,
+            "cached_embeddings": len(embedding_cache)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 class AdminLoginRequest(BaseModel):
     username: str
@@ -320,19 +415,103 @@ async def admin_login(data: AdminLoginRequest, req: Request):
         "admin": ADMIN_USER
     }
 
+def _split_long_paragraph(text: str, max_tokens: int, tokenizer) -> list:
+    """Quebra um parágrafo longo em pedaços menores por frase ou palavra se necessário."""
+    if not text:
+        return []
+    total = len(tokenizer.encode(text)) if tokenizer else len(text) // 3
+    if total <= max_tokens:
+        return [text]
+    import re
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+    parts = []
+    current_chunk = []
+    current_tokens = 0
+    for sent in sentences:
+        t = len(tokenizer.encode(sent)) if tokenizer else len(sent) // 3
+        if t > max_tokens:
+            if current_chunk:
+                parts.append(" ".join(current_chunk))
+                current_chunk = []
+                current_tokens = 0
+            words = sent.split(" ")
+            word_chunk = []
+            word_tokens = 0
+            for word in words:
+                w_t = len(tokenizer.encode(word)) if tokenizer else len(word) // 3
+                if word_tokens + w_t > max_tokens and word_chunk:
+                    parts.append(" ".join(word_chunk))
+                    word_chunk = []
+                    word_tokens = 0
+                word_chunk.append(word)
+                word_tokens += w_t
+            if word_chunk:
+                parts.append(" ".join(word_chunk))
+        else:
+            if current_tokens + t > max_tokens and current_chunk:
+                parts.append(" ".join(current_chunk))
+                current_chunk = []
+                current_tokens = 0
+            current_chunk.append(sent)
+            current_tokens += t
+    if current_chunk:
+        parts.append(" ".join(current_chunk))
+    return parts
+
+# In-memory semantic cache for embeddings
+embedding_cache = TTLCache(maxsize=10000, ttl=86400)
+
+def _truncate_text(text: str, max_tokens: int = 8000) -> str:
+    """Trunca texto para no máximo max_tokens (segurança contra limite de 8192 do modelo)."""
+    try:
+        import tiktoken
+        tokenizer = tiktoken.get_encoding("cl100k_base")
+        tokens = tokenizer.encode(text)
+        if len(tokens) > max_tokens:
+            return tokenizer.decode(tokens[:max_tokens])
+    except Exception:
+        approx_limit = max_tokens * 2
+        if len(text) > approx_limit:
+            return text[:approx_limit]
+    return text
+
 def _get_embedding_batch(texts: List[str]) -> List[List[float]]:
-    """Gera embeddings usando text-embedding-3-large (2000 dims)."""
-    cleaned = [t[:30000].replace("\n", " ") for t in texts]
-    resp = client.embeddings.create(
-        input=cleaned,
-        model="text-embedding-3-large",
-        dimensions=2000
-    )
-    return [d.embedding for d in resp.data]
+    """Gera embeddings usando text-embedding-3-large (2000 dims), com cache em memória."""
+    client = OpenAI(api_key=openai_key)
+    
+    results = [None] * len(texts)
+    uncached_indices = []
+    uncached_texts = []
+    
+    for i, text in enumerate(texts):
+        safe_text = _truncate_text(text)
+        cache_key = hashlib.sha256(safe_text.encode('utf-8')).hexdigest()
+        if cache_key in embedding_cache:
+            results[i] = embedding_cache[cache_key]
+        else:
+            uncached_indices.append(i)
+            uncached_texts.append(safe_text)
+            
+    if uncached_texts:
+        resp = client.embeddings.create(
+            input=uncached_texts,
+            model="text-embedding-3-large",
+            dimensions=2000
+        )
+        for j, data in enumerate(resp.data):
+            emb = data.embedding
+            cache_key = hashlib.sha256(uncached_texts[j].encode('utf-8')).hexdigest()
+            embedding_cache[cache_key] = emb
+            results[uncached_indices[j]] = emb
+            
+    return results
 
 class UrlIngestRequest(BaseModel):
     url: str
-    title: str = ""
+    title: str
+    author: str
+    year: int
+    category: str
     sigla: str = "WEB"
     document_weight: int = 5
 
@@ -352,6 +531,7 @@ async def admin_ingest_url(data: UrlIngestRequest):
     # 1. Tenta com Firecrawl se estiver configurado
     if firecrawl_app:
         try:
+            await log_broadcaster.broadcast("info", f"[{url}] Iniciando extração com Firecrawl...")
             result = firecrawl_app.scrape(
                 url,
                 formats=["markdown"],
@@ -361,7 +541,9 @@ async def admin_ingest_url(data: UrlIngestRequest):
                 markdown_text = result.markdown
             elif isinstance(result, dict):
                 markdown_text = result.get("markdown") or result.get("content", "")
+            await log_broadcaster.broadcast("success", f"[{url}] Extração via Firecrawl concluída.")
         except Exception as e:
+            await log_broadcaster.broadcast("error", f"[{url}] Firecrawl falhou: {e}. Tentando fallback BeautifulSoup.")
             print(f"[URL INGEST] Firecrawl falhou para {url}: {e}. Tentando fallback BeautifulSoup.")
 
     # 2. Fallback: BeautifulSoup
@@ -414,8 +596,36 @@ async def admin_ingest_url(data: UrlIngestRequest):
     markdown_text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', markdown_text)
     markdown_text = markdown_text.strip()
 
+    import hashlib
+    content_hash = hashlib.sha256(markdown_text.encode('utf-8')).hexdigest()
+
     doc_title = data.title or url
     source_id = url.replace("https://", "").replace("http://", "").replace("/", "_")[:120]
+
+    # Verifica se já existe e se o conteúdo é idêntico
+    try:
+        existing = supabase_admin.table("documents") \
+            .select("metadata") \
+            .eq("metadata->>source_id", source_id) \
+            .limit(1) \
+            .execute()
+        if existing.data:
+            existing_meta = existing.data[0].get("metadata", {})
+            if existing_meta.get("content_hash") == content_hash:
+                await log_broadcaster.broadcast("success", f"[{doc_title}] Conteúdo da URL idêntico ao indexado. Pulando ingestão.")
+                return {
+                    "status": "skipped",
+                    "document": doc_title,
+                    "source_id": source_id,
+                    "url": url,
+                    "chunks_inserted": 0,
+                    "message": "Conteúdo inalterado. Ingestão pulada."
+                }
+            # Se mudou, limpa os antigos antes de reindexar
+            await log_broadcaster.broadcast("info", f"[{doc_title}] Conteúdo da URL alterado. Limpando chunks antigos...")
+            supabase_admin.table("documents").delete().eq("metadata->>source_id", source_id).execute()
+    except Exception as e:
+        print(f"[INGEST-URL] Erro ao verificar duplicados: {e}")
 
     # Chunking token-aware
     try:
@@ -424,37 +634,80 @@ async def admin_ingest_url(data: UrlIngestRequest):
     except ImportError:
         tokenizer = None
 
-    MAX_TOKENS = 800
-    OVERLAP_TOKENS = 150
-    paragraphs = [p.strip() for p in markdown_text.split('\n') if p.strip()]
-    texts = []
-    current_chunk: List[str] = []
+    PARENT_MAX_TOKENS = 1000
+    CHILD_MAX_TOKENS = 200
+    
+    # 1. Primeiro dividimos o texto em Parent chunks
+    raw_paragraphs = [p.strip() for p in markdown_text.split('\n') if p.strip()]
+    paragraphs = []
+    for p in raw_paragraphs:
+        paragraphs.extend(_split_long_paragraph(p, PARENT_MAX_TOKENS, tokenizer))
+        
+    parent_texts = []
+    current_parent = []
     current_tokens = 0
-
     for par in paragraphs:
         par_tokens = len(tokenizer.encode(par)) if tokenizer else len(par) // 3
-        if current_tokens + par_tokens > MAX_TOKENS and current_chunk:
-            texts.append("\n\n".join(current_chunk))
-            overlap_chunk: List[str] = []
+        if current_tokens + par_tokens > PARENT_MAX_TOKENS and current_parent:
+            parent_texts.append("\n\n".join(current_parent))
+            overlap_chunk = []
             overlap_tokens = 0
-            for p in reversed(current_chunk):
+            for p in reversed(current_parent):
                 p_t = len(tokenizer.encode(p)) if tokenizer else len(p) // 3
-                if overlap_tokens + p_t <= OVERLAP_TOKENS:
+                if overlap_tokens + p_t <= 200:
                     overlap_chunk.insert(0, p)
                     overlap_tokens += p_t
                 else:
                     break
-            current_chunk = overlap_chunk
+            current_parent = overlap_chunk
             current_tokens = overlap_tokens
-        current_chunk.append(par)
+        current_parent.append(par)
         current_tokens += par_tokens
-
-    if current_chunk:
-        texts.append("\n\n".join(current_chunk))
+    if current_parent:
+        parent_texts.append("\n\n".join(current_parent))
+        
+    # 2. Para cada Parent chunk, geramos Child chunks
+    texts = []
+    child_to_parent_map = {}
+    child_index = 0
+    
+    for parent_text in parent_texts:
+        parent_pars = [p.strip() for p in parent_text.split('\n') if p.strip()]
+        child_paragraphs = []
+        for p in parent_pars:
+            child_paragraphs.extend(_split_long_paragraph(p, CHILD_MAX_TOKENS, tokenizer))
+            
+        current_child = []
+        current_child_tokens = 0
+        temp_children = []
+        for par in child_paragraphs:
+            par_tokens = len(tokenizer.encode(par)) if tokenizer else len(par) // 3
+            if current_child_tokens + par_tokens > CHILD_MAX_TOKENS and current_child:
+                temp_children.append("\n\n".join(current_child))
+                overlap_chunk = []
+                overlap_tokens = 0
+                for p in reversed(current_child):
+                    p_t = len(tokenizer.encode(p)) if tokenizer else len(p) // 3
+                    if overlap_tokens + p_t <= 50:
+                        overlap_chunk.insert(0, p)
+                        overlap_tokens += p_t
+                    else:
+                        break
+                current_child = overlap_chunk
+                current_child_tokens = overlap_tokens
+            current_child.append(par)
+            current_child_tokens += par_tokens
+        if current_child:
+            temp_children.append("\n\n".join(current_child))
+            
+        for child_text in temp_children:
+            texts.append(child_text)
+            child_to_parent_map[child_index] = parent_text
+            child_index += 1
 
     if not texts:
         raise HTTPException(status_code=422, detail="Nenhum chunk gerado. A página pode estar vazia.")
-
+ 
     # Embedding + Inserção no Supabase (em lotes)
     BATCH = 50
     total_inserted = 0
@@ -472,12 +725,17 @@ async def admin_ingest_url(data: UrlIngestRequest):
                 "content": txt,
                 "embedding": emb,
                 "metadata": {
-                    "title": doc_title,
+                    "title": data.title,
+                    "author": data.author,
+                    "year": data.year,
+                    "category": data.category,
                     "sigla": data.sigla,
                     "document_weight": data.document_weight,
                     "source_id": source_id,
                     "chunk_index": i + j,
                     "source_url": url,
+                    "content_hash": content_hash,
+                    "parent_text": child_to_parent_map[i + j],
                     "entities": {"people": [], "places": [], "concepts": []},
                     "receivers": [],
                     "destinatario": None,
@@ -500,8 +758,23 @@ async def admin_ingest_url(data: UrlIngestRequest):
 
 
 @app.post("/api/admin/upload", dependencies=[Depends(verify_admin_jwt)])
-async def admin_upload(file: UploadFile = File(...), sigla: str = Form("PDF"), document_weight: int = Form(5), title: str = Form(None)):
+async def admin_upload(
+    file: UploadFile = File(...), 
+    title: str = Form(...),
+    author: str = Form(""),
+    year: Optional[str] = Form(None),
+    category: str = Form("Obras Espirituais"),
+    sigla: str = Form("PDF"), 
+    document_weight: int = Form(5)
+):
     """Recebe um PDF, extrai texto e ingere no Supabase com chunking token-aware."""
+    # Normaliza year para int (aceita vazio ou ausente)
+    year_int: Optional[int] = None
+    if year:
+        try:
+            year_int = int(year)
+        except ValueError:
+            year_int = None
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Apenas arquivos PDF são suportados.")
     
@@ -509,8 +782,34 @@ async def admin_upload(file: UploadFile = File(...), sigla: str = Form("PDF"), d
         raise HTTPException(status_code=503, detail="Supabase admin não está configurado.")
 
     content = await file.read()
-    doc_title = title or file.filename.replace(".pdf", "")
     source_id = file.filename
+
+    import hashlib
+    file_hash = hashlib.sha256(content).hexdigest()
+
+    # Verifica se já existe e se o arquivo é idêntico
+    try:
+        existing = supabase_admin.table("documents") \
+            .select("metadata") \
+            .eq("metadata->>source_id", source_id) \
+            .limit(1) \
+            .execute()
+        if existing.data:
+            existing_meta = existing.data[0].get("metadata", {})
+            if existing_meta.get("file_hash") == file_hash:
+                await log_broadcaster.broadcast("success", f"[{file.filename}] Arquivo idêntico já indexado. Pulando ingestão.")
+                return {
+                    "status": "skipped",
+                    "document": title,
+                    "source_id": source_id,
+                    "chunks_inserted": 0,
+                    "message": "Arquivo idêntico já indexado. Ingestão pulada."
+                }
+            # Se mudou, limpa os antigos antes de reindexar
+            await log_broadcaster.broadcast("info", f"[{file.filename}] Atualizando documento. Removendo chunks antigos...")
+            supabase_admin.table("documents").delete().eq("metadata->>source_id", source_id).execute()
+    except Exception as e:
+        print(f"[UPLOAD] Erro ao verificar duplicados: {e}")
 
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
         tmp.write(content)
@@ -519,12 +818,15 @@ async def admin_upload(file: UploadFile = File(...), sigla: str = Form("PDF"), d
     try:
         # 1. Extrai texto do PDF (Firecrawl como primário, PyMuPDF e pypdf como fallbacks)
         markdown_text = None
+        await log_broadcaster.broadcast("info", f"[{file.filename}] Iniciando extração de texto do PDF...")
 
         if firecrawl_app:
             try:
                 document = firecrawl_app.parse(file=tmp_path)
                 markdown_text = getattr(document, 'markdown', None)
+                await log_broadcaster.broadcast("success", f"[{file.filename}] Extração via Firecrawl concluída.")
             except Exception as e:
+                await log_broadcaster.broadcast("warning", f"[{file.filename}] Firecrawl falhou: {e}. Tentando fallback PyMuPDF.")
                 print(f"[UPLOAD] Firecrawl falhou: {e}. Tentando fallback PyMuPDF.")
 
         # Tenta PyMuPDF
@@ -582,35 +884,76 @@ async def admin_upload(file: UploadFile = File(...), sigla: str = Form("PDF"), d
         except ImportError:
             tokenizer = None
 
-        MAX_TOKENS = 800
-        OVERLAP_TOKENS = 150
-
-        # Divide por parágrafos e reagrupa por token
-        paragraphs = [p.strip() for p in markdown_text.split('\n') if p.strip()]
-        texts = []
-        current_chunk = []
+        PARENT_MAX_TOKENS = 1000
+        CHILD_MAX_TOKENS = 200
+        
+        # 1. Primeiro dividimos o texto em Parent chunks
+        raw_paragraphs = [p.strip() for p in markdown_text.split('\n') if p.strip()]
+        paragraphs = []
+        for p in raw_paragraphs:
+            paragraphs.extend(_split_long_paragraph(p, PARENT_MAX_TOKENS, tokenizer))
+            
+        parent_texts = []
+        current_parent = []
         current_tokens = 0
-
         for par in paragraphs:
             par_tokens = len(tokenizer.encode(par)) if tokenizer else len(par) // 3
-            if current_tokens + par_tokens > MAX_TOKENS and current_chunk:
-                texts.append("\n\n".join(current_chunk))
+            if current_tokens + par_tokens > PARENT_MAX_TOKENS and current_parent:
+                parent_texts.append("\n\n".join(current_parent))
                 overlap_chunk = []
                 overlap_tokens = 0
-                for p in reversed(current_chunk):
+                for p in reversed(current_parent):
                     p_t = len(tokenizer.encode(p)) if tokenizer else len(p) // 3
-                    if overlap_tokens + p_t <= OVERLAP_TOKENS:
+                    if overlap_tokens + p_t <= 200:
                         overlap_chunk.insert(0, p)
                         overlap_tokens += p_t
                     else:
                         break
-                current_chunk = overlap_chunk
+                current_parent = overlap_chunk
                 current_tokens = overlap_tokens
-            current_chunk.append(par)
+            current_parent.append(par)
             current_tokens += par_tokens
-
-        if current_chunk:
-            texts.append("\n\n".join(current_chunk))
+        if current_parent:
+            parent_texts.append("\n\n".join(current_parent))
+            
+        # 2. Para cada Parent chunk, geramos Child chunks
+        texts = []
+        child_to_parent_map = {}
+        child_index = 0
+        
+        for parent_text in parent_texts:
+            parent_pars = [p.strip() for p in parent_text.split('\n') if p.strip()]
+            child_paragraphs = []
+            for p in parent_pars:
+                child_paragraphs.extend(_split_long_paragraph(p, CHILD_MAX_TOKENS, tokenizer))
+                
+            current_child = []
+            current_child_tokens = 0
+            temp_children = []
+            for par in child_paragraphs:
+                par_tokens = len(tokenizer.encode(par)) if tokenizer else len(par) // 3
+                if current_child_tokens + par_tokens > CHILD_MAX_TOKENS and current_child:
+                    temp_children.append("\n\n".join(current_child))
+                    overlap_chunk = []
+                    overlap_tokens = 0
+                    for p in reversed(current_child):
+                        p_t = len(tokenizer.encode(p)) if tokenizer else len(p) // 3
+                        if overlap_tokens + p_t <= 50:
+                            overlap_chunk.insert(0, p)
+                            overlap_tokens += p_t
+                        else:
+                            break
+                    current_child = overlap_chunk
+                    current_child_tokens = overlap_tokens
+                current_child.append(par)
+                current_child_tokens += par_tokens
+            if current_child:
+                temp_children.append("\n\n".join(current_child))
+                
+            for child_text in temp_children:
+                texts.append(child_text)
+                child_to_parent_map[child_index] = parent_text
+                child_index += 1
 
         if not texts:
             raise HTTPException(status_code=422, detail="Nenhum chunk gerado. O PDF pode estar vazio ou ilegível.")
@@ -632,11 +975,16 @@ async def admin_upload(file: UploadFile = File(...), sigla: str = Form("PDF"), d
                     "content": txt,
                     "embedding": emb,
                     "metadata": {
-                        "title": doc_title,
+                        "title": title,
+                        "author": author,
+                        "year": year_int,
+                        "category": category,
                         "sigla": sigla,
                         "document_weight": document_weight,
                         "source_id": source_id,
                         "chunk_index": i + j,
+                        "file_hash": file_hash,
+                        "parent_text": child_to_parent_map[i + j],
                         "entities": {"people": [], "places": [], "concepts": []},
                         "receivers": [],
                         "destinatario": None,
@@ -647,7 +995,9 @@ async def admin_upload(file: UploadFile = File(...), sigla: str = Form("PDF"), d
             ]
             resp = supabase_admin.table("documents").insert(rows).execute()
             total_inserted += len(resp.data)
+            await log_broadcaster.broadcast("info", f"[{file.filename}] Lote indexado: {total_inserted} fragmentos no Supabase...")
 
+        await log_broadcaster.broadcast("success", f"[{file.filename}] Ingestão concluída com sucesso! Total: {total_inserted} fragmentos.")
         return {
             "status": "success",
             "document": doc_title,
@@ -962,12 +1312,107 @@ async def get_document_chunks(source_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao buscar chunks: {e}")
 
-async def chat_response_generator(query: str, scope: str = "Geral", history: list = None, conversation_id: str = None):
+class ChunkUpdateRequest(BaseModel):
+    content: str
+
+@app.put("/api/admin/chunks/{chunk_id}", dependencies=[Depends(verify_admin_jwt)])
+async def update_chunk(chunk_id: str, data: ChunkUpdateRequest):
+    """Atualiza o conteúdo de um chunk específico, gera novos embeddings e define edited=True."""
+    if not supabase_admin:
+        raise HTTPException(status_code=503, detail="Supabase admin não configurado.")
+    try:
+        # 1. Recupera o chunk existente para obter os metadados atuais
+        existing = supabase_admin.table("documents") \
+            .select("metadata") \
+            .eq("id", chunk_id) \
+            .limit(1) \
+            .execute()
+            
+        if not existing.data:
+            raise HTTPException(status_code=404, detail="Chunk não encontrado.")
+            
+        metadata = existing.data[0].get("metadata") or {}
+        
+        # 2. Gera novo embedding para o conteúdo modificado
+        new_embeddings = _get_embedding_batch([data.content])
+        new_emb = new_embeddings[0]
+        
+        # 3. Atualiza os metadados com a flag edited
+        metadata["edited"] = True
+        
+        # 4. Atualiza no Supabase
+        resp = supabase_admin.table("documents") \
+            .update({
+                "content": data.content,
+                "embedding": new_emb,
+                "metadata": metadata
+            }) \
+            .eq("id", chunk_id) \
+            .execute()
+            
+        return {"status": "success", "chunk_id": chunk_id, "updated": len(resp.data) > 0}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao atualizar o chunk: {e}")
+
+def condense_query(query: str, history: list) -> str:
+    """
+    Reescreve a query com base no histórico recente de conversa para torná-la standalone.
+    """
+    if not history or not client:
+        return query
+    
+    # Filtra mensagens de boas-vindas do frontend e restringe aos últimos 5 turnos
+    filtered_history = []
+    for msg in history[-5:]:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        if content and "Como posso te auxiliar" not in content:
+            filtered_history.append(f"{role.upper()}: {content}")
+            
+    if not filtered_history:
+        return query
+        
+    history_text = "\n".join(filtered_history)
+    
+    prompt = f"""Dado o seguinte histórico de conversa e uma nova pergunta do usuário, reescreva a pergunta para que ela seja uma busca independente e autocontida (standalone query) no banco de documentos dehonianos.
+Nunca mude a intenção da pergunta. Apenas substitua pronomes (como "ele", "ela", "disso", "naquela época", "nessas cartas", "nessa obra") pelos nomes, obras ou conceitos específicos aos quais se referem no histórico recente.
+Se a pergunta já for independente, retorne-a exatamente igual. Não adicione saudações ou explicações.
+
+Histórico da Conversa:
+{history_text}
+
+Nova Pergunta: {query}
+Pergunta Autocontida:"""
+
+    try:
+        completion = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0,
+            max_tokens=200
+        )
+        rewritten = completion.choices[0].message.content.strip()
+        if rewritten:
+            if rewritten.startswith('"') and rewritten.endswith('"'):
+                rewritten = rewritten[1:-1]
+            return rewritten
+    except Exception as e:
+        print(f"[QUERY CONDENSATION] Erro ao reescrever query: {e}")
+        
+    return query
+
+async def chat_response_generator(query: str, scope: str = "Geral", history: list = None, conversation_id: str = None, categories: list = None):
     """Realiza busca RAG, constrói a memória e gera resposta usando OpenAI com streaming."""
     
     if conversation_id:
         yield f"data: {json.dumps({'type': 'conversation_id', 'content': conversation_id, 'conversation_id': conversation_id})}\n\n"
 
+    # Fase 1: Query Condensation (Reescrita da query)
+    search_query = condense_query(query, history)
+    if search_query != query:
+        print(f"  [QUERY_REWRITE] Reescreveu '{query}' para '{search_query}'")
     
     # 0. Busca uma resposta validada por especialista (Few-Shot Injection)
     blessed = get_blessed_answer(query)
@@ -983,14 +1428,14 @@ async def chat_response_generator(query: str, scope: str = "Geral", history: lis
     </EXEMPLO_DE_ESTILO_ACADEMICO_VALIDADO_POR_ESPECIALISTAS>
 """
 
-    # 1. Detecção de Intenção (avançada)
-    intent_result = detect_intent(query)
+    # 1. Detecção de Intenção (avançada) - usa a query condensada para melhor precisão
+    intent_result = detect_intent(search_query)
     intent = intent_result["intent"]
     intent_confidence = intent_result["confidence"]
     print(f"Intenção detectada: {intent} (confiança: {intent_confidence})")
 
     try:
-        print(f"Buscando contexto para: {query} | Escopo: {scope} | Intenção: {intent}")
+        print(f"Buscando contexto para: {search_query} | Escopo: {scope} | Categorias: {categories} | Intenção: {intent}")
 
         # Ajusta parâmetros de busca conforme a intenção
         if intent == "HISTORICAL":
@@ -1010,7 +1455,8 @@ async def chat_response_generator(query: str, scope: str = "Geral", history: lis
             fts_weight = 1.0
             vec_weight = 1.0
 
-        result = search_context(query, top_k=search_top_k, filter_siglas=_get_scope_filter(scope), fts_weight=fts_weight, vec_weight=vec_weight)
+        # Passa categories para _get_scope_filter para suporte a checkboxes
+        result = search_context(search_query, top_k=search_top_k, filter_siglas=_get_scope_filter(scope, categories), fts_weight=fts_weight, vec_weight=vec_weight)
         context = result["context"]
         citations = result["citations"]
         
@@ -1238,6 +1684,7 @@ async def get_knowledge_gaps(min_count: int = 3):
 async def chat_endpoint(request: dict, req: Request):
     query = request.get("query", "")
     scope = request.get("scope", "Geral")
+    categories = request.get("categories", None)
     history = request.get("history", [])
     conversation_id = request.get("conversation_id") or str(uuid.uuid4())
 
@@ -1257,7 +1704,10 @@ async def chat_endpoint(request: dict, req: Request):
     # Sanitiza a query (remove caracteres de controle)
     query = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', query.strip())
 
-    valid_scopes = ["Geral", "Espiritualidade", "Social", "Biografia", "Correspondencia"]
+    valid_scopes = [
+        "Geral", "Espiritualidade", "Social", "Biografia", "Correspondencia",
+        "Espiritualidade e Retiros", "Social e Político", "Vida e Biografia", "Correspondência"
+    ]
     if scope not in valid_scopes:
         scope = "Geral"
 
@@ -1265,7 +1715,7 @@ async def chat_endpoint(request: dict, req: Request):
     if not os.getenv("OPENAI_API_KEY"):
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY não configurada no servidor.")
     
-    return StreamingResponse(chat_response_generator(query, scope, history, conversation_id), media_type="text/event-stream")
+    return StreamingResponse(chat_response_generator(query, scope, history, conversation_id, categories), media_type="text/event-stream")
 
 if __name__ == "__main__":
     import uvicorn
