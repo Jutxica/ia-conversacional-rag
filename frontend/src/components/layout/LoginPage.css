@@ -427,6 +427,10 @@
   gap: 0.5rem;
 }
 
+.phone-input-container .input-with-icon {
+  flex: 1;
+}
+
 .country-select {
   width: 95px;
   height: 36px;
