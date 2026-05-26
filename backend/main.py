@@ -26,24 +26,27 @@ from src.rag.intent_detector import detector as intent_detector
 
 app = FastAPI()
 
-# Configuração de CORS Segura
-# Origens permitidas: lê da variável de ambiente ALLOWED_ORIGINS ou usa defaults seguros
-_default_origins = ",".join([
+# Configuração de CORS — origens sempre permitidas (produção conhecida)
+_HARDCODED_ORIGINS = {
     "http://localhost:5173",
+    "http://localhost:3000",
     "http://127.0.0.1:5173",
     "https://dehon-ai-frontend-s2kv.onrender.com",
-])
-ALLOWED_ORIGINS = [
-    origin.strip()
-    for origin in os.getenv("ALLOWED_ORIGINS", _default_origins).split(",")
-    if origin.strip()
-]
+}
+
+# Merge com qualquer origem extra definida em ALLOWED_ORIGINS no ambiente
+_env_origins = {
+    o.strip()
+    for o in os.getenv("ALLOWED_ORIGINS", "").split(",")
+    if o.strip()
+}
+ALLOWED_ORIGINS = list(_HARDCODED_ORIGINS | _env_origins)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
