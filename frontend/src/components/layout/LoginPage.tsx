@@ -125,8 +125,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         {/* Right: Auth Card */}
         <div className="login-form-panel">
           <div className="login-card animate-slide-up">
-            <div className="card-header">
-              <img src="/Login.png" className="login-logo" alt="Dehon AI" />
+            <div className="login-card-header">
+              <img src="/Navbar.png" className="login-logo" alt="Dehon AI" />
               <h2>{mode === 'login' ? 'Bem-vindo de volta' : 'Criar nova conta'}</h2>
               <p>{mode === 'login' 
                 ? 'Acesse sua conta para continuar pesquisando.' 
