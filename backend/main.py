@@ -27,15 +27,24 @@ from src.rag.intent_detector import detector as intent_detector
 app = FastAPI()
 
 # Configuração de CORS Segura
-# Em produção, substitua "*" por ["https://seu-dominio.com"]
-ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if origin.strip()]
+# Origens permitidas: lê da variável de ambiente ALLOWED_ORIGINS ou usa defaults seguros
+_default_origins = ",".join([
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://dehon-ai-frontend-s2kv.onrender.com",
+])
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("ALLOWED_ORIGINS", _default_origins).split(",")
+    if origin.strip()
+]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-API-KEY"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
 )
 
 # --- Camada de Segurança: Autenticação ---
