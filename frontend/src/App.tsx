@@ -419,7 +419,6 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
     return (
       <div className="splash-screen">
         <div className="splash-content">
-          <img src="/Navbar.png" className="splash-logo" alt="Dehon AI" />
           <div className="flex flex-col gap-4 w-full items-center justify-center my-4">
             <div className="relative w-28 h-28 flex items-center justify-center">
               {/* Outer spinner ring with brand colors */}
