@@ -420,7 +420,25 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
       <div className="splash-screen">
         <div className="splash-content">
           <img src="/Navbar.png" className="splash-logo" alt="Dehon AI" />
-          <div className="splash-loader"><div className="loader-bar"></div></div>
+          <div className="flex flex-col gap-4 w-full items-center justify-center my-4">
+            <div className="relative w-28 h-28 flex items-center justify-center">
+              {/* Outer spinner ring with brand colors */}
+              <div className="absolute inset-0 border-8 border-[var(--border-subtle)] border-t-[var(--accent-primary)] rounded-full animate-spin"></div>
+              {/* Inner Avatar with ping effect */}
+              <div className="relative w-16 h-16 flex items-center justify-center">
+                <img 
+                  src="/Avatar.png" 
+                  alt="Dehon AI Avatar Ping" 
+                  className="absolute w-full h-full rounded-full object-cover animate-ping opacity-75"
+                />
+                <img 
+                  src="/Avatar.png" 
+                  alt="Dehon AI Avatar" 
+                  className="relative w-full h-full rounded-full object-cover border-2 border-[var(--border-subtle)] bg-[var(--bg-secondary)]"
+                />
+              </div>
+            </div>
+          </div>
           <p className="splash-text">Ambiente Acadêmico</p>
         </div>
       </div>
