@@ -23,8 +23,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const carouselImages = [
-    '/dehon_1.png',
-    '/dehon_2.png',
+    '/dehon_1.jpg',
+    '/dehon_2.jpg',
     '/dehon_3.jpg'
   ];
 
