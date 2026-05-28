@@ -94,27 +94,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         {/* Left: Brand Panel */}
         <div className="login-brand-panel">
           <div className="brand-content animate-fade-in">
-            <div className="brand-icon-wrapper">
-              <BookOpen size={40} strokeWidth={1.5} />
-            </div>
             <h1 className="brand-title">Biblioteca Dehoniana</h1>
             <p className="brand-motto">"Sint unum: A inteligência a serviço do Coração."</p>
             
-            <div className="brand-features">
-              <div className="brand-feature">
-                <div className="feature-dot" />
-                <span>Pesquisa assistida por IA com fontes verificáveis</span>
-              </div>
-              <div className="brand-feature">
-                <div className="feature-dot" />
-                <span>Acervo multilíngue: Português, Francês, Latim, Italiano</span>
-              </div>
-              <div className="brand-feature">
-                <div className="feature-dot" />
-                <span>Citações literais com referências acadêmicas</span>
-              </div>
-            </div>
-
             <div className="brand-footer">
               <span>Sistema de Alta Pesquisa desenvolvido por</span>
               <strong>Fr. João Rodrigues Utxica, scj</strong>
