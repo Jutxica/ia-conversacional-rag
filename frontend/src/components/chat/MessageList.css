@@ -32,8 +32,8 @@
 }
 
 .avatar-circle.user {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
+  background: var(--accent-primary);
+  color: var(--bg-primary);
 }
 
 .avatar-circle.assistant {
@@ -116,6 +116,38 @@
 .message-bubble.assistant {
   font-family: var(--font-serif);
 }
+
+/* --- Researcher (User) Chat Bubble Styles --- */
+.message-row.user {
+  flex-direction: row-reverse;
+}
+
+.message-row.user .message-content-wrapper {
+  align-items: flex-end;
+}
+
+.message-row.user .message-header {
+  flex-direction: row-reverse;
+  justify-content: flex-start;
+  gap: 0.75rem;
+}
+
+.message-bubble.user {
+  background: var(--accent-glow);
+  border: 1px solid rgba(30, 64, 175, 0.12);
+  border-radius: 18px 4px 18px 18px; /* Tapered corner near avatar */
+  padding: 10px 16px;
+  max-width: 85%;
+  box-shadow: var(--shadow-sm);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+}
+
+[data-theme='midnight'] .message-bubble.user {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
 
 .agentic-skeleton-wrapper {
   display: flex;
