@@ -20,6 +20,27 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [success, setSuccess] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const carouselImages = [
+    '/dehon_1.png',
+    '/dehon_2.png',
+    '/dehon_3.jpg'
+  ];
+
+  // Carousel auto-rotate timer
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % carouselImages.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Clear messages on mode switch
+  useEffect(() => {
+    setError(null);
+    setSuccess(null);
+  }, [mode]);
 
   const countries = [
     { code: '+55', flag: '🇧🇷', name: 'Brasil' },
@@ -91,8 +112,19 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
       {/* Split Layout */}
       <div className="login-split">
-        {/* Left: Brand Panel */}
-        <div className="login-brand-panel" />
+        {/* Left: Brand Panel with Carousel */}
+        <div className="login-brand-panel">
+          <div className="login-carousel">
+            {carouselImages.map((img, idx) => (
+              <div
+                key={idx}
+                className={`login-carousel-slide ${idx === currentImageIndex ? 'active' : ''}`}
+                style={{ backgroundImage: `url(${img})` }}
+              />
+            ))}
+            <div className="login-carousel-overlay" />
+          </div>
+        </div>
 
         {/* Right: Auth Card */}
         <div className="login-form-panel">

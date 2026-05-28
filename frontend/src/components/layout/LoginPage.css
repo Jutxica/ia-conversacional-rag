@@ -114,14 +114,49 @@
 /* --- Left: Brand Panel --- */
 .login-brand-panel {
   flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem;
-  background: url('/abstract_login.png') no-repeat center center;
-  background-size: cover;
   position: relative;
   overflow: hidden;
+  background: #0f172a;
+}
+
+/* --- Carousel Container --- */
+.login-carousel {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* --- Carousel Slide --- */
+.login-carousel-slide {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  opacity: 0;
+  transition: opacity 1.8s ease-in-out, transform 8s ease-out;
+  transform: scale(1.06);
+  /* Filtro vintage premium: grayscaled com leve sépia e contraste refinado */
+  filter: grayscale(80%) sepia(20%) contrast(1.15) brightness(0.75);
+}
+
+.login-carousel-slide.active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* --- Vignette Overlay --- */
+.login-carousel-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, transparent 20%, rgba(15, 23, 42, 0.4) 80%, rgba(15, 23, 42, 0.75) 100%),
+              linear-gradient(to right, transparent 80%, rgba(15, 23, 42, 0.3) 100%);
+  pointer-events: none;
+  z-index: 2;
 }
 
 
