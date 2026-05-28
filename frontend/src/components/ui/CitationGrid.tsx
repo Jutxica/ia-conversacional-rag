@@ -58,6 +58,23 @@ const itemVariants = {
   }
 }
 
+const safeRender = (val: any): string => {
+  if (val === null || val === undefined) return '';
+  if (Array.isArray(val)) {
+    return val.map(safeRender).join(', ');
+  }
+  if (typeof val === 'object') {
+    if (val.name && typeof val.name === 'string') return val.name;
+    if (val.title && typeof val.title === 'string') return val.title;
+    try {
+      return JSON.stringify(val);
+    } catch {
+      return '';
+    }
+  }
+  return String(val);
+};
+
 export default function CitationGrid({ citations, variant = 'grid' }: CitationGridProps) {
   if (!citations || citations.length === 0) return null
 
@@ -109,7 +126,7 @@ export default function CitationGrid({ citations, variant = 'grid' }: CitationGr
                     "font-mono text-[10px] tracking-wider uppercase shrink-0 transition-colors",
                     "group-hover:border-primary/30 group-hover:bg-primary/5"
                   )}>
-                    {citation.sigla || 'DOC'}
+                    {safeRender(citation.sigla) || 'DOC'}
                   </Badge>
                   <span className={cn('text-[11px] font-bold', scoreColor(citation.score))}>
                     {Math.round((citation.score || 0) * 100)}%
@@ -127,7 +144,7 @@ export default function CitationGrid({ citations, variant = 'grid' }: CitationGr
                     isFeatured ? "text-lg md:text-xl mb-3" : "text-sm mb-2",
                     variant === 'sidebar' && "text-[13px] font-semibold"
                   )}>
-                    {citation.title || 'Documento Dehoniano'}
+                    {safeRender(citation.title) || 'Documento Dehoniano'}
                   </CardTitle>
 
                   {citation.snippet && (
@@ -141,7 +158,7 @@ export default function CitationGrid({ citations, variant = 'grid' }: CitationGr
                           ? "text-[12.5px] line-clamp-5"
                           : isFeatured ? "text-sm line-clamp-6" : "text-xs line-clamp-3"
                       )}>
-                        &ldquo;{citation.snippet}&rdquo;
+                        &ldquo;{safeRender(citation.snippet)}&rdquo;
                       </p>
                     </div>
                   )}
@@ -151,19 +168,19 @@ export default function CitationGrid({ citations, variant = 'grid' }: CitationGr
                   {citation.destinatario && (
                     <span className="truncate max-w-[140px] flex items-center gap-1">
                       <span className="w-1 h-1 rounded-full bg-primary/40"></span>
-                      Para: {citation.destinatario}
+                      Para: {safeRender(citation.destinatario)}
                     </span>
                   )}
                   {citation.data && (
                     <span className="flex items-center gap-1">
                       <span className="w-1 h-1 rounded-full bg-secondary/40"></span>
-                      {citation.data}
+                      {safeRender(citation.data)}
                     </span>
                   )}
                   {citation.page_number && (
                     <span className="flex items-center gap-1">
                       <span className="w-1 h-1 rounded-full bg-accent/40"></span>
-                      p. {citation.page_number}
+                      p. {safeRender(citation.page_number)}
                     </span>
                   )}
                 </div>
