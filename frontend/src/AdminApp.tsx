@@ -29,7 +29,7 @@ export default function AdminApp({ onBackToChat }: AdminAppProps) {
       setSession(session);
     });
 
-    const timer = setTimeout(() => setIsAppLoading(false), 1000);
+    const timer = setTimeout(() => setIsAppLoading(false), 3500);
     return () => {
       subscription.unsubscribe();
       clearTimeout(timer);

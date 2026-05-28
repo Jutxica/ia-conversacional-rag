@@ -115,11 +115,19 @@ const MessageList: React.FC<MessageListProps> = ({
 
             <div className={`message-bubble ${m.role}`}>
               {m.role === 'assistant' && m.content === '' && isStreaming && idx === messages.length - 1 ? (
-                <div className="agentic-skeleton-wrapper">
-                  <div className="shimmer-effect skeleton-line primary"></div>
-                  <div className="shimmer-effect skeleton-line secondary"></div>
-                  <div className="shimmer-effect skeleton-line tertiary"></div>
-                  <span className="agent-status-text">Consultando o acervo dehoniano...</span>
+                <div className="loader-wrapper">
+                  <div className="loader"></div>
+                  <div className="letter-wrapper">
+                    {"Consultando o acervo...".split("").map((letter, i) => (
+                      <span 
+                        key={i} 
+                        className="loader-letter"
+                        style={{ animationDelay: `${i * 0.08}s` }}
+                      >
+                        {letter === " " ? "\u00A0" : letter}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <ReactMarkdown className={m.role === 'assistant' ? "prose dark:prose-invert prose-stone font-serif max-w-none text-[15px] prose-p:leading-relaxed prose-p:mb-4 last:prose-p:mb-0" : ""}>{m.content}</ReactMarkdown>

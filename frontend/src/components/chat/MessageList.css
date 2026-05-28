@@ -291,3 +291,91 @@
 .abnt-content p:last-child {
   margin-bottom: 0;
 }
+
+/* --- Searching Loader Animation (Uiverse) --- */
+.loader-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  color: var(--text-secondary);
+  user-select: none;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+[data-theme='midnight'] .loader-wrapper {
+  color: var(--text-primary);
+}
+
+.loader {
+  width: 20px;
+  height: 20px;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  background-color: transparent;
+  animation: loader-rotate 1.5s linear infinite;
+  z-index: 0;
+}
+
+@keyframes loader-rotate {
+  0% {
+    transform: rotate(90deg);
+    box-shadow:
+      0 1px 1px 0 #fff inset,
+      0 3px 5px 0 var(--accent-primary) inset,
+      0 4px 4px 0 var(--border-focus) inset;
+  }
+  50% {
+    transform: rotate(270deg);
+    background: rgba(30, 64, 175, 0.05);
+    box-shadow:
+      0 1px 1px 0 rgba(180, 83, 9, 0.2) inset,
+      0 3px 5px 0 #B45309 inset,
+      0 4px 4px 0 #F59E0B inset;
+  }
+  100% {
+    transform: rotate(450deg);
+    box-shadow:
+      0 1px 1px 0 #fff inset,
+      0 3px 5px 0 var(--accent-primary) inset,
+      0 4px 4px 0 var(--border-focus) inset;
+  }
+}
+
+.letter-wrapper {
+  display: flex;
+  gap: 1px;
+}
+
+.loader-letter {
+  display: inline-block;
+  opacity: 0.4;
+  transform: translateY(0);
+  animation: loader-letter-anim 2s infinite;
+  z-index: 1;
+  border-radius: 50ch;
+  border: none;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent-primary);
+}
+
+@keyframes loader-letter-anim {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: translateY(0);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1.155);
+  }
+  40% {
+    opacity: 0.7;
+    transform: translateY(0);
+  }
+}
