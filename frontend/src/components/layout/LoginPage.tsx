@@ -92,17 +92,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       {/* Split Layout */}
       <div className="login-split">
         {/* Left: Brand Panel */}
-        <div className="login-brand-panel">
-          <div className="brand-content animate-fade-in">
-            <h1 className="brand-title">Biblioteca Dehoniana</h1>
-            <p className="brand-motto">"Sint unum: A inteligência a serviço do Coração."</p>
-            
-            <div className="brand-footer">
-              <span>Sistema de Alta Pesquisa desenvolvido por</span>
-              <strong>Fr. João Rodrigues Utxica, scj</strong>
-            </div>
-          </div>
-        </div>
+        <div className="login-brand-panel" />
 
         {/* Right: Auth Card */}
         <div className="login-form-panel">
