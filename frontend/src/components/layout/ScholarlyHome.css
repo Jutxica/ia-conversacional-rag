@@ -89,11 +89,11 @@
 
 .home-subtitle-text {
   font-family: var(--font-serif);
-  font-size: 1.25rem;
+  font-size: clamp(1.15rem, 2.6vw, 1.6rem);
   color: var(--text-secondary);
-  font-style: italic;
-  font-weight: 500;
+  font-weight: 700;
   letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .home-greeting {
@@ -150,9 +150,10 @@
 
 @media (min-width: 769px) {
   .suggestions-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    display: flex;
+    flex-wrap: wrap;
     gap: 0.75rem;
+    justify-content: center;
   }
 }
 
@@ -170,18 +171,12 @@
   cursor: pointer;
   transition: border-color 0.25s, color 0.25s, background 0.25s, transform 0.25s, box-shadow 0.25s;
   user-select: none;
+  width: 100%;
 }
 
 @media (min-width: 769px) {
   .suggestion-card {
-    width: 100%;
-  }
-
-  .suggestion-card:nth-child(5) {
-    grid-column: span 2;
-    justify-self: center;
-    width: auto;
-    min-width: 340px;
+    width: 360px;
   }
 }
 

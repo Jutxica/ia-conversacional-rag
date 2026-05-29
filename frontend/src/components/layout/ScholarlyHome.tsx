@@ -70,11 +70,11 @@ const ScholarlyHome: React.FC<ScholarlyHomeProps> = ({
       <div className="home-hero">
         <h1 className="home-title">Biblioteca Dehoniana</h1>
         <GooeyText
-          texts={["Para tempos novos,", "obras novas."]}
+          texts={["Para tempos novos, obras novas.", "A inteligência a serviço do Coração."]}
           className="home-subtitle-gooey"
           textClassName="home-subtitle-text"
           morphTime={1.2}
-          cooldownTime={2.5}
+          cooldownTime={3.5}
         />
       </div>
 
