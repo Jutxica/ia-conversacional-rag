@@ -19,17 +19,23 @@ export default function AdminApp({ onBackToChat }: AdminAppProps) {
     const token = localStorage.getItem('dehon_admin_token');
     if (token) {
       setLocalToken(token);
+      setIsAppLoading(false);
     }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      setIsAppLoading(false);
+    }).catch(() => {
+      setIsAppLoading(false);
     });
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      setIsAppLoading(false);
     });
 
-    const timer = setTimeout(() => setIsAppLoading(false), 3500);
+    // Fallback safety timer (1s instead of 3.5s)
+    const timer = setTimeout(() => setIsAppLoading(false), 1000);
     return () => {
       subscription.unsubscribe();
       clearTimeout(timer);
