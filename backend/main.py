@@ -32,6 +32,11 @@ _HARDCODED_ORIGINS = {
     "http://localhost:3000",
     "http://127.0.0.1:5173",
     "https://dehon-ai-frontend-s2kv.onrender.com",
+    "https://dehonia.conventinho.org.br",
+    "https://www.dehonia.conventinho.org.br",
+    "https://dehon-ai.conventinho.org.br",
+    "https://dehon-ai.onrender.com",
+    "https://dehon-ai-frontend.onrender.com",
 }
 
 # Merge com qualquer origem extra definida em ALLOWED_ORIGINS no ambiente
