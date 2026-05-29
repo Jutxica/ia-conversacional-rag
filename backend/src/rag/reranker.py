@@ -12,7 +12,11 @@ class DehonReranker:
     def _load_model(self):
         if self.model is not None:
             return
-        enable_reranker = os.getenv("ENABLE_RERANKER", "true").lower() == "true"
+        enable_reranker_env = os.getenv("ENABLE_RERANKER", "true")
+        if enable_reranker_env is None or enable_reranker_env.strip().lower() in ("undefined", "null", "placeholder", "none", "", "nan"):
+            enable_reranker = True
+        else:
+            enable_reranker = enable_reranker_env.strip().lower() == "true"
         if not enable_reranker:
             print("  [RERANK] Re-ranker desativado via configuração (Economia de Memória).")
             self.model = "DISABLED"
