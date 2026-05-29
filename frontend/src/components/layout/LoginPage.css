@@ -592,7 +592,12 @@
   }
 
   .login-brand-panel {
-    display: none;
+    display: block;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
   }
 
   .login-form-panel {
@@ -603,12 +608,28 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
+    position: relative;
+    z-index: 1;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  [data-theme='midnight'] .login-form-panel {
+    background: transparent;
   }
 
   .login-card {
     max-width: 100%;
     margin: auto;
-    padding-top: 0;
+    padding: 2.25rem 1.75rem;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    box-sizing: border-box;
   }
 }
 
