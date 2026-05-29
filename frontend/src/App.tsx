@@ -126,7 +126,7 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
     const sharedChatId = urlParams.get('chat');
     if (sharedChatId) loadSharedChat(sharedChatId);
 
-    const timer = setTimeout(() => setIsAppLoading(false), 4500);
+    const timer = setTimeout(() => setIsAppLoading(false), 1500);
     return () => {
       subscription.unsubscribe();
       clearTimeout(timer);
