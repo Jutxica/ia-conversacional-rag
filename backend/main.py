@@ -172,8 +172,8 @@ except Exception as e:
 
 # Inicializa cliente Supabase (para operações admin)
 try:
-    _supa_url = os.getenv("SUPABASE_URL")
-    _supa_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    _supa_url = os.getenv("SUPABASE_URL") or "https://tmblzshfpiltzxkdamdq.supabase.co"
+    _supa_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtYmx6c2hmcGlsdHp4a2RhbWRxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzMzMjY4MiwiZXhwIjoyMDkyOTA4NjgyfQ.YKoh8ib7P4F4kuvKpOEDL6GA9tCItV7iQnuhPF07cm0"
     if _supa_url and _supa_key:
         supabase_admin: Client = create_client(_supa_url, _supa_key)
     else:

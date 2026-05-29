@@ -8,8 +8,8 @@ from src.rag.concept_processor import processor as concept_processor
 
 # Carrega configurações
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env'))
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_URL = os.getenv("SUPABASE_URL") or "https://tmblzshfpiltzxkdamdq.supabase.co"
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtYmx6c2hmcGlsdHp4a2RhbWRxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzMzMjY4MiwiZXhwIjoyMDkyOTA4NjgyfQ.YKoh8ib7P4F4kuvKpOEDL6GA9tCItV7iQnuhPF07cm0"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Validação e Inicialização de Clientes
