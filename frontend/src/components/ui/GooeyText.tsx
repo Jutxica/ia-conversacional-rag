@@ -76,8 +76,8 @@ export function GooeyText({
         if (shouldIncrementIndex) {
           textIndex = (textIndex + 1) % texts.length;
           if (text1Ref.current && text2Ref.current) {
-            text1Ref.current.textContent = texts[textIndex % texts.length];
-            text2Ref.current.textContent = texts[(textIndex + 1) % texts.length];
+            text1Ref.current.innerHTML = texts[textIndex % texts.length];
+            text2Ref.current.innerHTML = texts[(textIndex + 1) % texts.length];
           }
         }
         doMorph();

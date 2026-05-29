@@ -25,11 +25,8 @@ const ScholarlyHome: React.FC<ScholarlyHomeProps> = ({
   profile
 }) => {
   const suggestions = [
-    { text: 'Resuma O Catecismo Social', icon: <FileText size={16} />, category: 'Obras' },
-    { text: 'O que é a Teologia da Reparação?', icon: <Sparkles size={16} />, category: 'Teologia' },
-    { text: 'Principais Cartas aos Escolásticos', icon: <MessageCircle size={16} />, category: 'Epistolário' },
-    { text: 'Qual a espiritualidade do Coração?', icon: <BookOpen size={16} />, category: 'Espiritualidade' },
-    { text: 'Contexto do Diário de Dehon', icon: <Scroll size={16} />, category: 'Diário' },
+    { text: 'Resuma O Catecismo Social', icon: <FileText size={14} />, category: 'Obras' },
+    { text: 'O que é a Teologia da Reparação?', icon: <Sparkles size={14} />, category: 'Teologia' },
   ];
 
   const cardsRef = React.useRef<HTMLDivElement[]>([]);
@@ -70,7 +67,7 @@ const ScholarlyHome: React.FC<ScholarlyHomeProps> = ({
       <div className="home-hero">
         <h1 className="home-title">Biblioteca Dehoniana</h1>
         <GooeyText
-          texts={["Para tempos novos, obras novas.", "A inteligência a serviço do Coração."]}
+          texts={["Para <strong>tempos novos, obras novas</strong>.", "A inteligência a serviço <strong>do Coração</strong>."]}
           className="home-subtitle-gooey"
           textClassName="home-subtitle-text"
           morphTime={1.2}
@@ -80,15 +77,6 @@ const ScholarlyHome: React.FC<ScholarlyHomeProps> = ({
 
       <div className="home-greeting">
         {getGreeting()}
-      </div>
-
-      <div className="home-input-section">
-        <ChatInput
-          input={input}
-          onInputChange={onInputChange}
-          onSend={onSend}
-          isStreaming={isStreaming}
-        />
       </div>
 
       <div className="suggestions-section">
@@ -112,6 +100,15 @@ const ScholarlyHome: React.FC<ScholarlyHomeProps> = ({
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="home-input-section">
+        <ChatInput
+          input={input}
+          onInputChange={onInputChange}
+          onSend={onSend}
+          isStreaming={isStreaming}
+        />
       </div>
 
       <footer className="home-footer">
