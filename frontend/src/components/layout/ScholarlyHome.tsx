@@ -3,6 +3,7 @@ import './ScholarlyHome.css';
 import { FileText, Sparkles, MessageCircle, BookOpen, Scroll } from 'lucide-react';
 import ChatInput from '../chat/ChatInput';
 import { magneticEffect } from '../../utils/transitions';
+import { GooeyText } from '../ui/GooeyText';
 
 interface ScholarlyHomeProps {
   input: string;
@@ -42,7 +43,13 @@ const ScholarlyHome: React.FC<ScholarlyHomeProps> = ({
 
       <div className="home-hero">
         <h1 className="home-title">Biblioteca Dehoniana</h1>
-        <p className="home-subtitle">"Sint unum: A inteligência a serviço do Coração."</p>
+        <GooeyText
+          texts={["Para tempos novos,", "obras novas."]}
+          className="home-subtitle-gooey"
+          textClassName="home-subtitle-text"
+          morphTime={1.2}
+          cooldownTime={2.5}
+        />
       </div>
 
       <div className="home-input-section">
