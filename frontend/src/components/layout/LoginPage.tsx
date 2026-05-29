@@ -294,7 +294,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   </>
                 ) : (
                   <>
-                    <ShieldCheck size={20} />
                     <span>{mode === 'login' ? 'Acessar Biblioteca' : 'Criar Conta'}</span>
                     <ArrowRight size={16} className="btn-arrow" />
                   </>
