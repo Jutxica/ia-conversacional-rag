@@ -19,6 +19,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { magneticEffect } from '../../utils/transitions';
+import type { UserProfile } from '../ui/ProfileModal';
 
 interface Conversation {
   id: string;
@@ -45,6 +46,8 @@ interface SidebarProps {
   onAutoCleanupChange: (settings: any) => void;
   categories: string[];
   onCategoriesChange: (categories: string[]) => void;
+  profile: UserProfile;
+  onOpenProfile: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -67,6 +70,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onAutoCleanupChange,
   categories,
   onCategoriesChange,
+  profile,
+  onOpenProfile,
 }) => {
   const newChatRef = React.useRef<HTMLButtonElement>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -377,13 +382,21 @@ const Sidebar: React.FC<SidebarProps> = ({
               </div>
 
               {/* User profile */}
-              <div className="sb-user">
+              <div className="sb-user" onClick={onOpenProfile} style={{ cursor: 'pointer' }} title="Clique para configurar o perfil">
                 <div className="sb-avatar">
-                  {session.user.email[0].toUpperCase()}
+                  {profile.photoUrl ? (
+                    <img src={profile.photoUrl} alt={profile.name} className="sb-avatar-img" />
+                  ) : (
+                    profile.name ? profile.name[0].toUpperCase() : session.user.email[0].toUpperCase()
+                  )}
                 </div>
                 <div className="sb-user-info">
+                  <span className="sb-user-name">
+                    {profile.title === 'Padre' && (profile.congregation === 'Dehoniano' ? `Pe. ${profile.name}, scj` : `Padre ${profile.name}`)}
+                    {profile.title === 'Religioso de votos simples' && (profile.congregation === 'Dehoniano' ? `Fr. ${profile.name}, scj` : `Fr. ${profile.name}`)}
+                    {profile.title === 'Leigo' && (profile.name || session.user.email.split('@')[0])}
+                  </span>
                   <span className="sb-user-email">{session.user.email}</span>
-                  <span className="sb-user-role">Pesquisador Acadêmico</span>
                 </div>
               </div>
             </>

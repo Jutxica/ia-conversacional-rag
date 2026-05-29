@@ -96,6 +96,19 @@
   letter-spacing: 0.02em;
 }
 
+.home-greeting {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+  text-align: center;
+  letter-spacing: -0.01em;
+  opacity: 0.95;
+  animation: fadeIn 0.8s ease-out 0.1s both;
+}
+
 .home-input-section {
   width: 100%;
   max-width: 760px;

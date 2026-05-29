@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import './MessageList.css';
 import { Book, Download, Copy, Check } from 'lucide-react';
 import { magneticEffect } from '../../utils/transitions';
+import type { UserProfile } from '../ui/ProfileModal';
 
 interface Message {
   id: string;
@@ -19,13 +20,15 @@ interface MessageListProps {
   isStreaming: boolean;
   session: any;
   onViewCitations?: (messageId: string) => void;
+  profile?: UserProfile;
 }
 
 const MessageList: React.FC<MessageListProps> = ({ 
   messages, 
   isStreaming, 
   session,
-  onViewCitations 
+  onViewCitations,
+  profile
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showFormatted, setShowFormatted] = React.useState<string | null>(null);
@@ -84,8 +87,12 @@ const MessageList: React.FC<MessageListProps> = ({
         <div key={m.id} className={`message-row ${m.role} animate-fade-in`}>
           <div className="message-avatar-wrapper">
             {m.role === 'user' ? (
-              <div className="avatar-circle user">
-                {session?.user?.email?.[0].toUpperCase() || 'U'}
+              <div className="avatar-circle user" style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {profile?.photoUrl ? (
+                  <img src={profile.photoUrl} alt={profile?.name} className="avatar-img" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                ) : (
+                  profile?.name ? profile.name[0].toUpperCase() : (session?.user?.email?.[0].toUpperCase() || 'U')
+                )}
               </div>
             ) : (
               <div className="avatar-circle assistant">
@@ -97,7 +104,7 @@ const MessageList: React.FC<MessageListProps> = ({
           <div className="message-content-wrapper">
             <div className="message-header">
               <span className="sender-name">
-                {m.role === 'user' ? 'Pesquisador' : 'Padre Dehon'}
+                {m.role === 'user' ? (profile?.name || 'Pesquisador') : 'Padre Dehon'}
               </span>
               {m.role === 'assistant' && m.metadata && (
                 <div className="metadata-badges">

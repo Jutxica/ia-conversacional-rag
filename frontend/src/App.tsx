@@ -9,6 +9,8 @@ import LoginPage from './components/layout/LoginPage';
 import MessageList from './components/chat/MessageList';
 import ChatInput from './components/chat/ChatInput';
 import CitationGrid from './components/ui/CitationGrid';
+import ProfileModal from './components/ui/ProfileModal';
+import type { UserProfile } from './components/ui/ProfileModal';
 // Icons
 import { PanelLeftClose, PanelLeftOpen, ShieldCheck, Share2, Check, LogOut, X, BookOpen } from 'lucide-react';
 
@@ -103,9 +105,57 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
     return saved ? JSON.parse(saved) : { enabled: true, maxDays: 30, maxCount: 50 };
   });
 
+  const [profile, setProfile] = useState<UserProfile>(() => {
+    const saved = localStorage.getItem('dehon-profile');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return { name: '', photoUrl: '', title: 'Leigo', congregation: 'Dehoniano' };
+  });
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
   useEffect(() => {
     localStorage.setItem('dehon-auto-cleanup', JSON.stringify(autoCleanup));
   }, [autoCleanup]);
+
+  useEffect(() => {
+    if (session?.user) {
+      const metaProfile = session.user.user_metadata?.profile;
+      const localSaved = localStorage.getItem('dehon-profile');
+      
+      let initialProfile: UserProfile = {
+        name: session.user.email?.split('@')[0] || 'Pesquisador',
+        photoUrl: '',
+        title: 'Leigo',
+        congregation: 'Dehoniano'
+      };
+
+      if (localSaved) {
+        try {
+          initialProfile = { ...initialProfile, ...JSON.parse(localSaved) };
+        } catch (e) {}
+      } else if (metaProfile) {
+        initialProfile = { ...initialProfile, ...metaProfile };
+      }
+
+      if (!initialProfile.name && session.user.email) {
+        initialProfile.name = session.user.email.split('@')[0];
+      }
+
+      setProfile(initialProfile);
+      localStorage.setItem('dehon-profile', JSON.stringify(initialProfile));
+    }
+  }, [session]);
+
+  const handleSaveProfile = async (updated: UserProfile) => {
+    setProfile(updated);
+    localStorage.setItem('dehon-profile', JSON.stringify(updated));
+    if (session?.user) {
+      await supabase.auth.updateUser({
+        data: { profile: updated }
+      });
+    }
+  };
 
   // --- Auth & Session ---
   useEffect(() => {
@@ -474,6 +524,8 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
         onCategoriesChange={handleCategoriesChange}
         autoCleanup={autoCleanup}
         onAutoCleanupChange={setAutoCleanup}
+        profile={profile}
+        onOpenProfile={() => setIsProfileModalOpen(true)}
       />
 
       <main className="main-viewport">
@@ -510,6 +562,7 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
                 onSend={handleSend}
                 isStreaming={isStreaming}
                 onSuggestionClick={(q) => { setInput(q); handleSend(); }}
+                profile={profile}
               />
             ) : (
               <div className={`chat-layout-wrapper ${activeMessageWithCitations ? 'has-panel' : ''}`}>
@@ -519,6 +572,7 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
                     isStreaming={isStreaming}
                     session={session}
                     onViewCitations={(msgId) => setActiveCitationMessageId(msgId)}
+                    profile={profile}
                   />
                   <div className="input-zone">
                     <ChatInput
@@ -552,6 +606,12 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
         </div>
       </main>
 
+      <ProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        profile={profile}
+        onSave={handleSaveProfile}
+      />
     </div>
   );
 }

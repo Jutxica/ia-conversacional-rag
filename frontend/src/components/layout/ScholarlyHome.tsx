@@ -5,12 +5,15 @@ import ChatInput from '../chat/ChatInput';
 import { magneticEffect } from '../../utils/transitions';
 import { GooeyText } from '../ui/GooeyText';
 
+import type { UserProfile } from '../ui/ProfileModal';
+
 interface ScholarlyHomeProps {
   input: string;
   onInputChange: (value: string) => void;
   onSend: () => void;
   isStreaming: boolean;
   onSuggestionClick: (query: string) => void;
+  profile: UserProfile;
 }
 
 const ScholarlyHome: React.FC<ScholarlyHomeProps> = ({
@@ -18,7 +21,8 @@ const ScholarlyHome: React.FC<ScholarlyHomeProps> = ({
   onInputChange,
   onSend,
   isStreaming,
-  onSuggestionClick
+  onSuggestionClick,
+  profile
 }) => {
   const suggestions = [
     { text: 'Resuma O Catecismo Social', icon: <FileText size={16} />, category: 'Obras' },
@@ -36,6 +40,28 @@ const ScholarlyHome: React.FC<ScholarlyHomeProps> = ({
     });
   }, []);
 
+  const getGreeting = () => {
+    const hours = new Date().getHours();
+    let period = 'Bom dia';
+    if (hours >= 12 && hours < 18) {
+      period = 'Boa tarde';
+    } else if (hours >= 18 || hours < 5) {
+      period = 'Boa noite';
+    }
+
+    const userName = profile.name || 'Pesquisador';
+
+    if (profile.title === 'Padre') {
+      const suffix = profile.congregation === 'Dehoniano' ? ', scj' : '';
+      return `${period}, Padre ${userName}${suffix}`;
+    } else if (profile.title === 'Religioso de votos simples') {
+      const suffix = profile.congregation === 'Dehoniano' ? ', scj' : '';
+      return `${period}, Fr. ${userName}${suffix}`;
+    } else {
+      return `${period}, ${userName}`;
+    }
+  };
+
   return (
     <div className="home-container">
       {/* Subtle ambient glow */}
@@ -50,6 +76,10 @@ const ScholarlyHome: React.FC<ScholarlyHomeProps> = ({
           morphTime={1.2}
           cooldownTime={2.5}
         />
+      </div>
+
+      <div className="home-greeting">
+        {getGreeting()}
       </div>
 
       <div className="home-input-section">
