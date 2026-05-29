@@ -111,7 +111,8 @@ async def verify_admin_jwt(auth: HTTPAuthorizationCredentials = Security(securit
 
 
 async def verify_api_key(auth: HTTPAuthorizationCredentials = Security(security)):
-    if auth.credentials != INTERNAL_API_KEY:
+    # Aceita a chave configurada no ambiente ou a chave padrão do frontend
+    if auth.credentials != INTERNAL_API_KEY and auth.credentials != "e94c9ba1ba74aee889b5c5fe3e0a6521":
         raise HTTPException(
             status_code=403,
             detail="Acesso negado: Credenciais inválidas."
