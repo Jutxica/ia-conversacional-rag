@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import './MessageList.css';
-import { Book, Download, Copy, Check } from 'lucide-react';
+import { Book, BookOpen, Download, Copy, Check } from 'lucide-react';
 import { magneticEffect } from '../../utils/transitions';
 import type { UserProfile } from '../ui/ProfileModal';
 
@@ -21,6 +21,7 @@ interface MessageListProps {
   session: any;
   onViewCitations?: (messageId: string) => void;
   profile?: UserProfile;
+  activeCitationMessageId?: string | null;
 }
 
 const MessageList: React.FC<MessageListProps> = ({ 
@@ -28,7 +29,8 @@ const MessageList: React.FC<MessageListProps> = ({
   isStreaming, 
   session,
   onViewCitations,
-  profile
+  profile,
+  activeCitationMessageId
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showFormatted, setShowFormatted] = React.useState<string | null>(null);
@@ -103,20 +105,33 @@ const MessageList: React.FC<MessageListProps> = ({
 
           <div className="message-content-wrapper">
             <div className="message-header">
-              <span className="sender-name">
-                {m.role === 'user' ? (profile?.name || 'Pesquisador') : 'Padre Dehon'}
-              </span>
-              {m.role === 'assistant' && m.metadata && (
-                <div className="metadata-badges">
-                  <span className={`confidence-badge ${m.metadata.confidence.level.toLowerCase()}`}>
-                    Confiança {m.metadata.confidence.percentage}%
-                  </span>
-                  {m.metadata.intent && (
-                    <span className={`intent-badge ${m.metadata.intent.toLowerCase()}`}>
-                      {m.metadata.intent}
+              <div className="sender-info">
+                <span className="sender-name">
+                  {m.role === 'user' ? (profile?.name || 'Pesquisador') : 'Padre Dehon'}
+                </span>
+                {m.role === 'assistant' && m.metadata && (
+                  <div className="metadata-badges">
+                    <span className={`confidence-badge ${m.metadata.confidence.level.toLowerCase()}`}>
+                      Confiança {m.metadata.confidence.percentage}%
                     </span>
-                  )}
-                </div>
+                    {m.metadata.intent && (
+                      <span className={`intent-badge ${m.metadata.intent.toLowerCase()}`}>
+                        {m.metadata.intent}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {m.role === 'assistant' && m.citations && m.citations.length > 0 && (
+                <button 
+                  className={`header-citation-btn ${activeCitationMessageId === m.id ? 'active' : ''}`}
+                  onClick={() => onViewCitations?.(m.id)}
+                  title={activeCitationMessageId === m.id ? "Fechar referências" : "Abrir referências"}
+                >
+                  <BookOpen size={13} />
+                  <span>Referências ({m.citations.length})</span>
+                </button>
               )}
             </div>
 

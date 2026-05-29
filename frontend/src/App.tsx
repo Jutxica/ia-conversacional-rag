@@ -394,8 +394,8 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
                     }
                   : c
               ));
-              // Abre automaticamente o painel de citações quando elas chegam
-              setActiveCitationMessageId(assistantMessageId);
+              // Abre automaticamente o painel de citações quando elas chegam (desativado por preferência do usuário)
+              // setActiveCitationMessageId(assistantMessageId);
             } else if (data.type === 'metadata') {
               setConversations(prev => prev.map(c => 
                 c.id === chatId 
@@ -571,8 +571,9 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
                     messages={currentChat.messages}
                     isStreaming={isStreaming}
                     session={session}
-                    onViewCitations={(msgId) => setActiveCitationMessageId(msgId)}
+                    onViewCitations={(msgId) => setActiveCitationMessageId(prev => prev === msgId ? null : msgId)}
                     profile={profile}
+                    activeCitationMessageId={activeCitationMessageId}
                   />
                   <div className="input-zone">
                     <ChatInput
