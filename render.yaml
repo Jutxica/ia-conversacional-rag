@@ -30,4 +30,4 @@ services:
         destination: "/index.html"
     envVars:
       - key: VITE_API_URL
-        value: "https://dehon-ai-backend.onrender.com/api/chat"
+        value: "https://conventinho.app.n8n.cloud/webhook/chat"

@@ -347,9 +347,27 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
 
       if (!response.ok) throw new Error(`Server Error: ${response.status}`);
 
+      const assistantMessageId = (Date.now() + 1).toString();
+
+      // Check if response is standard JSON (like from n8n) instead of SSE stream
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        // n8n Agent typically returns the response in "output" or similar field
+        const content = data.output || data.text || data.message || (typeof data === 'string' ? data : JSON.stringify(data));
+        
+        setConversations(prev => prev.map(c => 
+          c.id === chatId 
+            ? { ...c, messages: [...c.messages, { id: assistantMessageId, role: 'assistant', content, timestamp: new Date() }] }
+            : c
+        ));
+        setIsStreaming(false);
+        return;
+      }
+
+      // Existing SSE Streaming logic
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
-      const assistantMessageId = (Date.now() + 1).toString();
 
       setConversations(prev => prev.map(c => 
         c.id === chatId 
