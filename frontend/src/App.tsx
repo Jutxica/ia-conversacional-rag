@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import './index.css';
-
+import { supabase } from './supabaseClient';
 
 // Components
 import Sidebar from './components/layout/Sidebar';
 import ScholarlyHome from './components/layout/ScholarlyHome';
-
+import LoginPage from './components/layout/LoginPage';
 import MessageList from './components/chat/MessageList';
 import ChatInput from './components/chat/ChatInput';
 import CitationGrid from './components/ui/CitationGrid';
@@ -54,18 +54,8 @@ interface AppProps {
 }
 
 export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: AppProps) {
-  
-  const [conversations, setConversations] = useState<Conversation[]>(() => {
-    const saved = localStorage.getItem('dehon-conversations');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse conversations from local storage', e);
-      }
-    }
-    return [];
-  });
+  const [session, setSession] = useState<any>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [scope, setScope] = useState('Geral');
@@ -110,44 +100,10 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
   const [theme, setTheme] = useState<'light' | 'midnight'>((localStorage.getItem('dehon-theme') as any) || 'light');
   const [activeCitationMessageId, setActiveCitationMessageId] = useState<string | null>(null);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
-
-  const [autoCleanup, setAutoCleanup] = useState<{ enabled: boolean; limit: number; type: 'days' | 'count' }>(() => {
+  const [autoCleanup, setAutoCleanup] = useState(() => {
     const saved = localStorage.getItem('dehon-auto-cleanup');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
-    return { enabled: true, limit: 30, type: 'days' };
+    return saved ? JSON.parse(saved) : { enabled: true, maxDays: 30, maxCount: 50 };
   });
-
-  useEffect(() => {
-    localStorage.setItem('dehon-auto-cleanup', JSON.stringify(autoCleanup));
-  }, [autoCleanup]);
-
-  useEffect(() => {
-    localStorage.setItem('dehon-conversations', JSON.stringify(conversations));
-  }, [conversations]);
-
-  useEffect(() => {
-    if (!autoCleanup.enabled) return;
-    setConversations(prev => {
-      let updated = [...prev];
-      let changed = false;
-      if (autoCleanup.type === 'count' && updated.length > autoCleanup.limit) {
-        updated = updated.slice(0, autoCleanup.limit);
-        changed = true;
-      } else if (autoCleanup.type === 'days') {
-        const now = Date.now();
-        const limitMs = autoCleanup.limit * 24 * 60 * 60 * 1000;
-        const filtered = updated.filter(c => now - new Date(c.updated_at).getTime() < limitMs);
-        if (filtered.length !== updated.length) {
-          updated = filtered;
-          changed = true;
-        }
-      }
-      return changed ? updated : prev;
-    });
-  }, [autoCleanup, conversations.length]);
-
 
   const [profile, setProfile] = useState<UserProfile>(() => {
     const saved = localStorage.getItem('dehon-profile');
@@ -158,18 +114,138 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
   });
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
-  
-  
+  useEffect(() => {
+    localStorage.setItem('dehon-auto-cleanup', JSON.stringify(autoCleanup));
+  }, [autoCleanup]);
+
+  useEffect(() => {
+    if (session?.user) {
+      const metaProfile = session.user.user_metadata?.profile;
+      const localSaved = localStorage.getItem('dehon-profile');
+      
+      let initialProfile: UserProfile = {
+        name: session.user.email?.split('@')[0] || 'Pesquisador',
+        photoUrl: '',
+        title: 'Leigo',
+        congregation: 'Dehoniano'
+      };
+
+      if (localSaved) {
+        try {
+          initialProfile = { ...initialProfile, ...JSON.parse(localSaved) };
+        } catch (e) {}
+      } else if (metaProfile) {
+        initialProfile = { ...initialProfile, ...metaProfile };
+      }
+
+      if (!initialProfile.name && session.user.email) {
+        initialProfile.name = session.user.email.split('@')[0];
+      }
+
+      setProfile(initialProfile);
+      localStorage.setItem('dehon-profile', JSON.stringify(initialProfile));
+    }
+  }, [session]);
 
   const handleSaveProfile = async (updated: UserProfile) => {
     setProfile(updated);
     localStorage.setItem('dehon-profile', JSON.stringify(updated));
+    if (session?.user) {
+      await supabase.auth.updateUser({
+        data: { profile: updated }
+      });
+    }
   };
 
+  // --- Auth & Session ---
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('dehon-theme', theme);
+  }, [theme]);
 
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedChatId = urlParams.get('chat');
+    if (sharedChatId) loadSharedChat(sharedChatId);
+
+    const timer = setTimeout(() => setIsAppLoading(false), 1500);
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timer);
+    };
+  }, []);
+
+  // --- Load History ---
+  useEffect(() => {
+    async function loadChats() {
+      if (session?.user?.id) {
+        const { data, error } = await supabase
+          .from('chats')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('updated_at', { ascending: false });
+
+        if (!error && data) {
+          const sanitized = data.map((c: any) => ({
+            id: c.id,
+            title: c.title,
+            messages: c.messages.map((m: any) => ({
+              ...m,
+              timestamp: new Date(m.timestamp)
+            })),
+            is_public: c.is_public
+          }));
+          setConversations(sanitized);
+        }
+      } else {
+        setConversations([]);
+        setCurrentId(null);
+      }
+    }
+    loadChats();
+  }, [session?.user?.id]);
+
+  const loadSharedChat = async (id: string) => {
+    const { data, error } = await supabase
+      .from('chats')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (data && !error) {
+      const sanitized = {
+        ...data,
+        messages: data.messages.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }))
+      };
+      setConversations(prev => [sanitized, ...prev.filter(c => c.id !== id)]);
+      setCurrentId(id);
+    }
+  };
+
+  const persistChat = async (chat: Conversation) => {
+    if (!session?.user?.id) return;
+    await supabase.from('chats').upsert({
+      id: chat.id,
+      user_id: session.user.id,
+      title: chat.title,
+      messages: chat.messages,
+      is_public: chat.is_public || false,
+      updated_at: new Date().toISOString()
+    });
+  };
 
   // --- Actions ---
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
 
   const startNewChat = () => {
     setCurrentId(null);
@@ -179,19 +255,76 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
   };
 
   const handleDeleteChat = async (chatId: string) => {
+    // Remove from Supabase
+    if (session?.user?.id) {
+      await supabase.from('chats').delete().eq('id', chatId).eq('user_id', session.user.id);
+    }
     // Remove from local state
     setConversations(prev => prev.filter(c => c.id !== chatId));
+    // If the deleted chat was active, go to home
     if (currentId === chatId) {
       setCurrentId(null);
       setActiveCitationMessageId(null);
     }
   };
 
+  useEffect(() => {
+    async function runAutoCleanup() {
+      if (!session?.user?.id || !autoCleanup.enabled) return;
+
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - autoCleanup.maxDays);
+
+      // Delete conversations older than maxDays
+      await supabase
+        .from('chats')
+        .delete()
+        .eq('user_id', session.user.id)
+        .lt('updated_at', cutoffDate.toISOString());
+
+      // If still too many, delete the oldest ones beyond the limit
+      const { data } = await supabase
+        .from('chats')
+        .select('id, updated_at')
+        .eq('user_id', session.user.id)
+        .order('updated_at', { ascending: false });
+
+      if (data && data.length > autoCleanup.maxCount) {
+        const toDelete = data.slice(autoCleanup.maxCount).map((c: any) => c.id);
+        await supabase
+          .from('chats')
+          .delete()
+          .in('id', toDelete);
+      }
+    }
+    runAutoCleanup();
+  }, [session?.user?.id, autoCleanup]);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'midnight' : 'light');
   };
 
+  const toggleShare = async () => {
+    const currentChat = conversations.find(c => c.id === currentId);
+    if (!currentChat || !session || currentChat.user_id !== session.user.id) return;
+    
+    const newPublicStatus = !currentChat.is_public;
+    const { error } = await supabase
+      .from('chats')
+      .update({ is_public: newPublicStatus })
+      .eq('id', currentChat.id);
+
+    if (!error) {
+      setConversations(prev => prev.map(c => 
+        c.id === currentChat.id ? { ...c, is_public: newPublicStatus } : c
+      ));
+      if (newPublicStatus) {
+        const shareUrl = `${window.location.origin}${window.location.pathname}?chat=${currentChat.id}`;
+        navigator.clipboard.writeText(shareUrl);
+        alert("Link de pesquisa copiado!");
+      }
+    }
+  };
 
   const executeChatLogic = async (chatId: string, query: string, history: Message[]) => {
     setIsStreaming(true);
@@ -296,7 +429,7 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
               setIsStreaming(false);
               setConversations(prev => {
                 const final = prev.find(c => c.id === chatId);
-                
+                if (final) persistChat(final);
                 return prev;
               });
             }
@@ -350,7 +483,38 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
   const activeMessageWithCitations = currentChat?.messages.find(m => m.id === activeCitationMessageId);
 
   // --- Render Logic ---
+  if (isAppLoading) {
+    return (
+      <div className="splash-screen">
+        <div className="splash-content">
+          <div className="flex flex-col gap-4 w-full items-center justify-center my-4">
+            <div className="relative w-28 h-28 flex items-center justify-center">
+              {/* Outer spinner ring with brand colors */}
+              <div className="absolute inset-0 border-8 border-[var(--border-subtle)] border-t-[var(--accent-primary)] rounded-full animate-spin"></div>
+              {/* Inner Avatar with ping effect */}
+              <div className="relative w-16 h-16 flex items-center justify-center">
+                <img 
+                  src="/Avatar.png" 
+                  alt="Dehon AI Avatar Ping" 
+                  className="absolute w-full h-full rounded-full object-cover animate-ping opacity-75"
+                />
+                <img 
+                  src="/Avatar.png" 
+                  alt="Dehon AI Avatar" 
+                  className="relative w-full h-full rounded-full object-cover border-2 border-[var(--border-subtle)] bg-[var(--bg-secondary)]"
+                />
+              </div>
+            </div>
+          </div>
+          <p className="splash-text">Ambiente Acadêmico</p>
+        </div>
+      </div>
+    );
+  }
 
+  if (!session && !currentChat?.is_public) {
+    return <LoginPage onLoginSuccess={() => window.location.reload()} />;
+  }
 
   return (
     <div className="app-container">
@@ -368,14 +532,16 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
         onDeleteChat={handleDeleteChat}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        autoCleanup={autoCleanup}
-        onAutoCleanupChange={setAutoCleanup}
+        session={session}
+        onLogout={handleLogout}
         theme={theme}
         onThemeToggle={toggleTheme}
         scope={scope}
         onScopeChange={handleScopeChange}
         categories={categories}
         onCategoriesChange={handleCategoriesChange}
+        autoCleanup={autoCleanup}
+        onAutoCleanupChange={setAutoCleanup}
         profile={profile}
         onOpenProfile={() => setIsProfileModalOpen(true)}
       />
@@ -393,7 +559,17 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
             <div className="nav-brand" onClick={startNewChat}>
               <img src="/Navbar.png" alt="Dehon AI" />
             </div>
-            <div className="nav-actions"></div>
+            <div className="nav-actions">
+              {currentChat && session && currentChat.user_id === session.user.id && (
+                <button
+                  className={`share-btn ${currentChat.is_public ? 'shared' : ''}`}
+                  onClick={toggleShare}
+                >
+                  {currentChat.is_public ? <Check size={16} /> : <Share2 size={16} />}
+                  <span>{currentChat.is_public ? 'Compartilhado' : 'Compartilhar'}</span>
+                </button>
+              )}
+            </div>
           </header>
 
           <div className="content-area">
@@ -412,7 +588,8 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
                   <MessageList
                     messages={currentChat.messages}
                     isStreaming={isStreaming}
-                                onViewCitations={(msgId) => setActiveCitationMessageId(prev => prev === msgId ? null : msgId)}
+                    session={session}
+                    onViewCitations={(msgId) => setActiveCitationMessageId(prev => prev === msgId ? null : msgId)}
                     profile={profile}
                     activeCitationMessageId={activeCitationMessageId}
                   />
