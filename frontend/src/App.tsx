@@ -55,7 +55,17 @@ interface AppProps {
 
 export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: AppProps) {
   
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>(() => {
+    const saved = localStorage.getItem('dehon-conversations');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse conversations from local storage', e);
+      }
+    }
+    return [];
+  });
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [scope, setScope] = useState('Geral');
@@ -100,6 +110,43 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
   const [theme, setTheme] = useState<'light' | 'midnight'>((localStorage.getItem('dehon-theme') as any) || 'light');
   const [activeCitationMessageId, setActiveCitationMessageId] = useState<string | null>(null);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+
+  const [autoCleanup, setAutoCleanup] = useState<{ enabled: boolean; limit: number; type: 'days' | 'count' }>(() => {
+    const saved = localStorage.getItem('dehon-auto-cleanup');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return { enabled: true, limit: 30, type: 'days' };
+  });
+
+  useEffect(() => {
+    localStorage.setItem('dehon-auto-cleanup', JSON.stringify(autoCleanup));
+  }, [autoCleanup]);
+
+  useEffect(() => {
+    localStorage.setItem('dehon-conversations', JSON.stringify(conversations));
+  }, [conversations]);
+
+  useEffect(() => {
+    if (!autoCleanup.enabled) return;
+    setConversations(prev => {
+      let updated = [...prev];
+      let changed = false;
+      if (autoCleanup.type === 'count' && updated.length > autoCleanup.limit) {
+        updated = updated.slice(0, autoCleanup.limit);
+        changed = true;
+      } else if (autoCleanup.type === 'days') {
+        const now = Date.now();
+        const limitMs = autoCleanup.limit * 24 * 60 * 60 * 1000;
+        const filtered = updated.filter(c => now - new Date(c.updated_at).getTime() < limitMs);
+        if (filtered.length !== updated.length) {
+          updated = filtered;
+          changed = true;
+        }
+      }
+      return changed ? updated : prev;
+    });
+  }, [autoCleanup, conversations.length]);
 
 
   const [profile, setProfile] = useState<UserProfile>(() => {
@@ -321,6 +368,8 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
         onDeleteChat={handleDeleteChat}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        autoCleanup={autoCleanup}
+        onAutoCleanupChange={setAutoCleanup}
         theme={theme}
         onThemeToggle={toggleTheme}
         scope={scope}

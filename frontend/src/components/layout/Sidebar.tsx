@@ -45,6 +45,8 @@ interface SidebarProps {
   onCategoriesChange: (categories: string[]) => void;
   profile: UserProfile;
   onOpenProfile: () => void;
+  autoCleanup: { enabled: boolean; limit: number; type: 'days' | 'count' };
+  onAutoCleanupChange: (settings: any) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -68,8 +70,8 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const newChatRef = React.useRef<HTMLButtonElement>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [isScopeOpen, setIsScopeOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isScopeOpen, setIsScopeOpen] = useState(false);
   const [isCollectionsOpen, setIsCollectionsOpen] = useState(false);
 
   const availableCategories = [
@@ -329,7 +331,65 @@ const Sidebar: React.FC<SidebarProps> = ({
 
               </div>
 
-              {/* User profile */}
+              <div className="sb-settings-wrapper" style={{ position: 'relative', marginTop: '12px' }}>
+              <button 
+                className={`sb-opt-btn sb-settings-trigger ${isSettingsOpen ? 'active' : ''}`}
+                onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', borderRadius: '6px' }}
+              >
+                <Settings2 size={15} />
+                <span style={{ flex: 1, textAlign: 'left', fontSize: '13px' }}>Gestão de Histórico</span>
+                <Zap size={12} className={autoCleanup.enabled ? 'sb-cleanup-active' : ''} style={{ color: autoCleanup.enabled ? '#eab308' : 'inherit' }} />
+              </button>
+
+              {isSettingsOpen && (
+                <div className="sb-settings-dropdown" style={{ position: 'absolute', bottom: '100%', left: '0', width: '220px', background: 'var(--surface-sunken)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px', marginBottom: '8px', zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                  <div className="sb-settings-header" style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Configurações Locais</div>
+                  
+                  <div className="sb-setting-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Limpeza Automática</span>
+                    <input 
+                      type="checkbox" 
+                      checked={autoCleanup.enabled} 
+                      onChange={(e) => onAutoCleanupChange({ ...autoCleanup, enabled: e.target.checked })}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </div>
+                  
+                  {autoCleanup.enabled && (
+                    <div className="sb-setting-input-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Tipo:</span>
+                        <select 
+                          value={autoCleanup.type}
+                          onChange={(e) => onAutoCleanupChange({ ...autoCleanup, type: e.target.value })}
+                          style={{ fontSize: '12px', padding: '2px 4px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '4px' }}
+                        >
+                          <option value="days">Dias</option>
+                          <option value="count">Conversas</option>
+                        </select>
+                      </div>
+                      
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Limite:</span>
+                        <input 
+                          type="number" 
+                          value={autoCleanup.limit}
+                          onChange={(e) => onAutoCleanupChange({ ...autoCleanup, limit: parseInt(e.target.value) || 1 })}
+                          style={{ width: '60px', fontSize: '12px', padding: '2px 4px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '4px' }}
+                        />
+                      </div>
+                      
+                      <div className="sb-setting-info" style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.4 }}>
+                        Mantém {autoCleanup.type === 'count' ? `os últimos ${autoCleanup.limit} chats` : `chats dos últimos ${autoCleanup.limit} dias`}.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* User profile */}
               <div className="sb-user" onClick={onOpenProfile} style={{ cursor: 'pointer' }} title="Clique para configurar o perfil">
                 <div className="sb-avatar">
                   {profile.photoUrl ? (
