@@ -100,10 +100,7 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
   const [theme, setTheme] = useState<'light' | 'midnight'>((localStorage.getItem('dehon-theme') as any) || 'light');
   const [activeCitationMessageId, setActiveCitationMessageId] = useState<string | null>(null);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
-  const [autoCleanup, setAutoCleanup] = useState(() => {
-    const saved = localStorage.getItem('dehon-auto-cleanup');
-    return saved ? JSON.parse(saved) : { enabled: true, maxDays: 30, maxCount: 50 };
-  });
+
 
   const [profile, setProfile] = useState<UserProfile>(() => {
     const saved = localStorage.getItem('dehon-profile');

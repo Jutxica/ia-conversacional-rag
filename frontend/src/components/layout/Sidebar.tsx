@@ -40,8 +40,7 @@ interface SidebarProps {
   onThemeToggle: () => void;
   scope: string;
   onScopeChange: (scope: string) => void;
-  autoCleanup: { enabled: boolean; maxDays: number; maxCount: number };
-  onAutoCleanupChange: (settings: any) => void;
+
   categories: string[];
   onCategoriesChange: (categories: string[]) => void;
   profile: UserProfile;
@@ -327,47 +326,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
 
 
-                <div className="sb-settings-wrapper">
-                  <button 
-                    className={`sb-opt-btn sb-settings-trigger ${isSettingsOpen ? 'active' : ''}`}
-                    onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                  >
-                    <Settings2 size={15} />
-                    <span>Gestão de Histórico</span>
-                    <Zap size={12} className={autoCleanup.enabled ? 'sb-cleanup-active' : ''} />
-                  </button>
 
-                  {isSettingsOpen && (
-                    <div className="sb-settings-dropdown">
-                      <div className="sb-settings-header">Configurações Locais</div>
-                      <div className="sb-setting-item">
-                        <label className="sb-switch-label">
-                          <span>Limpeza Automática</span>
-                          <input 
-                            type="checkbox" 
-                            checked={autoCleanup.enabled} 
-                            onChange={(e) => onAutoCleanupChange({ ...autoCleanup, enabled: e.target.checked })}
-                          />
-                        </label>
-                      </div>
-                      {autoCleanup.enabled && (
-                        <>
-                          <div className="sb-setting-info">
-                            Mantém os últimos {autoCleanup.maxCount} chats ou {autoCleanup.maxDays} dias.
-                          </div>
-                          <div className="sb-setting-input-group">
-                            <label>Máximo de Chats:</label>
-                            <input 
-                              type="number" 
-                              value={autoCleanup.maxCount}
-                              onChange={(e) => onAutoCleanupChange({ ...autoCleanup, maxCount: parseInt(e.target.value) || 1 })}
-                            />
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
               </div>
 
               {/* User profile */}
