@@ -411,7 +411,7 @@ async def get_analytics(token: str):
 
     try:
         docs_res = neon_db.table('documents').select('id', count='exact').execute()
-        chats_res = neon_db.table('chats').select('id', count='exact').execute()
+        chats_res = supabase_admin.table('chats').select('id', count='exact').execute()
         
         return {
             "total_documents": docs_res.count if hasattr(docs_res, 'count') else 0,
@@ -1249,7 +1249,7 @@ async def get_admin_logs():
     
     if supabase_admin:
         try:
-            resp = neon_db.table("search_logs") \
+            resp = supabase_admin.table("search_logs") \
                 .select("*") \
                 .order("created_at", desc=True) \
                 .limit(200) \
@@ -1282,7 +1282,7 @@ async def get_admin_metrics():
     using_fallback = False
     if supabase_admin:
         try:
-            resp = neon_db.table("search_logs").select("*").execute()
+            resp = supabase_admin.table("search_logs").select("*").execute()
             logs = resp.data or []
         except Exception:
             using_fallback = True
@@ -1628,7 +1628,7 @@ DOCUMENTOS RECUPERADOS (Base de Conhecimento):
     }
     try:
         if supabase_admin:
-            neon_db.table("search_logs").insert(log_data).execute()
+            supabase_admin.table("search_logs").insert(log_data).execute()
         else:
             save_search_log_fallback(log_data)
     except Exception as log_e:
@@ -1650,7 +1650,7 @@ async def submit_feedback(data: dict):
         success = False
         if supabase_admin:
             try:
-                neon_db.table("search_logs") \
+                supabase_admin.table("search_logs") \
                     .update({"feedback": feedback, "feedback_comment": comment}) \
                     .eq("conversation_id", conversation_id) \
                     .execute()
@@ -1675,7 +1675,7 @@ async def get_knowledge_gaps(min_count: int = 3):
     
     if supabase_admin:
         try:
-            resp = neon_db.rpc("get_gap_terms", {"min_count": min_count}).execute()
+            resp = supabase_admin.rpc("get_gap_terms", {"min_count": min_count}).execute()
             gaps = resp.data or []
         except Exception as e:
             print(f"[GAPS] Supabase RPC failed, using fallback: {e}")
