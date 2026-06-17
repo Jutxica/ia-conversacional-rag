@@ -326,10 +326,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                   )}
                 </div>
 
-                <button className="sb-opt-btn sb-opt-logout" onClick={onLogout}>
-                  <LogOut size={15} />
-                  <span>Sair da Conta</span>
-                </button>
 
                 <div className="sb-settings-wrapper">
                   <button 
