@@ -67,6 +67,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onCategoriesChange,
   profile,
   onOpenProfile,
+  autoCleanup,
+  onAutoCleanupChange,
 }) => {
   const newChatRef = React.useRef<HTMLButtonElement>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
