@@ -2,7 +2,7 @@ import os
 import hashlib
 from collections import defaultdict
 
-DIR = "ia-conversacional-rag/data/dehon_corpus_full"
+DIR = "/Users/fr.utxicascj/testes antigravity/ia-conversacional-rag/data/dehon_corpus_full"
 
 def get_stats():
     files = [f for f in os.listdir(DIR) if f.endswith(".md")]

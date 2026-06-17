@@ -40,33 +40,31 @@ O estado atual do projeto apresenta alta densidade em arquivos únicos, o que di
     - `HomeView.tsx`: A tela inicial estilo "Manus" com sugestões.
 
 ### 🧹 CSS Optimization
-- **Redução do `index.css`**: O arquivo atual possui 3900+ linhas. É necessário:
-    - Extrair estilos específicos de componentes para arquivos `.module.css` ou usar variáveis CSS centralizadas.
-    - Remover estilos legados de versões anteriores do design.
+- **Redução do `index.css`**: O arquivo original possuía 3900+ linhas. Foi refatorado reduzindo cerca de 430 linhas de código redundante e centralizando variáveis no tema global.
 
 ---
 
 ## 3. Funcionalidades de Alta Performance (RAG UI)
 
 ### 🧐 Visualização de Fontes Integrada ✅ CONCLUÍDO
-- ~~Implementar um modal ou "side-drawer" que permita abrir o documento original (PDF ou texto bruto) ao clicar em uma citação, destacando o parágrafo exato que a IA usou.~~ (O painel lateral já está funcional no `App.tsx` usando `activeCitationMessageId`).
+- O painel lateral está funcional no `App.tsx` usando `activeCitationMessageId` e exibe as citações em formato Bento-Grid.
 
 ### 📊 Indicadores de Confiança ✅ CONCLUÍDO
-- ~~Melhorar visualmente o `badge` de confiança, usando gradientes sutis em vez de cores sólidas, e adicionando um tooltip que explique *por que* a confiança está naquele nível.~~ (Implementado através do envio de metadados de confiança pelo backend via SSE).
+- Badge de confiança e progresso baseado no score do cross-encoder do backend, exibido de forma fluida.
 
 ### 🔄 Gestão de Estado de Contexto ✅ CONCLUÍDO
-- ~~Corrigir a lacuna apontada nos testes (TC005): garantir que o `conversation_id` seja mantido no frontend para pesquisas de múltiplos turnos.~~ (O parâmetro `conversation_id` agora é armazenado e trafegado corretamente).
+- O parâmetro `conversation_id` é mantido para pesquisas multi-turno.
 
 ---
 
 ## 4. Checklist de Implementação (Fase 1) ✅ CONCLUÍDO
 
 - [x] **Criar Estrutura de Pastas**: Organizar `src/components`, `src/hooks` e `src/styles`.
-- [x] **Extrair Componentes do App.tsx**: Componentes de Layout e Chat já estão separados (embora o App.tsx precise de mais redução).
+- [x] **Extrair Componentes do App.tsx**: Componentes de Layout e Chat já estão separados (App.tsx modular).
 - [x] **Refinar Tipografia**: Aplicar `Lora` nas respostas da IA via `ReactMarkdown` (Prose + font-serif).
-- [x] **Bento Grid de Citações**: Terminar de refinar o layout da `.citations-section` para cards estilo museu no painel e na grid (Bento-Grid implementado em `CitationGrid.tsx`).
-- [x] **Feedback de Streaming**: Melhorar o cursor de digitação e o estado de "Thinking" (pensando).
-- [x] **Limpeza de CSS**: Refatorar o `index.css` global para reduzir tamanho e usar classes utilitárias do Tailwind (Removidas ~430 linhas redundantes de código morto).
+- [x] **Bento Grid de Citações**: Layout da `.citations-section` para cards estilo museu no painel e na grid (Bento-Grid implementado em `CitationGrid.tsx`).
+- [x] **Feedback de Streaming**: Cursor de digitação e o estado de "Thinking" (pensando) dinâmicos.
+- [x] **Limpeza de CSS**: Refatorar o `index.css` global para reduzir tamanho (Removidas ~430 linhas redundantes de código morto).
 
 ---
 
@@ -75,6 +73,18 @@ O estado atual do projeto apresenta alta densidade em arquivos únicos, o que di
 - [x] **Painel de Logs SSE (`LiveLogsPanel`)**: Implementação de visualizador de logs em tempo real para monitorar processos de ingestão e normalização de PDFs e URLs.
 - [x] **Visualizador e Editor de Chunks**: Edição direta do conteúdo bruto dos fragmentos com recalculagem imediata de embeddings e marcação com badge `EDITADO`.
 - [x] **Página de Analytics**: Cards informativos com estatísticas de chats ativos, contagem de vetores e eficiência do cache de embeddings.
+
+---
+
+## 6. Checklist de Implementação (Fase 3: Imersão e Polimento Visual) ✅ CONCLUÍDO
+
+- [x] **Carrossel de Imagens Ken Burns na Autenticação:** Transição suave de fotos históricas restauradas de Padre Dehon no login, servindo de background responsivo em mobile. Card de auth em glassmorphism sem escudo no botão principal.
+- [x] **Configurações e Gestão de Perfil:** Modal de configurações de perfil (`ProfileModal.tsx`) para o pesquisador alterar nome, avatar customizado e saudações dinâmicas personalizadas na Home (ex: "Olá, João").
+- [x] **Animações no ScholarlyHome:** Novo subtítulo com animação dinâmica `GooeyText` em negrito e layout Bento-Grid de sugestões reordenadas para visualização limpa acima da caixa de pesquisa.
+- [x] **Controle Manual de Citações Drawer:** Desabilitado o comportamento de auto-abrir a barra lateral de citações que interrompia a leitura. Adicionado um botão de toggle com ícone no cabeçalho das respostas do assistente.
+- [x] **Aceleração do Splash Screen:** Reduzido o timeout de splash inicial para 2s no frontend e removido o timeout de 3.5s no admin, substituindo a barra de progresso por um spinner de avatar com animação de pulso.
+- [x] **Formatação Visual do Chat:** Mensagens do usuário formatadas como balões arredondados e alinhados à direita. Renderização defensiva via `safeRender` no frontend.
+- [x] **Filtros de Coleção/Escopo na UI:** Checkboxes de categorias na barra lateral enviadas para filtrar a busca híbrida no banco de dados.
 
 ---
 

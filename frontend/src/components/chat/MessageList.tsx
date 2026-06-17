@@ -18,7 +18,6 @@ interface Message {
 interface MessageListProps {
   messages: Message[];
   isStreaming: boolean;
-  session: any;
   onViewCitations?: (messageId: string) => void;
   profile?: UserProfile;
   activeCitationMessageId?: string | null;
@@ -27,7 +26,6 @@ interface MessageListProps {
 const MessageList: React.FC<MessageListProps> = ({ 
   messages, 
   isStreaming, 
-  session,
   onViewCitations,
   profile,
   activeCitationMessageId
@@ -93,7 +91,7 @@ const MessageList: React.FC<MessageListProps> = ({
                 {profile?.photoUrl ? (
                   <img src={profile.photoUrl} alt={profile?.name} className="avatar-img" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
                 ) : (
-                  profile?.name ? profile.name[0].toUpperCase() : (session?.user?.email?.[0].toUpperCase() || 'U')
+                  profile?.name ? profile.name[0].toUpperCase() : 'U'
                 )}
               </div>
             ) : (
@@ -152,7 +150,9 @@ const MessageList: React.FC<MessageListProps> = ({
                   </div>
                 </div>
               ) : (
-                <ReactMarkdown className={m.role === 'assistant' ? "prose dark:prose-invert prose-stone font-serif max-w-none text-[15px] prose-p:leading-relaxed prose-p:mb-4 last:prose-p:mb-0" : ""}>{m.content}</ReactMarkdown>
+                <div className={m.role === 'assistant' ? "prose dark:prose-invert prose-stone font-serif max-w-none text-[15px] prose-p:leading-relaxed prose-p:mb-4 last:prose-p:mb-0" : ""}>
+                  <ReactMarkdown>{m.content}</ReactMarkdown>
+                </div>
               )}
               {isStreaming && m.content !== '' && idx === messages.length - 1 && (
                 <span className="typing-cursor"></span>

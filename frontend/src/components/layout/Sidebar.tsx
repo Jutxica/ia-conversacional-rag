@@ -36,8 +36,6 @@ interface SidebarProps {
   onDeleteChat: (id: string) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  session: any;
-  onLogout: () => void;
   theme: 'light' | 'midnight';
   onThemeToggle: () => void;
   scope: string;
@@ -60,14 +58,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   onDeleteChat,
   searchQuery,
   onSearchChange,
-  session,
-  onLogout,
   theme,
   onThemeToggle,
   scope,
   onScopeChange,
-  autoCleanup,
-  onAutoCleanupChange,
   categories,
   onCategoriesChange,
   profile,
@@ -245,7 +239,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         {/* ── Footer ── */}
         <div className="sb-footer">
-          {session ? (
             <>
               {/* Options row */}
               <div className="sb-footer-opts">
@@ -387,25 +380,19 @@ const Sidebar: React.FC<SidebarProps> = ({
                   {profile.photoUrl ? (
                     <img src={profile.photoUrl} alt={profile.name} className="sb-avatar-img" />
                   ) : (
-                    profile.name ? profile.name[0].toUpperCase() : session.user.email[0].toUpperCase()
+                    profile.name ? profile.name[0].toUpperCase() : 'P'
                   )}
                 </div>
                 <div className="sb-user-info">
                   <span className="sb-user-name">
                     {profile.title === 'Padre' && (profile.congregation === 'Dehoniano' ? `Pe. ${profile.name}, scj` : `Padre ${profile.name}`)}
                     {profile.title === 'Religioso de votos simples' && (profile.congregation === 'Dehoniano' ? `Fr. ${profile.name}, scj` : `Fr. ${profile.name}`)}
-                    {profile.title === 'Leigo' && (profile.name || session.user.email.split('@')[0])}
+                    {profile.title === 'Leigo' && (profile.name || 'Pesquisador')}
                   </span>
-                  <span className="sb-user-email">{session.user.email}</span>
+                  <span className="sb-user-email">Usuário Visitante</span>
                 </div>
               </div>
             </>
-          ) : (
-            <button className="sb-login-prompt" onClick={() => window.location.reload()}>
-              <LogOut size={16} />
-              <span>Entrar na Biblioteca</span>
-            </button>
-          )}
         </div>
       </aside>
     </>

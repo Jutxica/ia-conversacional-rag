@@ -5,21 +5,20 @@ import argparse
 from pathlib import Path
 from pypdf import PdfReader
 from dotenv import load_dotenv
-from supabase import create_client, Client
-from openai import OpenAI
 
-# Carrega .env da pasta backend
+# Carrega .env da pasta backend ANTES de importar dependências que usem o .env
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
+
+from src.neon_client import neon_db
+from openai import OpenAI
 
 print(f"--- INICIANDO INGESTAO DE PDFs ---", flush=True)
 print(f"Caminho .env: {env_path}", flush=True)
 print(f"Supabase URL configurada: {'Sim' if os.getenv('SUPABASE_URL') else 'Nao'}", flush=True)
 
 # Configurações
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Supabase removed in favor of Neon
 
 client_openai = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -81,7 +80,7 @@ def ingest_pdf(file_path):
     
     # --- NOVO: Lógica de Skip (Verifica se já existe no banco) ---
     try:
-        existing = supabase.table("documents").select("id").eq("metadata->>source_id", filename).limit(1).execute()
+        existing = neon_db.table("documents").select("id").eq("metadata->>source_id", filename).limit(1).execute()
         if existing.data:
             print(f">>> Pulando {filename} (já processado).", flush=True)
             return
@@ -146,7 +145,7 @@ def ingest_pdf(file_path):
             chunk_index += 1
             
             if len(chunks_to_insert) >= 5: # Batch pequeno para PDFs volumosos
-                supabase.table("documents").insert(chunks_to_insert).execute()
+                neon_db.table("documents").insert(chunks_to_insert).execute()
                 print(f"  [OK] Inseridos {len(chunks_to_insert)} blocos de {sigla}...", flush=True)
                 chunks_to_insert = []
                 
@@ -155,7 +154,7 @@ def ingest_pdf(file_path):
             time.sleep(2)
 
     if chunks_to_insert:
-        supabase.table("documents").insert(chunks_to_insert).execute()
+        neon_db.table("documents").insert(chunks_to_insert).execute()
         print(f"  [OK] Inseridos blocos finais de {sigla}.", flush=True)
 
 def main():

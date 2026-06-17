@@ -1,3 +1,4 @@
+from src.neon_client import neon_db
 import os
 import json
 from typing import List, Dict, Any
@@ -161,7 +162,7 @@ def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None,
     results = []
     for rpc_name in ('hybrid_search_rrf', 'hybrid_search'):
         try:
-            res = supabase.rpc(rpc_name, rpc_params).execute()
+            res = neon_db.rpc(rpc_name, rpc_params).execute()
             results = res.data or []
             if rpc_name == 'hybrid_search_rrf' and results:
                 print(f"  [ALGO] RRF bem-sucedido: {len(results)} resultados.")
@@ -171,7 +172,7 @@ def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None,
                 print(f"  [AVISO] {rpc_name} rejeitou target_entities. Removendo.")
                 rpc_params.pop('target_entities')
                 try:
-                    res = supabase.rpc(rpc_name, rpc_params).execute()
+                    res = neon_db.rpc(rpc_name, rpc_params).execute()
                     results = res.data or []
                     break
                 except Exception as e2:
@@ -238,7 +239,7 @@ def search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None,
     })
     if source_ids:
         try:
-            neighbors_res = supabase.table("documents") \
+            neighbors_res = neon_db.table("documents") \
                 .select("content, metadata") \
                 .in_("metadata->>source_id", source_ids) \
                 .execute()

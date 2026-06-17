@@ -8,7 +8,7 @@
 - **Motor de OCR e Limpeza:** Normalização com expansão de ligaduras, NFC, remoção de HTML residual, padronização de aspas/hífens.
 - **Estratégia de Chunking Acadêmico:** Token-aware chunking com tiktoken (max 1000 tokens, overlap 150 tokens). Modo Thematic com sub-chunking e Sliding Window para documentos sem bookmarks.
 
-### 1.2. Atribuição e Metadados Obrigatórios
+### 1.2. Atribuição e Metadados Obrigatórios ✅
 - **Indexação por Fonte:** No momento do upload, o sistema deve exigir metadados (Título, Autor, Ano, Categoria).
 - **Citações Clicáveis:** Respostas da IA devem gerar índices [n] vinculados diretamente a esses metadados.
 
@@ -27,6 +27,8 @@
 - **RRF:** Função `hybrid_search_rrf` no Supabase usando Reciprocal Rank Fusion para combinar scores vetoriais e FTS.
 - **Query Intent Detection:** Ajuste dinâmico dos pesos vector/FTS conforme a intenção detectada.
 
+---
+
 ## Fase 3: Operação Avançada e Escala (A "Sustentabilidade") ✅ Concluído
 **Foco:** Autonomia total e ferramentas de produtividade.
 
@@ -38,6 +40,22 @@
 
 ### 3.3. Exportação Acadêmica ✅
 - **Ferramentas de Citação:** Geração de citações formatadas nos padrões ABNT e APA, além de exportação no formato de metadados acadêmicos `.ris` para importação direta em ferramentas como Zotero e Mendeley.
+
+### 3.4. Coleções e Escopos Dinâmicos ✅
+- **Filtro na UI:** Integração de checkboxes na barra lateral que permitem restringir a busca semântica a coleções específicas (ex: Diários, Cartas, Obras Sociais), enviando esses parâmetros no payload e aplicando a filtragem no Supabase.
+
+### 3.5. Autenticação e Configuração Visual Imersiva ✅
+- **Carrossel de Imagens Ken Burns:** Tela de login premium exibindo fotos históricas reais de Padre Dehon com zoom suave (Ken Burns) e card de login em glassmorphism (adaptado como background para mobile).
+- **Gestão de Perfil do Usuário:** Modal de perfil (`ProfileModal.tsx`) para editar nome de exibição e avatar customizado, com saudações personalizadas na Home (ex: "Olá, João").
+- **Scholarly Home:** Subtítulo estilizado com a animação dinâmica `GooeyText` em negrito e cards de sugestão em Bento-Grid de 2 colunas com largura uniforme localizados acima da barra de pesquisa.
+
+### 3.6. Resiliência do Backend e Deploy ✅
+- **get_env_clean:** Higienização de variáveis de ambiente para evitar strings inválidas no deploy do Render.
+- **CORS:** CORS estendido para domínios locais e servidores de produção da instituição Conventinho (`*.conventinho.org.br`) e do Render.
+- **Defensive Rendering:** Função `safeRender` no React e fallbacks robustos de banco para prevenir erros catastróficos.
+
+### 3.7. Controle de Citações Manual no Chat ✅
+- **Toggle de Referências:** Botão toggle com ícone inserido no cabeçalho das mensagens do assistente para abrir/fechar as referências no Bento-Grid lateral sob demanda, desabilitando o comportamento auto-abrir incômodo.
 
 ---
 
@@ -51,9 +69,9 @@ Para garantir alta precisão de recuperação semântica e integridade de dados,
 5. **Token-Aware Chunking com Fatiamento Dual (Parent-Child):**
    - Cria chunks pais (Parent) de ~1000 tokens para reter o contexto amplo.
    - Cria chunks filhos (Child) menores de ~200 tokens com overlap de 50 tokens.
-   - Aplica algoritmo de quebra word-level se blocos de texto sem pontuação estourarem o limite de segurança de tokens.
+   - Aplica algoritmo de quebra word-level se blocos de texto sem pontuação estourar o limite de segurança de tokens.
 6. **Metadata Injection:** Cada chunk filho armazena o texto do pai associado nos metadados (`parent_text`), além de `file_hash`, `content_hash`, e metadados originais do documento.
 7. **Limpeza Pré-Ingestão:** Remove de forma atômica todos os chunks associados a versões antigas do arquivo caso o hash seja alterado.
 8. **Vectorization:** Vetoriza os chunks filhos usando o OpenAI `text-embedding-3-large` (2000 dimensões).
 9. **Storage:** Supabase com `pgvector` + índice HNSW + trigger FTS automático.
-10. **Busca RAG:** Queries consultam os vetores dos chunks filhos, mas retornam e alimentam o prompt da LLM com o `parent_text` para contexto refinado e robusto. Fallback automático para vizinhos (`chunk_index ± 1`) para corpus legados.
+10. **Busca RAG:** Queries consultam os vetores dos chunks filhos, mas retornam e alimentam o prompt da LLM com o `parent_text` para contexto refinado e robusto. Fallback automático para vizinhos (`chunk_index ± 1`) para corpus legados. Filtra por categorias se fornecidas pela requisição.

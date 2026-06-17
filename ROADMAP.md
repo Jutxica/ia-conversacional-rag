@@ -1,4 +1,4 @@
-# Roadmap Dehon AI - Próximos 15 Dias
+# Roadmap Dehon AI - Evolução e Próximos Passos
 
 Este documento marca as prioridades absolutas para a evolução do sistema RAG após a migração bem-sucedida para Supabase e indexação do corpus total.
 
@@ -51,15 +51,32 @@ Elevar a confiança do sistema para 95%+ e garantir precisão acadêmica cirúrg
 
 ---
 
+## 🎨 Fase de Experiência Imersiva e Design Polido ✅ Concluído
+
+### 9. Checkboxes de Coleção/Escopo na UI ✅
+- **O que é:** Filtro de pesquisa semântica na barra lateral do chat.
+- **Impacto:** Permite que o pesquisador escolha quais partes do corpus consultar (ex: Obras Espirituais, Obras Sociais, Diários, Correspondência) aplicando a cláusula de filtragem dinâmica no Supabase.
+
+### 10. Login com Imagens Ken Burns e Perfil de Usuário ✅
+- **O que é:** Interface imersiva de autenticação com fotos históricas em zoom suave, e modal de perfil para customizar nome, avatar e saudações de boas-vindas.
+
+### 11. GooeyText e Reorganização Ergonômica ✅
+- **O que é:** Subtítulo com animação dinâmica e cards de sugestão uniformizados acima da caixa de pesquisa.
+
+### 12. Controle Manual de Referências ✅
+- **O que é:** Botão de toggle no cabeçalho das respostas para controle total de referências do Bento-Grid, sem auto-abertura automática para não perturbar a leitura.
+
+### 13. Resiliência do Deploy e CORS ✅
+- **O que é:** Limpeza automática de strings corrompidas de ambiente (`get_env_clean`) e liberação CORS para subdomínios do Render e Conventinho (`*.conventinho.org.br`).
+
+---
+
 ## 🎯 Próximos Passos (Semana 3-4)
 
-### 9. Checkboxes de Coleção/Escopo na UI
-- **O que é:** Permitir que o usuário no chat filtre o escopo de busca semântica para obras específicas (ex: Diários, Cartas, Obras Gerais).
-
-### 10. Re-ranking Híbrido Local (ONNX/WebGPU)
+### 14. Re-ranking Híbrido Local (ONNX/WebGPU)
 - **O que é:** Mover a execução do re-ranker para o navegador via WebAssembly/ONNX, reduzindo o tempo de resposta e poupando recursos do servidor.
 
-### 11. Visualizador de Embeddings 3D (t-SNE / UMAP)
+### 15. Visualizador de Embeddings 3D (t-SNE / UMAP)
 - **O que é:** Uma interface geométrica no painel administrativo para visualizar graficamente a distribuição espacial dos vetores e clusters temáticos do acervo.
 
 ---
@@ -81,16 +98,15 @@ Elevar a confiança do sistema para 95%+ e garantir precisão acadêmica cirúrg
 - [x] **Visualizador e Editor de Chunks** com badge `EDITADO` na interface e re-vetorização.
 - [x] **Logs SSE & Analytics** painéis admin integrados no frontend.
 - [x] **Cache Semântico** de query embeddings no backend.
-- [x] **Testes Automatizados** suite estendida de 24 para **30 testes unitários** no pytest.
+- [x] **Testes Automatizados** suite estendida para **30 testes unitários** no pytest.
 - [x] **CRUD de siglario e blessed_answers** endpoints admin.
-- [x] **Stress Test** script de validação.
-- [x] **Validation Script** para qualidade da ingestão.
-- [x] **Frontend:** Painel Lateral (Side-Drawer) dinâmico para exibição de citações.
-- [x] **Frontend:** Gestão correta do histórico com `conversation_id`.
-- [x] **Frontend:** Streaming de respostas e metadados via SSE implementados.
-- [x] **Frontend:** Otimização global de CSS (remoção de ~430 linhas de código morto no `index.css`).
-- [x] **Frontend:** Bento-Grid de citações no painel lateral de referências documentais.
-- [x] **Frontend:** Refinamentos tipográficos finais ("The Scholarly Gallery") com Lora (serif) no Markdown e textura sutil de papel.
+- [x] **Coleções / Escopo na UI:** Checkboxes de categorias na barra lateral que filtram a busca híbrida.
+- [x] **Autenticação Imersiva:** Carrossel de fotos reais do Padre Dehon sob efeito Ken Burns e card glassmorphic.
+- [x] **Perfil do Usuário:** Modal de edição de Nome/Avatar e saudação personalizada ("Olá, João") no ScholarlyHome.
+- [x] **Refinamentos de UI:** Subtítulo animado GooeyText, Bento-Grid de sugestões reordenadas acima do chat.
+- [x] **Controle Manual do Painel de Citações:** Toggle com ícone em cada mensagem do assistente para abrir/fechar o drawer bento-grid de citações, desativando a abertura automática padrão.
+- [x] **Resiliência e Deploy:** `get_env_clean` contra variáveis corrompidas, fallbacks de Supabase/OpenAI e CORS para Conventinho e Render.
+- [x] **Format de Chat:** Mensagens do usuário em formato bubble à direita e renderização defensiva via `safeRender`.
 
 ---
-*Documento atualizado em 25/05/2026.*
+*Documento atualizado em 29/05/2026.*

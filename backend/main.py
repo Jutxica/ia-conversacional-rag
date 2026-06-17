@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 # Carrega variáveis de ambiente IMEDIATAMENTE (antes de importar outros módulos locais)
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
+from src.neon_client import neon_db
 import json
 import time
 import uuid
@@ -409,8 +410,8 @@ async def get_analytics(token: str):
         raise HTTPException(status_code=401, detail="Token inválido")
 
     try:
-        docs_res = supabase_admin.table('documents').select('id', count='exact').execute()
-        chats_res = supabase_admin.table('chats').select('id', count='exact').execute()
+        docs_res = neon_db.table('documents').select('id', count='exact').execute()
+        chats_res = neon_db.table('chats').select('id', count='exact').execute()
         
         return {
             "total_documents": docs_res.count if hasattr(docs_res, 'count') else 0,
@@ -631,7 +632,7 @@ async def admin_ingest_url(data: UrlIngestRequest):
 
     # Verifica se já existe e se o conteúdo é idêntico
     try:
-        existing = supabase_admin.table("documents") \
+        existing = neon_db.table("documents") \
             .select("metadata") \
             .eq("metadata->>source_id", source_id) \
             .limit(1) \
@@ -650,7 +651,7 @@ async def admin_ingest_url(data: UrlIngestRequest):
                 }
             # Se mudou, limpa os antigos antes de reindexar
             await log_broadcaster.broadcast("info", f"[{doc_title}] Conteúdo da URL alterado. Limpando chunks antigos...")
-            supabase_admin.table("documents").delete().eq("metadata->>source_id", source_id).execute()
+            neon_db.table("documents").delete().eq("metadata->>source_id", source_id).execute()
     except Exception as e:
         print(f"[INGEST-URL] Erro ao verificar duplicados: {e}")
 
@@ -771,7 +772,7 @@ async def admin_ingest_url(data: UrlIngestRequest):
             }
             for j, (txt, emb) in enumerate(zip(batch_texts, embeddings))
         ]
-        resp = supabase_admin.table("documents").insert(rows).execute()
+        resp = neon_db.table("documents").insert(rows).execute()
         total_inserted += len(resp.data)
 
     return {
@@ -816,7 +817,7 @@ async def admin_upload(
 
     # Verifica se já existe e se o arquivo é idêntico
     try:
-        existing = supabase_admin.table("documents") \
+        existing = neon_db.table("documents") \
             .select("metadata") \
             .eq("metadata->>source_id", source_id) \
             .limit(1) \
@@ -834,7 +835,7 @@ async def admin_upload(
                 }
             # Se mudou, limpa os antigos antes de reindexar
             await log_broadcaster.broadcast("info", f"[{file.filename}] Atualizando documento. Removendo chunks antigos...")
-            supabase_admin.table("documents").delete().eq("metadata->>source_id", source_id).execute()
+            neon_db.table("documents").delete().eq("metadata->>source_id", source_id).execute()
     except Exception as e:
         print(f"[UPLOAD] Erro ao verificar duplicados: {e}")
 
@@ -1020,7 +1021,7 @@ async def admin_upload(
                 }
                 for j, (txt, emb) in enumerate(zip(batch_texts, embeddings))
             ]
-            resp = supabase_admin.table("documents").insert(rows).execute()
+            resp = neon_db.table("documents").insert(rows).execute()
             total_inserted += len(resp.data)
             await log_broadcaster.broadcast("info", f"[{file.filename}] Lote indexado: {total_inserted} fragmentos no Supabase...")
 
@@ -1045,7 +1046,7 @@ async def admin_list_documents():
     
     try:
         # Busca metadados distintos por source_id
-        resp = supabase_admin.table("documents") \
+        resp = neon_db.table("documents") \
             .select("metadata->>source_id, metadata->>title, metadata->>sigla, metadata->>document_weight") \
             .execute()
         
@@ -1075,7 +1076,7 @@ async def admin_delete_document(source_id: str):
         raise HTTPException(status_code=503, detail="Supabase admin não configurado.")
     
     try:
-        resp = supabase_admin.table("documents") \
+        resp = neon_db.table("documents") \
             .delete() \
             .eq("metadata->>source_id", source_id) \
             .execute()
@@ -1091,10 +1092,10 @@ async def admin_stats():
     if not supabase_admin:
         raise HTTPException(status_code=503, detail="Supabase admin não configurado.")
     try:
-        count_resp = supabase_admin.table("documents").select("id", count="exact").execute()
+        count_resp = neon_db.table("documents").select("id", count="exact").execute()
         total_chunks = count_resp.count if hasattr(count_resp, 'count') and count_resp.count else 0
 
-        siglas_resp = supabase_admin.table("documents") \
+        siglas_resp = neon_db.table("documents") \
             .select("metadata->>sigla") \
             .execute()
         siglas = {}
@@ -1102,7 +1103,7 @@ async def admin_stats():
             s = row.get("sigla") or row.get("metadata->>sigla", "desconhecida")
             siglas[s] = siglas.get(s, 0) + 1
 
-        docs_resp = supabase_admin.table("documents") \
+        docs_resp = neon_db.table("documents") \
             .select("metadata->>source_id") \
             .execute()
         unique_docs = set()
@@ -1139,7 +1140,7 @@ async def admin_health():
         services["openai"] = f"error: {str(e)[:60]}"
     try:
         if supabase_admin:
-            supabase_admin.table("documents").select("id", count="exact").limit(1).execute()
+            neon_db.table("documents").select("id", count="exact").limit(1).execute()
             services["supabase"] = "ok"
         else:
             services["supabase"] = "not_configured"
@@ -1248,7 +1249,7 @@ async def get_admin_logs():
     
     if supabase_admin:
         try:
-            resp = supabase_admin.table("search_logs") \
+            resp = neon_db.table("search_logs") \
                 .select("*") \
                 .order("created_at", desc=True) \
                 .limit(200) \
@@ -1281,7 +1282,7 @@ async def get_admin_metrics():
     using_fallback = False
     if supabase_admin:
         try:
-            resp = supabase_admin.table("search_logs").select("*").execute()
+            resp = neon_db.table("search_logs").select("*").execute()
             logs = resp.data or []
         except Exception:
             using_fallback = True
@@ -1330,7 +1331,7 @@ async def get_document_chunks(source_id: str):
     if not supabase_admin:
         raise HTTPException(status_code=503, detail="Supabase admin não configurado.")
     try:
-        resp = supabase_admin.table("documents") \
+        resp = neon_db.table("documents") \
             .select("id, content, metadata") \
             .eq("metadata->>source_id", source_id) \
             .order("metadata->>chunk_index", desc=False) \
@@ -1349,7 +1350,7 @@ async def update_chunk(chunk_id: str, data: ChunkUpdateRequest):
         raise HTTPException(status_code=503, detail="Supabase admin não configurado.")
     try:
         # 1. Recupera o chunk existente para obter os metadados atuais
-        existing = supabase_admin.table("documents") \
+        existing = neon_db.table("documents") \
             .select("metadata") \
             .eq("id", chunk_id) \
             .limit(1) \
@@ -1368,7 +1369,7 @@ async def update_chunk(chunk_id: str, data: ChunkUpdateRequest):
         metadata["edited"] = True
         
         # 4. Atualiza no Supabase
-        resp = supabase_admin.table("documents") \
+        resp = neon_db.table("documents") \
             .update({
                 "content": data.content,
                 "embedding": new_emb,
@@ -1627,7 +1628,7 @@ DOCUMENTOS RECUPERADOS (Base de Conhecimento):
     }
     try:
         if supabase_admin:
-            supabase_admin.table("search_logs").insert(log_data).execute()
+            neon_db.table("search_logs").insert(log_data).execute()
         else:
             save_search_log_fallback(log_data)
     except Exception as log_e:
@@ -1649,7 +1650,7 @@ async def submit_feedback(data: dict):
         success = False
         if supabase_admin:
             try:
-                supabase_admin.table("search_logs") \
+                neon_db.table("search_logs") \
                     .update({"feedback": feedback, "feedback_comment": comment}) \
                     .eq("conversation_id", conversation_id) \
                     .execute()
@@ -1674,7 +1675,7 @@ async def get_knowledge_gaps(min_count: int = 3):
     
     if supabase_admin:
         try:
-            resp = supabase_admin.rpc("get_gap_terms", {"min_count": min_count}).execute()
+            resp = neon_db.rpc("get_gap_terms", {"min_count": min_count}).execute()
             gaps = resp.data or []
         except Exception as e:
             print(f"[GAPS] Supabase RPC failed, using fallback: {e}")
