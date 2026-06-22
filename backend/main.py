@@ -187,16 +187,21 @@ try:
     OCI_FINGERPRINT = get_env_clean("OCI_FINGERPRINT")
     OCI_TENANCY = get_env_clean("OCI_TENANCY")
     OCI_REGION = get_env_clean("OCI_REGION")
-    OCI_KEY_FILE = get_env_clean("OCI_KEY_FILE", "oracle_key.pem")
     OCI_AGENT_ENDPOINT_ID = get_env_clean("OCI_AGENT_ENDPOINT_ID")
     
     oci_config = {
         "user": OCI_USER,
-        "key_file": os.path.join(os.path.dirname(__file__), OCI_KEY_FILE),
         "fingerprint": OCI_FINGERPRINT,
         "tenancy": OCI_TENANCY,
         "region": OCI_REGION
     }
+    
+    OCI_KEY_CONTENT = get_env_clean("OCI_KEY_CONTENT")
+    if OCI_KEY_CONTENT:
+        oci_config["key_content"] = OCI_KEY_CONTENT.replace('\\n', '\n')
+    else:
+        OCI_KEY_FILE = get_env_clean("OCI_KEY_FILE", "oracle_key.pem")
+        oci_config["key_file"] = os.path.join(os.path.dirname(__file__), OCI_KEY_FILE)
     
     oci_client = oci.generative_ai_agent_runtime.GenerativeAiAgentRuntimeClient(
         oci_config,
