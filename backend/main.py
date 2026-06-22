@@ -1643,7 +1643,15 @@ async def get_knowledge_gaps(min_count: int = 3):
                 print(f"[GAPS] Error computing fallback gaps: {e}")
 
     return {"gaps": gaps, "using_fallback": using_fallback}
-
+@app.get("/api/debug/oci")
+async def debug_oci():
+    return {
+        "oci_client_initialized": oci_client is not None,
+        "oci_agent_endpoint_id": OCI_AGENT_ENDPOINT_ID,
+        "oci_region": get_env_clean("OCI_REGION"),
+        "has_key_content": bool(get_env_clean("OCI_KEY_CONTENT")),
+        "has_key_file": bool(get_env_clean("OCI_KEY_FILE")),
+    }
 
 @app.post("/api/chat", dependencies=[Depends(verify_api_key)])
 async def chat_endpoint(request: dict, req: Request):
