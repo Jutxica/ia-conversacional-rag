@@ -200,8 +200,23 @@ try:
         "region": OCI_REGION
     }
     
+    import base64
+    OCI_KEY_BASE64 = get_env_clean("OCI_KEY_BASE64")
     OCI_KEY_CONTENT = get_env_clean("OCI_KEY_CONTENT")
-    if OCI_KEY_CONTENT:
+    
+    # Logs de diagnóstico (existência e tamanho)
+    print(f"[DIAGNÓSTICO OCI] OCI_KEY_BASE64 existe? {'Sim' if OCI_KEY_BASE64 else 'Não'} (Tamanho: {len(OCI_KEY_BASE64) if OCI_KEY_BASE64 else 0} chars)")
+    print(f"[DIAGNÓSTICO OCI] OCI_KEY_CONTENT existe? {'Sim' if OCI_KEY_CONTENT else 'Não'} (Tamanho: {len(OCI_KEY_CONTENT) if OCI_KEY_CONTENT else 0} chars)")
+
+    if OCI_KEY_BASE64:
+        try:
+            decoded_key = base64.b64decode(OCI_KEY_BASE64).decode('utf-8')
+            oci_config["key_content"] = decoded_key
+            print(f"[DIAGNÓSTICO OCI] Chave descodificada com sucesso. Tamanho real: {len(decoded_key)} chars.")
+        except Exception as b64_err:
+            print(f"[DIAGNÓSTICO OCI] Erro fatal ao descodificar Base64: {b64_err}")
+            raise
+    elif OCI_KEY_CONTENT:
         oci_config["key_content"] = OCI_KEY_CONTENT.replace('\\n', '\n')
     else:
         OCI_KEY_FILE = get_env_clean("OCI_KEY_FILE", "oracle_key.pem")
