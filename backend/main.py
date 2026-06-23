@@ -182,6 +182,7 @@ except Exception as e:
 
 # Inicializa cliente OCI Generative AI Agents
 import oci
+OCI_INIT_ERROR = None
 try:
     OCI_USER = get_env_clean("OCI_USER")
     OCI_FINGERPRINT = get_env_clean("OCI_FINGERPRINT")
@@ -210,7 +211,9 @@ try:
         service_endpoint=f"https://agent-runtime.generativeai.{OCI_REGION}.oci.oraclecloud.com"
     )
     print("Cliente OCI inicializado com sucesso.")
+    OCI_INIT_ERROR = None
 except Exception as e:
+    OCI_INIT_ERROR = str(e)
     print(f"AVISO: Falha ao inicializar cliente OCI: {e}")
     oci_client = None
     OCI_AGENT_ENDPOINT_ID = None
@@ -1476,7 +1479,7 @@ async def chat_response_generator(query: str, scope: str = "Geral", history: lis
         yield f"data: {json.dumps({'type': 'conversation_id', 'content': conversation_id, 'conversation_id': conversation_id})}\n\n"
 
     if oci_client is None or not OCI_AGENT_ENDPOINT_ID:
-        error_msg = f"Erro: Cliente OCI={oci_client is not None}, Endpoint={repr(OCI_AGENT_ENDPOINT_ID)}. Verifique as credenciais no servidor."
+        error_msg = f"Erro OCI Interno: {OCI_INIT_ERROR}. (Verifique as chaves PEM e credenciais no Render)"
         yield f"data: {json.dumps({'content': error_msg, 'type': 'token'})}\n\n"
         yield "data: {\"type\": \"done\"}\n\n"
         return
