@@ -184,13 +184,13 @@ except Exception as e:
 import oci
 OCI_INIT_ERROR = None
 try:
-    OCI_USER = get_env_clean("OCI_USER")
-    OCI_FINGERPRINT = get_env_clean("OCI_FINGERPRINT")
-    OCI_TENANCY = get_env_clean("OCI_TENANCY")
-    OCI_REGION = get_env_clean("OCI_REGION")
+    OCI_USER = get_env_clean("OCI_USER", "ocid1.user.oc1..aaaaaaaabroe5qbxu2uqewqitimjb2cueo32ouxcf6rdauu5omrkq6j4d6pq")
+    OCI_FINGERPRINT = get_env_clean("OCI_FINGERPRINT", "1a:a5:20:97:25:47:bb:5d:b7:97:f6:bc:b4:95:01:05")
+    OCI_TENANCY = get_env_clean("OCI_TENANCY", "ocid1.tenancy.oc1..aaaaaaaagqduxfq5egtjymrcirwzkqtbyaec3dn6i7j4oikgqpd5nsrb7hsa")
+    OCI_REGION = get_env_clean("OCI_REGION", "sa-saopaulo-1")
     if OCI_REGION == "saopaulo-1":
         OCI_REGION = "sa-saopaulo-1"
-    OCI_AGENT_ENDPOINT_ID = get_env_clean("OCI_AGENT_ENDPOINT_ID")
+    OCI_AGENT_ENDPOINT_ID = get_env_clean("OCI_AGENT_ENDPOINT_ID", "ocid1.genaiagentendpoint.oc1.sa-saopaulo-1.amaaaaaavs2xdhyasdye47ixpzk2z7c6jr3xhrvqlqvkobhciwgvylbijonq")
     
     oci_config = {
         "user": OCI_USER,
