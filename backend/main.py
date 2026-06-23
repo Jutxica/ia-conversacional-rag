@@ -241,6 +241,16 @@ except Exception as e:
     oci_client = None
     OCI_AGENT_ENDPOINT_ID = None
 
+@app.get("/api/admin/debug_env")
+async def debug_env():
+    return {
+        "OCI_KEY_BASE64_exists": bool(get_env_clean("OCI_KEY_BASE64")),
+        "OCI_KEY_BASE64_length": len(get_env_clean("OCI_KEY_BASE64")),
+        "OCI_KEY_CONTENT_exists": bool(get_env_clean("OCI_KEY_CONTENT")),
+        "OCI_USER": get_env_clean("OCI_USER")[:20] + "...",
+        "OCI_INIT_ERROR": str(OCI_INIT_ERROR)
+    }
+
 # Inicializa cliente Supabase (para operações admin)
 try:
     _supa_url = get_env_clean("SUPABASE_URL", "https://tmblzshfpiltzxkdamdq.supabase.co")
