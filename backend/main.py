@@ -187,6 +187,8 @@ try:
     OCI_FINGERPRINT = get_env_clean("OCI_FINGERPRINT")
     OCI_TENANCY = get_env_clean("OCI_TENANCY")
     OCI_REGION = get_env_clean("OCI_REGION")
+    if OCI_REGION == "saopaulo-1":
+        OCI_REGION = "sa-saopaulo-1"
     OCI_AGENT_ENDPOINT_ID = get_env_clean("OCI_AGENT_ENDPOINT_ID")
     
     oci_config = {
@@ -1473,8 +1475,8 @@ async def chat_response_generator(query: str, scope: str = "Geral", history: lis
     if conversation_id:
         yield f"data: {json.dumps({'type': 'conversation_id', 'content': conversation_id, 'conversation_id': conversation_id})}\n\n"
 
-    if not oci_client or not OCI_AGENT_ENDPOINT_ID:
-        error_msg = "Erro: Cliente OCI não inicializado ou OCI_AGENT_ENDPOINT_ID não configurado."
+    if oci_client is None or not OCI_AGENT_ENDPOINT_ID:
+        error_msg = f"Erro: Cliente OCI={oci_client is not None}, Endpoint={repr(OCI_AGENT_ENDPOINT_ID)}. Verifique as credenciais no servidor."
         yield f"data: {json.dumps({'content': error_msg, 'type': 'token'})}\n\n"
         yield "data: {\"type\": \"done\"}\n\n"
         return
