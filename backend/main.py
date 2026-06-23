@@ -211,13 +211,20 @@ try:
     if OCI_KEY_BASE64:
         try:
             decoded_key = base64.b64decode(OCI_KEY_BASE64).decode('utf-8')
-            oci_config["key_content"] = decoded_key
-            print(f"[DIAGNÓSTICO OCI] Chave descodificada com sucesso. Tamanho real: {len(decoded_key)} chars.")
+            key_path = os.path.join(os.path.dirname(__file__), "oracle_key.pem")
+            with open(key_path, "w") as f:
+                f.write(decoded_key)
+            oci_config["key_file"] = key_path
+            print(f"[DIAGNÓSTICO OCI] Ficheiro oracle_key.pem criado com sucesso a partir de Base64.")
         except Exception as b64_err:
             print(f"[DIAGNÓSTICO OCI] Erro fatal ao descodificar Base64: {b64_err}")
             raise
     elif OCI_KEY_CONTENT:
-        oci_config["key_content"] = OCI_KEY_CONTENT.replace('\\n', '\n')
+        key_path = os.path.join(os.path.dirname(__file__), "oracle_key.pem")
+        with open(key_path, "w") as f:
+            f.write(OCI_KEY_CONTENT.replace('\\n', '\n'))
+        oci_config["key_file"] = key_path
+        print(f"[DIAGNÓSTICO OCI] Ficheiro oracle_key.pem criado com sucesso a partir do Content.")
     else:
         OCI_KEY_FILE = get_env_clean("OCI_KEY_FILE", "oracle_key.pem")
         oci_config["key_file"] = os.path.join(os.path.dirname(__file__), OCI_KEY_FILE)
