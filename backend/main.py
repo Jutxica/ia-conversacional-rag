@@ -181,31 +181,43 @@ except Exception as e:
     print(f"ERRO CRÍTICO: Falha ao inicializar cliente OpenAI: {e}")
     client = None
 
-# Inicializa cliente OCI Generative AI (via API OpenAI compatível)
+# Inicializa cliente OCI Generative AI Agents
+import oci
+OCI_INIT_ERROR = None
 try:
+    OCI_USER = get_env_clean("OCI_USER", "ocid1.user.oc1..aaaaaaaabroe5qbxu2uqewqitimjb2cueo32ouxcf6rdauu5omrkq6j4d6pq")
+    OCI_FINGERPRINT = get_env_clean("OCI_FINGERPRINT", "1a:a5:20:97:25:47:bb:5d:b7:97:f6:bc:b4:95:01:05")
+    OCI_TENANCY = get_env_clean("OCI_TENANCY", "ocid1.tenancy.oc1..aaaaaaaagqduxfq5egtjymrcirwzkqtbyaec3dn6i7j4oikgqpd5nsrb7hsa")
     OCI_REGION = get_env_clean("OCI_REGION", "sa-saopaulo-1")
     if OCI_REGION == "saopaulo-1":
         OCI_REGION = "sa-saopaulo-1"
-    
     OCI_AGENT_ENDPOINT_ID = get_env_clean("OCI_AGENT_ENDPOINT_ID", "ocid1.genaiagentendpoint.oc1.sa-saopaulo-1.amaaaaaavs2xdhyasdye47ixpzk2z7c6jr3xhrvqlqvkobhciwgvylbijonq")
-    OCI_GENAI_API_KEY = get_env_clean("OCI_GENAI_API_KEY")
     
-    if OCI_GENAI_API_KEY:
-        from openai import OpenAI
-        oci_client = OpenAI(
-            api_key=OCI_GENAI_API_KEY,
-            base_url=f"https://inference.generativeai.{OCI_REGION}.oci.oraclecloud.com/20231130/actions/v1"
-        )
-        print("Cliente OCI (OpenAI-compatible) inicializado com sucesso.")
-        OCI_INIT_ERROR = None
+    oci_config = {
+        "user": OCI_USER,
+        "fingerprint": OCI_FINGERPRINT,
+        "tenancy": OCI_TENANCY,
+        "region": OCI_REGION
+    }
+    
+    OCI_KEY_CONTENT = get_env_clean("OCI_KEY_CONTENT")
+    if OCI_KEY_CONTENT:
+        oci_config["key_content"] = OCI_KEY_CONTENT.replace('\\n', '\n')
     else:
-        oci_client = None
-        OCI_INIT_ERROR = "OCI_GENAI_API_KEY não configurada"
-        print("AVISO: OCI_GENAI_API_KEY ausente.")
+        OCI_KEY_FILE = get_env_clean("OCI_KEY_FILE", "oracle_key.pem")
+        oci_config["key_file"] = os.path.join(os.path.dirname(__file__), OCI_KEY_FILE)
+    
+    oci_client = oci.generative_ai_agent_runtime.GenerativeAiAgentRuntimeClient(
+        oci_config,
+        service_endpoint=f"https://agent-runtime.generativeai.{OCI_REGION}.oci.oraclecloud.com"
+    )
+    print("Cliente OCI inicializado com sucesso.")
+    OCI_INIT_ERROR = None
 except Exception as e:
     OCI_INIT_ERROR = str(e)
     print(f"AVISO: Falha ao inicializar cliente OCI: {e}")
     oci_client = None
+    OCI_AGENT_ENDPOINT_ID = None
 
 # Inicializa cliente Supabase (para operações admin)
 try:
@@ -1473,39 +1485,59 @@ async def chat_response_generator(query: str, scope: str = "Geral", history: lis
         yield "data: {\"type\": \"done\"}\n\n"
         return
 
-    messages = []
-    if history:
-        for msg in history:
-            messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
-    messages.append({"role": "user", "content": query})
+    import oci
+    
+    # Gerencia a sessão OCI baseada no conversation_id do frontend
+    oci_session_id = None
+    if conversation_id in oci_session_cache:
+        oci_session_id = oci_session_cache[conversation_id]
+    else:
+        try:
+            create_session_response = oci_client.create_session(
+                agent_endpoint_id=OCI_AGENT_ENDPOINT_ID,
+                create_session_details=oci.generative_ai_agent_runtime.models.CreateSessionDetails(
+                    display_name=f"Sessao_{conversation_id[:8]}"
+                )
+            )
+            oci_session_id = create_session_response.data.id
+            oci_session_cache[conversation_id] = oci_session_id
+        except Exception as e:
+            print(f"Erro ao criar sessão OCI: {e}")
+            yield f"data: {json.dumps({'content': f'Erro ao criar sessão na Oracle: {str(e)}', 'type': 'token'})}\n\n"
+            yield "data: {\"type\": \"done\"}\n\n"
+            return
+    
+    chat_details = oci.generative_ai_agent_runtime.models.ChatDetails(
+        user_message=query,
+        session_id=oci_session_id,
+        should_stream=False  # Obtem a resposta completa de uma vez para mapear facilmente
+    )
 
     try:
-        response = oci_client.chat.completions.create(
-            model=OCI_AGENT_ENDPOINT_ID,
-            messages=messages,
-            stream=False
+        response = oci_client.chat(
+            agent_endpoint_id=OCI_AGENT_ENDPOINT_ID,
+            chat_details=chat_details
         )
         
-        message_content = response.choices[0].message.content
+        message_content = response.data.message.content.text
         
-        # Mapear citações da OCI caso venham no formato estendido do OpenAI compatibility
+        # Mapear citações da OCI para o formato que o frontend espera
         citations_for_frontend = []
-        # OCI OpenAI SDK costuma enviar citações no objeto message como atributos customizados
-        if hasattr(response.choices[0].message, 'citations') and response.choices[0].message.citations:
-            for c in response.choices[0].message.citations:
+        if hasattr(response.data.message, 'citations') and response.data.message.citations:
+            for c in response.data.message.citations:
                 url = "Base de Conhecimento Oracle"
                 if hasattr(c, 'source_location') and c.source_location and hasattr(c.source_location, 'url'):
                     url = getattr(c.source_location, 'url', url)
                 
                 citations_for_frontend.append({
-                    "title": str(url).split('/')[-1],
+                    "title": str(url).split('/')[-1], # Extrai nome do ficheiro se possível
                     "snippet": getattr(c, 'source_text', '') or getattr(c, 'text', ''),
                     "sigla": "OCI",
                     "destinatario": "Dehon AI"
                 })
 
-        if citations_for_frontend:
-            yield f"data: {json.dumps({'type': 'citations', 'content': citations_for_frontend})}\n\n"
+        # Envia citações e metadados
+        yield f"data: {json.dumps({'type': 'citations', 'content': citations_for_frontend})}\n\n"
         
         metadata = {
             'confidence': {'level': 'Alta', 'percentage': 95}, 
@@ -1521,7 +1553,7 @@ async def chat_response_generator(query: str, scope: str = "Geral", history: lis
         words = message_content.split(" ")
         for word in words:
             yield f"data: {json.dumps({'content': word + ' ', 'type': 'token'})}\n\n"
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.01) # Pequeno delay para a animação visual no frontend
         
     except Exception as e:
         error_msg = f"Erro na comunicação com Oracle OCI: {str(e)}"
