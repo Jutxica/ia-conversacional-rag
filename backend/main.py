@@ -65,14 +65,15 @@ from datetime import datetime, timedelta
 security = HTTPBearer()
 security_optional = HTTPBearer(auto_error=False)
 
-def get_env_clean(key: str, fallback: str = "") -> str:
+def get_env_clean(key: str, default: str = "") -> str:
+    """Gets an environment variable and strips quotes/whitespace."""
     val = os.getenv(key)
-    if not val:
-        return fallback
-    val_clean = val.strip()
-    if val_clean.lower() in ("undefined", "null", "placeholder", "none", "", "nan"):
-        return fallback
-    return val_clean
+    if val:
+        val = val.strip().strip("'").strip('"')
+        if val.lower() in ("undefined", "null", "placeholder", "none", "", "nan"):
+            return default
+        return val
+    return default
 
 INTERNAL_API_KEY = get_env_clean("INTERNAL_API_KEY", "e94c9ba1ba74aee889b5c5fe3e0a6521")
 ADMIN_USER = get_env_clean("ADMIN_USER", "admin")
