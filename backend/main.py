@@ -1722,11 +1722,17 @@ async def chat_endpoint(request: dict, req: Request):
     if scope not in valid_scopes:
         scope = "Geral"
 
-    # Ensure OpenAI key is present
-    if not openai_key:
-        raise HTTPException(status_code=500, detail="OPENAI_API_KEY não configurada no servidor.")
+    # Decide which AI provider to use
+    ai_provider = get_env_clean("AI_PROVIDER", "openai").lower()
     
-    return StreamingResponse(chat_response_generator(query, scope, history, conversation_id, categories), media_type="text/event-stream")
+    if ai_provider == "oracle":
+        return StreamingResponse(chat_response_generator_oci(query, conversation_id), media_type="text/event-stream")
+    else:
+        # Ensure OpenAI key is present
+        if not openai_key:
+            raise HTTPException(status_code=500, detail="OPENAI_API_KEY não configurada no servidor.")
+        
+        return StreamingResponse(chat_response_generator(query, scope, history, conversation_id, categories), media_type="text/event-stream")
 
 if __name__ == "__main__":
     import uvicorn
