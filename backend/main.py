@@ -1726,7 +1726,7 @@ async def chat_endpoint(request: dict, req: Request):
     ai_provider = get_env_clean("AI_PROVIDER", "openai").lower()
     
     if ai_provider == "oracle":
-        return StreamingResponse(chat_response_generator_oci(query, conversation_id), media_type="text/event-stream")
+        return StreamingResponse(chat_response_generator(query, scope, history, conversation_id, categories), media_type="text/event-stream")
     else:
         # Ensure OpenAI key is present
         if not openai_key:
