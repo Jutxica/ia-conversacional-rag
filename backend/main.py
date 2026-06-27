@@ -24,8 +24,17 @@ from supabase import create_client, Client
 from src.rag.search import search_context
 from src.rag.concept_processor import processor as concept_processor
 from src.rag.intent_detector import detector as intent_detector
+from langfuse import Langfuse
 
 app = FastAPI()
+
+# Inicializa Langfuse (lê automaticamente LANGFUSE_SECRET_KEY, LANGFUSE_PUBLIC_KEY, LANGFUSE_HOST do .env)
+try:
+    langfuse = Langfuse()
+    print("Langfuse inicializado com sucesso.")
+except Exception as e:
+    print(f"AVISO: Langfuse não configurado ou falha ao inicializar: {e}")
+    langfuse = None
 
 # Configuração de CORS — origens sempre permitidas (produção conhecida)
 _HARDCODED_ORIGINS = {
@@ -1508,6 +1517,18 @@ oci_session_cache = TTLCache(maxsize=1000, ttl=86400)
 async def chat_response_generator(query: str, scope: str = "Geral", history: list = None, conversation_id: str = None, categories: list = None):
     """Gera resposta usando OCI Generative AI Agents."""
     
+    # --- Langfuse Trace ---
+    trace = None
+    if langfuse:
+        try:
+            trace = langfuse.trace(
+                name="RAG_Chat_OCI",
+                session_id=conversation_id or "anonymous",
+                input={"query": query, "scope": scope, "history": history}
+            )
+        except Exception as e:
+            print(f"[LANGFUSE] Erro ao criar trace: {e}")
+
     if conversation_id:
         yield f"data: {json.dumps({'type': 'conversation_id', 'content': conversation_id, 'conversation_id': conversation_id})}\n\n"
 
@@ -1545,6 +1566,17 @@ async def chat_response_generator(query: str, scope: str = "Geral", history: lis
         should_stream=False  # Obtem a resposta completa de uma vez para mapear facilmente
     )
 
+    generation = None
+    if trace:
+        try:
+            generation = trace.generation(
+                name="OCI_Agent_Chat",
+                model="oracle-genai-agent",
+                input=query
+            )
+        except Exception as e:
+            print(f"[LANGFUSE] Erro ao criar generation: {e}")
+
     try:
         response = oci_client.chat(
             agent_endpoint_id=OCI_AGENT_ENDPOINT_ID,
@@ -1552,6 +1584,12 @@ async def chat_response_generator(query: str, scope: str = "Geral", history: lis
         )
         
         message_content = response.data.message.content.text
+        
+        if generation:
+            try:
+                generation.end(output=message_content)
+            except Exception as e:
+                print(f"[LANGFUSE] Erro ao finalizar generation: {e}")
         
         # Mapear citações da OCI para o formato que o frontend espera
         citations_for_frontend = []
@@ -1609,6 +1647,12 @@ async def chat_response_generator(query: str, scope: str = "Geral", history: lis
             save_search_log_fallback(log_data)
     except Exception as log_e:
         save_search_log_fallback(log_data)
+        
+    if trace:
+        try:
+            langfuse.flush()
+        except Exception as e:
+            print(f"[LANGFUSE] Erro no flush: {e}")
 
 
 @app.post("/api/feedback", dependencies=[Depends(verify_api_key)])
