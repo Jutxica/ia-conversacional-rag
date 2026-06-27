@@ -95,4 +95,4 @@ psycopg2-binary
 
 oci>=2.126.0
 oracledb>=2.0.0
-langfuse>=2.0.0
+langfuse<3.0.0,>=2.0.0
