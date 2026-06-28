@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import './MessageList.css';
-import { Book, BookOpen, Download, Copy, Check } from 'lucide-react';
+import { Book, BookOpen, Download, Copy, Check, User } from 'lucide-react';
 import { magneticEffect } from '../../utils/transitions';
 import type { UserProfile } from '../ui/ProfileModal';
 
@@ -87,11 +87,15 @@ const MessageList: React.FC<MessageListProps> = ({
         <div key={m.id} className={`message-row ${m.role} animate-fade-in`}>
           <div className="message-avatar-wrapper">
             {m.role === 'user' ? (
-              <div className="avatar-circle user" style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="avatar-circle user">
                 {profile?.photoUrl ? (
-                  <img src={profile.photoUrl} alt={profile?.name} className="avatar-img" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                  <img src={profile.photoUrl} alt={profile?.name} className="avatar-img" />
                 ) : (
-                  profile?.name ? profile.name[0].toUpperCase() : 'U'
+                  profile?.name ? (
+                    <span className="avatar-initials">{profile.name[0].toUpperCase()}</span>
+                  ) : (
+                    <User size={18} className="text-muted-foreground" />
+                  )
                 )}
               </div>
             ) : (
@@ -112,7 +116,7 @@ const MessageList: React.FC<MessageListProps> = ({
                     <span className={`confidence-badge ${m.metadata.confidence.level.toLowerCase()}`}>
                       Confiança {m.metadata.confidence.percentage}%
                     </span>
-                    {m.metadata.intent && (
+                    {m.metadata.intent && m.metadata.intent !== 'OCI_AGENT' && (
                       <span className={`intent-badge ${m.metadata.intent.toLowerCase()}`}>
                         {m.metadata.intent}
                       </span>

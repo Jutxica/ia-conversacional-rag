@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from cachetools import TTLCache
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
 from openai import OpenAI
 from supabase import create_client, Client
 from src.rag.search import search_context
@@ -1557,8 +1557,12 @@ async def chat_response_generator(query: str, scope: str = "Geral", history: lis
             trace = langfuse.trace(
                 name="RAG_Chat_OCI",
                 session_id=conversation_id or "anonymous",
-                input={"query": query, "scope": scope, "history": history}
+                input={"query": query, "scope": scope, "history": history},
+                tags=["oci", "chat"]
             )
+            # Span para detectar intenção e preparar contexto
+            intent_span = trace.span(name="intent_detection_and_prep", input={"query": query})
+            intent_span.end(output={"resolved_scope": scope})
         except Exception as e:
             print(f"[LANGFUSE] Erro ao criar trace: {e}")
 
@@ -1618,12 +1622,6 @@ async def chat_response_generator(query: str, scope: str = "Geral", history: lis
         
         message_content = response.data.message.content.text
         
-        if generation:
-            try:
-                generation.end(output=message_content)
-            except Exception as e:
-                print(f"[LANGFUSE] Erro ao finalizar generation: {e}")
-        
         # Mapear citações da OCI para o formato que o frontend espera
         citations_for_frontend = []
         if hasattr(response.data.message, 'citations') and response.data.message.citations:
@@ -1632,12 +1630,37 @@ async def chat_response_generator(query: str, scope: str = "Geral", history: lis
                 if hasattr(c, 'source_location') and c.source_location and hasattr(c.source_location, 'url'):
                     url = getattr(c.source_location, 'url', url)
                 
+                filename = str(url).split('/')[-1]
+                snippet = getattr(c, 'source_text', '') or getattr(c, 'text', '')
+                
+                # Procura número da página no snippet
+                page_number = 1
+                page_match = re.search(r'\b(?:pág|pag|pág\.|pag\.|p\.|page|página|pagina)\.?\s*(\d+)\b', snippet, re.IGNORECASE)
+                if page_match:
+                    page_number = int(page_match.group(1))
+                else:
+                    # Tenta encontrar qualquer padrão de números entre colchetes/parênteses
+                    brackets_match = re.search(r'(?:\[|\()(\d+)(?:\]|\))', snippet)
+                    if brackets_match:
+                        page_number = int(brackets_match.group(1))
+
+                # Se for um nome de arquivo válido, gera a url que aponta para o nosso novo endpoint
+                page_url = f"/api/pdfs/{filename}#page={page_number}" if filename.lower().endswith(".pdf") else ""
+                
                 citations_for_frontend.append({
-                    "title": str(url).split('/')[-1], # Extrai nome do ficheiro se possível
-                    "snippet": getattr(c, 'source_text', '') or getattr(c, 'text', ''),
+                    "title": filename,
+                    "snippet": snippet,
                     "sigla": "OCI",
-                    "destinatario": "Dehon AI"
+                    "destinatario": "Dehon AI",
+                    "page_number": page_number,
+                    "page_url": page_url
                 })
+
+        if generation:
+            try:
+                generation.end(output=message_content, metadata={"citations": citations_for_frontend})
+            except Exception as e:
+                print(f"[LANGFUSE] Erro ao finalizar generation: {e}")
 
         # Envia citações e metadados
         yield f"data: {json.dumps({'type': 'citations', 'content': citations_for_frontend})}\n\n"
@@ -1699,6 +1722,19 @@ async def submit_feedback(data: dict):
         raise HTTPException(status_code=400, detail="conversation_id e feedback (positivo/negativo) são obrigatórios.")
 
     try:
+        # Langfuse Score
+        if langfuse:
+            score_value = 1.0 if feedback == "positivo" else 0.0
+            try:
+                langfuse.score(
+                    trace_id=conversation_id,
+                    name="user_feedback",
+                    value=score_value,
+                    comment=comment
+                )
+            except Exception as e:
+                print(f"[LANGFUSE] Erro ao enviar score: {e}")
+
         success = False
         if supabase_admin:
             try:
@@ -1767,6 +1803,43 @@ async def debug_oci():
         "has_key_content": bool(get_env_clean("OCI_KEY_CONTENT")),
         "has_key_file": bool(get_env_clean("OCI_KEY_FILE")),
     }
+
+@app.get("/api/pdfs/{filename}")
+def get_pdf(filename: str):
+    # Previne directory traversal
+    clean_filename = os.path.basename(filename)
+    local_path = os.path.join(PDF_CACHE_DIR, clean_filename)
+    
+    # Se rodar localmente, tenta ler diretamente do Desktop
+    local_desktop_path = os.path.join("/Users/fr.utxicascj/Desktop/Obras_Dehon_Oracle", clean_filename)
+    if os.path.exists(local_desktop_path):
+        return FileResponse(local_desktop_path, media_type="application/pdf")
+        
+    # Se o PDF não está no cache local, descarrega do Oracle OCI Object Storage
+    if not os.path.exists(local_path):
+        try:
+            import oci
+            os_client = oci.object_storage.ObjectStorageClient(oci_config)
+            namespace = os_client.get_namespace().data
+            bucket_name = "dehon-pdfs-limpos"
+            
+            print(f"[PDF_SERVE] A transferir {clean_filename} do bucket {bucket_name}...")
+            response = os_client.get_object(namespace, bucket_name, clean_filename)
+            
+            # Grava no disco
+            with open(local_path, "wb") as f:
+                for chunk in response.data.raw.stream(1024 * 1024, decode_content=False):
+                    f.write(chunk)
+            print(f"[PDF_SERVE] {clean_filename} guardado com sucesso no cache local.")
+        except Exception as e:
+            print(f"[PDF_SERVE] Erro ao obter {clean_filename} da OCI: {e}")
+            raise HTTPException(status_code=404, detail=f"PDF não encontrado no Object Storage: {e}")
+            
+    return FileResponse(local_path, media_type="application/pdf")
+
+# Pasta temporária para cache de PDFs (compatível com os limites do Render)
+PDF_CACHE_DIR = "/tmp/pdf_cache"
+os.makedirs(PDF_CACHE_DIR, exist_ok=True)
 
 @app.post("/api/chat", dependencies=[Depends(verify_api_key)])
 async def chat_endpoint(request: dict, req: Request):
