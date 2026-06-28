@@ -1495,7 +1495,8 @@ def condense_query(query: str, history: list) -> str:
         
     history_text = "\n".join(filtered_history)
     
-    prompt = f"""Dado o seguinte histórico de conversa e uma nova pergunta do usuário, reescreva a pergunta para que ela seja uma busca independente e autocontida (standalone query) no banco de documentos dehonianos.
+    # Texto de fallback caso o Langfuse falhe ou o prompt não exista
+    fallback_prompt_text = f"""Dado o seguinte histórico de conversa e uma nova pergunta do usuário, reescreva a pergunta para que ela seja uma busca independente e autocontida (standalone query) no banco de documentos dehonianos.
 Nunca mude a intenção da pergunta. Apenas substitua pronomes (como "ele", "ela", "disso", "naquela época", "nessas cartas", "nessa obra") pelos nomes, obras ou conceitos específicos aos quais se referem no histórico recente.
 Se a pergunta já for independente, retorne-a exatamente igual. Não adicione saudações ou explicações.
 
@@ -1504,6 +1505,17 @@ Histórico da Conversa:
 
 Nova Pergunta: {query}
 Pergunta Autocontida:"""
+
+    prompt = fallback_prompt_text
+
+    # Tenta usar o Langfuse Prompt Management
+    if langfuse:
+        try:
+            lf_prompt = langfuse.get_prompt("condense_query", cache_ttl_seconds=300)
+            prompt = lf_prompt.compile(history_text=history_text, query=query)
+        except Exception as e:
+            print(f"[LANGFUSE] Erro ao obter prompt 'condense_query': {e}")
+            prompt = fallback_prompt_text
 
     try:
         # Usa o Ollama se estiver configurado, caso contrário usa o OpenAI
