@@ -63,14 +63,35 @@ module.exports = {
           '0%': { opacity: '0', transform: 'translateY(8px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        'accordion-down': {
+          from: { height: '0' },
+          to: { height: 'var(--radix-accordion-content-height)' },
+        },
+        'accordion-up': {
+          from: { height: 'var(--radix-accordion-content-height)' },
+          to: { height: '0' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.4s ease-out',
+        'accordion-down': 'accordion-down 0.2s ease-out',
+        'accordion-up': 'accordion-up 0.2s ease-out',
       },
     },
   },
   plugins: [
     require('@tailwindcss/typography'),
     require('tailwindcss-animate'),
+    function ({ addVariant }) {
+      addVariant('data-open', ['&[data-state="open"]', '&[data-open]:not([data-open="false"])']);
+      addVariant('data-closed', ['&[data-state="closed"]', '&[data-closed]:not([data-closed="false"])']);
+      addVariant('data-checked', ['&[data-state="checked"]', '&[data-checked]:not([data-checked="false"])']);
+      addVariant('data-unchecked', ['&[data-state="unchecked"]', '&[data-unchecked]:not([data-unchecked="false"])']);
+      addVariant('data-selected', '&[data-selected="true"]');
+      addVariant('data-disabled', ['&[data-disabled="true"]', '&[data-disabled]:not([data-disabled="false"])']);
+      addVariant('data-active', ['&[data-state="active"]', '&[data-active]:not([data-active="false"])']);
+      addVariant('data-horizontal', '&[data-orientation="horizontal"]');
+      addVariant('data-vertical', '&[data-orientation="vertical"]');
+    }
   ],
 }
