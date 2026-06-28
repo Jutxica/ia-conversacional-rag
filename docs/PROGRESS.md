@@ -13,3 +13,12 @@
 - Integração profunda do Langfuse SDK no `main.py` usando `trace` e `span` para capturar a intenção, as citações da OCI, e interligar com o endpoint `/api/feedback` e o Supabase.
 - Instalação e configuração do pacote oficial `langfuse` no `venv`.
 - Desenvolvido e executado o script `scripts/importar_datasets.py` que inseriu com sucesso o **Dataset "dehon-rag-gold-standard"** na Cloud, contendo as "Perguntas de Ouro" transversais a temas históricos, teológicos, carismáticos, etc.
+
+## 4. UI/UX e Correção de CSS (Completo)
+- **Melhorias de Contraste e Legibilidade:**
+  - Marcadores dourados e tracejados em negritos (`strong`).
+  - Blocos de citação teológica (`blockquote`) formatados em estilo callout com borda dourada.
+  - Destaque em itálicos/traduções (`em`) com cor azul teológica.
+- **Navegação de Citações:** Clique no card de referência abre o PDF na página correta do navegador, com proxy de domínio resolvido dinamicamente.
+- **Resolução de Compilação CSS:** Removidos imports do Tailwind v4 (`shadcn/tailwind.css`) no projeto Tailwind v3, replicando variantes personalizadas de estado e animações no `tailwind.config.cjs` e importando explicitamente todas as folhas de estilo dos componentes no `index.css`.
+
