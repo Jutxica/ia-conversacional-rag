@@ -186,9 +186,20 @@ try:
     _openai_fallback_b64 = "c2stcHJvai04Z3VlZElsR1Y5NU1zMTdNR0VUUWVaUmI5amY2V25MeTg2TmxlRmM3enZBMkM5SjN2cjdLbUxtLUxQYm5pYkI2WlFCUHhTTHkyZVQzQmxia0ZKM0hNZEt0cUtrLVE3a2FOdVVRQVJHUVducHpsVE5ab3BTS3FHckFXTVlyRlVSdUhhaDhnVjBnZXdBMWw5WkF1Nk1uSFBDekYya0E="
     openai_key = get_env_clean("OPENAI_API_KEY", base64.b64decode(_openai_fallback_b64).decode("utf-8"))
     client = OpenAI(api_key=openai_key)
+    
+    # Inicializa cliente Ollama (Local LLM) para tarefas híbridas
+    ollama_host = get_env_clean("OLLAMA_HOST")
+    ollama_model = get_env_clean("OLLAMA_MODEL", "qwen2.5:1.5b")
+    if ollama_host:
+        local_llm_client = OpenAI(base_url=f"{ollama_host.rstrip('/')}/v1", api_key="ollama")
+        print(f"Ollama inicializado com sucesso em {ollama_host} para tarefas secundárias.")
+    else:
+        local_llm_client = None
+        print("Ollama não configurado (OLLAMA_HOST ausente).")
 except Exception as e:
-    print(f"ERRO CRÍTICO: Falha ao inicializar cliente OpenAI: {e}")
+    print(f"ERRO CRÍTICO: Falha ao inicializar cliente OpenAI ou Ollama: {e}")
     client = None
+    local_llm_client = None
 
 # Inicializa cliente OCI Generative AI Agents
 import oci
@@ -1495,12 +1506,22 @@ Nova Pergunta: {query}
 Pergunta Autocontida:"""
 
     try:
-        completion = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.0,
-            max_tokens=200
-        )
+        # Usa o Ollama se estiver configurado, caso contrário usa o OpenAI
+        if local_llm_client:
+            completion = local_llm_client.chat.completions.create(
+                model=ollama_model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.0,
+                max_tokens=200
+            )
+        else:
+            completion = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.0,
+                max_tokens=200
+            )
+            
         rewritten = completion.choices[0].message.content.strip()
         if rewritten:
             if rewritten.startswith('"') and rewritten.endswith('"'):
