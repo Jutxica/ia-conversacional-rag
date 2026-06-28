@@ -142,6 +142,20 @@
 .message-bubble.assistant .prose strong {
   color: var(--text-primary) !important;
   font-weight: 700;
+  background: linear-gradient(120deg, rgba(180, 83, 9, 0.08) 0%, rgba(180, 83, 9, 0.08) 100%);
+  padding: 0 4px;
+  border-radius: 4px;
+  border-bottom: 1px dashed rgba(180, 83, 9, 0.3);
+}
+
+.message-bubble.assistant .prose em {
+  color: var(--accent-primary) !important;
+  font-style: italic;
+  font-weight: 500;
+}
+
+[data-theme='midnight'] .message-bubble.assistant .prose em {
+  color: #60a5fa !important;
 }
 
 .message-bubble.assistant .prose h1,
@@ -166,11 +180,22 @@
 }
 
 .message-bubble.assistant .prose blockquote {
-  color: var(--text-secondary) !important;
-  border-left-color: var(--accent-secondary) !important;
-  font-style: italic;
-  padding-left: 1rem;
+  background: rgba(180, 83, 9, 0.03);
+  border-left: 4px solid var(--accent-secondary) !important;
+  padding: 14px 20px;
+  border-radius: 0 8px 8px 0;
   margin: 1.5rem 0;
+  font-style: italic;
+  color: var(--text-primary) !important;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.01), var(--shadow-sm);
+  border-top: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+[data-theme='midnight'] .message-bubble.assistant .prose blockquote {
+  background: rgba(245, 158, 11, 0.02);
+  border-color: var(--border-subtle);
 }
 
 /* --- Researcher (User) Chat Bubble Styles --- */

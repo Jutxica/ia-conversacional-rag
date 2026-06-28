@@ -80,6 +80,25 @@ export default function CitationGrid({ citations, variant = 'grid' }: CitationGr
 
   const sorted = [...citations].sort((a, b) => (b.score || 0) - (a.score || 0))
 
+  const handleCitationClick = (pageUrl?: string) => {
+    if (!pageUrl) return
+    let targetUrl = pageUrl
+    if (!pageUrl.startsWith('http')) {
+      const apiUrl = (import.meta.env.VITE_API_URL as string) || ''
+      let base = ''
+      if (apiUrl.startsWith('http')) {
+        try {
+          const urlObj = new URL(apiUrl)
+          base = urlObj.origin
+        } catch (e) {
+          console.error("Erro ao converter VITE_API_URL:", e)
+        }
+      }
+      targetUrl = `${base}${pageUrl}`
+    }
+    window.open(targetUrl, '_blank')
+  }
+
   return (
     <motion.div 
       variants={containerVariants}
@@ -118,7 +137,7 @@ export default function CitationGrid({ citations, variant = 'grid' }: CitationGr
                   : 'bg-card/40 backdrop-blur-md border-border/40 hover:border-amber-500/40 dark:hover:border-amber-400/40 shadow-sm',
                 isFeatured && 'bg-gradient-to-br from-card to-primary/5'
               )}
-              onClick={() => citation.page_url && window.open(citation.page_url, '_blank')}
+              onClick={() => handleCitationClick(citation.page_url)}
             >
               <CardHeader className="flex-row items-start justify-between gap-2 pb-2">
                 <div className="flex items-center gap-2 min-w-0">
