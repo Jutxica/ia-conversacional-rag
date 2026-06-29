@@ -1644,11 +1644,16 @@ async def chat_response_generator(query: str, scope: str = "Geral", history: lis
                     if brackets_match:
                         page_number = int(brackets_match.group(1))
 
+                # Mapeia nome de arquivo .txt ou .md de volta para .pdf se necessário
+                pdf_filename = filename
+                if pdf_filename.lower().endswith(('.txt', '.md')):
+                    pdf_filename = re.sub(r'\.(txt|md)$', '.pdf', pdf_filename, flags=re.IGNORECASE)
+                
                 # Se for um nome de arquivo válido, gera a url que aponta para o nosso novo endpoint
-                page_url = f"/api/pdfs/{filename}#page={page_number}" if filename.lower().endswith(".pdf") else ""
+                page_url = f"/api/pdfs/{pdf_filename}#page={page_number}" if pdf_filename.lower().endswith(".pdf") else ""
                 
                 citations_for_frontend.append({
-                    "title": filename,
+                    "title": pdf_filename,  # Exibe o título como .pdf para o usuário
                     "snippet": snippet,
                     "sigla": "OCI",
                     "destinatario": "Dehon AI",
@@ -1810,8 +1815,11 @@ def get_pdf(filename: str):
     clean_filename = os.path.basename(filename)
     local_path = os.path.join(PDF_CACHE_DIR, clean_filename)
     
-    # Se rodar localmente, tenta ler diretamente do Desktop
-    local_desktop_path = os.path.join("/Users/fr.utxicascj/Desktop/Obras_Dehon_Oracle", clean_filename)
+    # Se rodar localmente, tenta ler diretamente do Desktop (removendo prefixo 'Novos' se necessário)
+    local_filename = clean_filename
+    if local_filename.startswith("Novos"):
+        local_filename = local_filename[5:]
+    local_desktop_path = os.path.join("/Users/fr.utxicascj/Desktop/Obras_Dehon_Oracle", local_filename)
     if os.path.exists(local_desktop_path):
         return FileResponse(local_desktop_path, media_type="application/pdf")
         
