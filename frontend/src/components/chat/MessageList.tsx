@@ -12,6 +12,7 @@ interface Message {
   citations?: any[];
   metadata?: {
     confidence: { level: string; percentage: number };
+    intent?: string;
   };
 }
 
@@ -22,6 +23,58 @@ interface MessageListProps {
   profile?: UserProfile;
   activeCitationMessageId?: string | null;
 }
+
+const preprocessMessageContent = (content: string, citations?: any[]) => {
+  let processed = content;
+  
+  // 1. Destacar traduções colocando-as em itálico se estiverem entre parênteses
+  // Exemplo: (Tradução livre: "...") -> _(Tradução livre: "...")_
+  processed = processed.replace(/(?<!_)\(((?:tradu[çc]ã|traduz|trad\.|translation|traduzione)[^)]+)\)(?!_)/gi, '_($1)_');
+  
+  // 2. Tornar referências numéricas clicáveis
+  // Exemplo: [1] -> [[1]](/api/pdfs/filename.pdf#page=20)
+  if (citations && citations.length > 0) {
+    processed = processed.replace(/\[(\d+)\]/g, (match, numStr) => {
+      const idx = parseInt(numStr, 10) - 1;
+      if (idx >= 0 && idx < citations.length) {
+        const citation = citations[idx];
+        const pageUrl = citation.page_url || '';
+        if (pageUrl) {
+          return `[\[${numStr}\]](${pageUrl})`;
+        }
+      }
+      return match;
+    });
+  }
+  
+  return processed;
+};
+
+const handleCitationClick = (pageUrl: string) => {
+  let targetUrl = pageUrl;
+  if (!pageUrl.startsWith('http')) {
+    const backendUrl = (import.meta.env.VITE_BACKEND_URL as string) || '';
+    let base = '';
+    if (backendUrl) {
+      base = backendUrl.endsWith('/') ? backendUrl.slice(0, -1) : backendUrl;
+    } else {
+      const apiUrl = (import.meta.env.VITE_API_URL as string) || '';
+      if (apiUrl && apiUrl.startsWith('http') && !apiUrl.includes('n8n.cloud')) {
+        try {
+          const urlObj = new URL(apiUrl);
+          base = urlObj.origin;
+        } catch (e) {
+          console.error("Erro ao converter VITE_API_URL:", e);
+        }
+      }
+      if (!base) {
+        base = window.location.origin;
+      }
+    }
+    targetUrl = `${base}${pageUrl}`;
+  }
+  window.open(targetUrl, '_blank');
+};
 
 const MessageList: React.FC<MessageListProps> = ({ 
   messages, 
@@ -116,7 +169,7 @@ const MessageList: React.FC<MessageListProps> = ({
                     <span className={`confidence-badge ${m.metadata.confidence.level.toLowerCase()}`}>
                       Confiança {m.metadata.confidence.percentage}%
                     </span>
-                    {m.metadata.intent && m.metadata.intent !== 'OCI_AGENT' && (
+                    {m.metadata.intent && !['OCI_AGENT', 'AGENT', 'GENERAL', 'GERAL'].includes(m.metadata.intent.toUpperCase()) && (
                       <span className={`intent-badge ${m.metadata.intent.toLowerCase()}`}>
                         {m.metadata.intent}
                       </span>
@@ -155,7 +208,51 @@ const MessageList: React.FC<MessageListProps> = ({
                 </div>
               ) : (
                 <div className={m.role === 'assistant' ? "prose dark:prose-invert prose-stone font-serif max-w-none text-[15px] prose-p:leading-relaxed prose-p:mb-4 last:prose-p:mb-0" : ""}>
-                  <ReactMarkdown>{m.content}</ReactMarkdown>
+                  {m.role === 'assistant' ? (
+                    <ReactMarkdown
+                      components={{
+                        a: ({ href, children, ...props }) => {
+                          const isPdf = href?.includes('/api/pdfs/');
+                          if (isPdf) {
+                            return (
+                              <a
+                                href={href}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleCitationClick(href!);
+                                }}
+                                className="inline-citation-badge"
+                                title="Clique para abrir o PDF original nesta página"
+                              >
+                                {children}
+                              </a>
+                            );
+                          }
+                          return (
+                            <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+                              {children}
+                            </a>
+                          );
+                        },
+                        em: ({ children, ...props }) => {
+                          const textContent = React.Children.toArray(children).join('');
+                          const isTranslation = /tradu[çc]ã|traduz|trad\.|translation|traduzione/i.test(textContent);
+                          if (isTranslation) {
+                            return (
+                              <span className="translation-highlight" {...props}>
+                                {children}
+                              </span>
+                            );
+                          }
+                          return <em {...props}>{children}</em>;
+                        }
+                      }}
+                    >
+                      {preprocessMessageContent(m.content, m.citations)}
+                    </ReactMarkdown>
+                  ) : (
+                    <ReactMarkdown>{m.content}</ReactMarkdown>
+                  )}
                 </div>
               )}
               {isStreaming && m.content !== '' && idx === messages.length - 1 && (

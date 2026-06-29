@@ -84,14 +84,22 @@ export default function CitationGrid({ citations, variant = 'grid' }: CitationGr
     if (!pageUrl) return
     let targetUrl = pageUrl
     if (!pageUrl.startsWith('http')) {
-      const apiUrl = (import.meta.env.VITE_API_URL as string) || ''
+      const backendUrl = (import.meta.env.VITE_BACKEND_URL as string) || ''
       let base = ''
-      if (apiUrl.startsWith('http')) {
-        try {
-          const urlObj = new URL(apiUrl)
-          base = urlObj.origin
-        } catch (e) {
-          console.error("Erro ao converter VITE_API_URL:", e)
+      if (backendUrl) {
+        base = backendUrl.endsWith('/') ? backendUrl.slice(0, -1) : backendUrl
+      } else {
+        const apiUrl = (import.meta.env.VITE_API_URL as string) || ''
+        if (apiUrl && apiUrl.startsWith('http') && !apiUrl.includes('n8n.cloud')) {
+          try {
+            const urlObj = new URL(apiUrl)
+            base = urlObj.origin
+          } catch (e) {
+            console.error("Erro ao converter VITE_API_URL:", e)
+          }
+        }
+        if (!base) {
+          base = window.location.origin
         }
       }
       targetUrl = `${base}${pageUrl}`
