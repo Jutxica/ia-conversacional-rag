@@ -1622,6 +1622,35 @@ async def chat_response_generator(query: str, scope: str = "Geral", history: lis
         
         message_content = response.data.message.content.text
         
+        # Refina a formatação para estilo premium (NotebookLM) usando o GPT-4o-mini
+        if client:
+            try:
+                refiner_prompt = f"""Você é um formatador editorial de elite. Sua tarefa é receber uma resposta teológica sobre o Padre Léon Dehon e reformatá-la para que ela fique com uma apresentação extremamente premium, organizada, estruturada e de fácil leitura, semelhante ao estilo do NotebookLM.
+
+Siga rigorosamente estas diretrizes:
+1. Preserve todas as informações, citações textuais com aspas, datas e fatos históricos originais. Nunca invente ou remova fatos.
+2. Organize o conteúdo em seções temáticas claras usando subheadings markdown (`### 1. Nome da Seção`, etc.).
+3. Dentro de cada seção, use bullet points (`*` ou `-`) para detalhar os pilares e ideias principais.
+4. Destaque conceitos teológicos fundamentais e expressões-chave em **negrito** (ex: **redamatio**, **oblação**, **Ecce Venio**, **Reinado Social**).
+5. Mantenha as citações textuais entre aspas ou em blocos de citação (`>`).
+
+Resposta Original do RAG OCI:
+{message_content}
+
+Resposta Reformatada Premium (em Português):"""
+                
+                completion = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": refiner_prompt}],
+                    temperature=0.2,
+                    max_tokens=2000
+                )
+                refined_text = completion.choices[0].message.content.strip()
+                if refined_text:
+                    message_content = refined_text
+            except Exception as refiner_error:
+                print(f"Erro no formatador do backend: {refiner_error}")
+        
         # Mapear citações da OCI para o formato que o frontend espera
         citations_for_frontend = []
         if hasattr(response.data.message, 'citations') and response.data.message.citations:
