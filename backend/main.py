@@ -1597,8 +1597,22 @@ async def chat_response_generator(query: str, scope: str = "Geral", history: lis
             yield "data: {\"type\": \"done\"}\n\n"
             return
     
+    # Se a query parecer ser uma pergunta teológica, anexa instruções de formatação premium
+    oci_query = query
+    greetings = ["olá", "oi", "bom dia", "boa tarde", "boa noite", "tudo bem", "como vai", "obrigado", "valeu"]
+    is_greeting = any(g in query.lower() for g in greetings) and len(query) < 15
+    
+    if not is_greeting:
+        formatting_instructions = (
+            "\n\nPor favor, formate sua resposta de forma extremamente estruturada e premium (estilo NotebookLM): "
+            "organize em seções claras usando títulos (###), use bullet points para os tópicos de cada seção e "
+            "destaque termos teológicos ou conceitos centrais em **negrito** (como **redamatio**, **oblação**, "
+            "**Ecce Venio**, **Reinado Social**)."
+        )
+        oci_query = query + formatting_instructions
+
     chat_details = oci.generative_ai_agent_runtime.models.ChatDetails(
-        user_message=query,
+        user_message=oci_query,
         session_id=oci_session_id,
         should_stream=False  # Obtem a resposta completa de uma vez para mapear facilmente
     )
@@ -1621,35 +1635,6 @@ async def chat_response_generator(query: str, scope: str = "Geral", history: lis
         )
         
         message_content = response.data.message.content.text
-        
-        # Refina a formatação para estilo premium (NotebookLM) usando o GPT-4o-mini
-        if client:
-            try:
-                refiner_prompt = f"""Você é um formatador editorial de elite. Sua tarefa é receber uma resposta teológica sobre o Padre Léon Dehon e reformatá-la para que ela fique com uma apresentação extremamente premium, organizada, estruturada e de fácil leitura, semelhante ao estilo do NotebookLM.
-
-Siga rigorosamente estas diretrizes:
-1. Preserve todas as informações, citações textuais com aspas, datas e fatos históricos originais. Nunca invente ou remova fatos.
-2. Organize o conteúdo em seções temáticas claras usando subheadings markdown (`### 1. Nome da Seção`, etc.).
-3. Dentro de cada seção, use bullet points (`*` ou `-`) para detalhar os pilares e ideias principais.
-4. Destaque conceitos teológicos fundamentais e expressões-chave em **negrito** (ex: **redamatio**, **oblação**, **Ecce Venio**, **Reinado Social**).
-5. Mantenha as citações textuais entre aspas ou em blocos de citação (`>`).
-
-Resposta Original do RAG OCI:
-{message_content}
-
-Resposta Reformatada Premium (em Português):"""
-                
-                completion = client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[{"role": "user", "content": refiner_prompt}],
-                    temperature=0.2,
-                    max_tokens=2000
-                )
-                refined_text = completion.choices[0].message.content.strip()
-                if refined_text:
-                    message_content = refined_text
-            except Exception as refiner_error:
-                print(f"Erro no formatador do backend: {refiner_error}")
         
         # Mapear citações da OCI para o formato que o frontend espera
         citations_for_frontend = []
