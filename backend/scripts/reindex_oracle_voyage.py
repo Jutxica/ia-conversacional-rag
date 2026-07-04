@@ -24,9 +24,9 @@ if not VOYAGE_API_KEY:
 # Configuração OCI/Oracle Cloud
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WALLET_DIR = os.path.join(BASE_DIR, "wallet")
-DB_USER = "admin"
-DB_PASSWORD = "@Mualilissa22"
-CONNECT_STRING = '(description= (retry_count=20)(retry_delay=3)(address=(protocol=tcps)(port=1522)(host=adb.sa-saopaulo-1.oraclecloud.com))(connect_data=(service_name=g071d809dc36d2d_dehonai_high.adb.oraclecloud.com))(security=(ssl_server_dn_match=yes)))'
+DB_USER = os.getenv("ORACLE_DB_USER", "ADMIN")
+DB_PASSWORD = os.getenv("ORACLE_DB_PASSWORD", "@Mualilissa22")
+DSN_NAME = "dehonai_high"
 
 def get_voyage_embedding(text: str) -> list:
     text = text.replace("\n", " ")
@@ -47,20 +47,20 @@ def get_voyage_embedding(text: str) -> list:
 def main():
     print("Iniciando migração de embeddings para Voyage AI (1024 dimensões) no Oracle...")
     
-    # 1. Conectar ao Neon PostgreSQL e buscar documentos
-    print("Conectando ao Neon PostgreSQL...")
+    # 1. Conectar ao PostgreSQL (Neon/Supabase) e buscar documentos
+    print("Conectando à base de dados original...")
     pg_conn = psycopg2.connect(NEON_DB_URL)
     pg_cur = pg_conn.cursor()
     pg_cur.execute("SELECT content, metadata FROM documents")
     docs = pg_cur.fetchall()
-    print(f"Total de documentos encontrados no Neon: {len(docs)}")
+    print(f"Total de documentos encontrados na base original: {len(docs)}")
     
     # 2. Conectar ao Oracle Database
     print("Conectando ao Oracle Database...")
     oracle_conn = oracledb.connect(
         user=DB_USER,
         password=DB_PASSWORD,
-        dsn=CONNECT_STRING,
+        dsn=DSN_NAME,
         config_dir=WALLET_DIR,
         wallet_location=WALLET_DIR,
         wallet_password=DB_PASSWORD
