@@ -46,14 +46,11 @@ try:
 except Exception as e:
     print(f"ERRO ao inicializar OpenAI em search.py: {e}")
 
+from src.rag.voyage_client import get_voyage_embedding
+
 def get_embedding(text: str) -> List[float]:
-    """Gera embedding de 2000 dimensões usando o modelo Large (limite do HNSW)."""
-    text = text.replace("\n", " ")
-    return client_openai.embeddings.create(
-        input=[text], 
-        model="text-embedding-3-large",
-        dimensions=2000
-    ).data[0].embedding
+    """Gera embedding usando a Voyage AI (1024 dimensões)."""
+    return get_voyage_embedding(text)
 
 def get_thematic_boosts(query: str) -> Dict[str, float]:
     """Analisa a query e retorna um mapa de sigla -> boost baseado na autoridade tematica."""

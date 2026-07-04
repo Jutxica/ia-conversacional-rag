@@ -49,7 +49,7 @@ def init_db():
                   CREATE TABLE documents (
                       id VARCHAR2(36) DEFAULT sys_guid() PRIMARY KEY,
                       content CLOB NOT NULL,
-                      embedding VECTOR(1536, FLOAT32),
+                      embedding VECTOR(1024, FLOAT32),
                       metadata CLOB
                   )';
                END IF;
