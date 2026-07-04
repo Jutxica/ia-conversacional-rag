@@ -22,6 +22,7 @@ from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
 from openai import OpenAI
 from supabase import create_client, Client
 from src.rag.search import search_context
+from src.rag.oracle_search import oracle_search_context
 from src.rag.concept_processor import processor as concept_processor
 from src.rag.intent_detector import detector as intent_detector
 from langfuse import Langfuse
@@ -1606,10 +1607,10 @@ async def chat_response_generator_anthropic(query: str, scope: str = "Geral", hi
         fts_w = 0.8
         vec_w = 1.4
     
-    # 4. Executar busca híbrida local com pgvector
+    # 4. Executar busca híbrida local na base de dados Oracle
     search_res = {"context": "", "citations": []}
     try:
-        search_res = search_context(
+        search_res = oracle_search_context(
             query=condensed,
             top_k=5,
             filter_siglas=filter_siglas,
@@ -1617,7 +1618,7 @@ async def chat_response_generator_anthropic(query: str, scope: str = "Geral", hi
             vec_weight=vec_w
         )
     except Exception as search_err:
-        print(f"[ANTHROPIC RAG] Erro ao buscar contexto: {search_err}")
+        print(f"[ANTHROPIC RAG] Erro ao buscar contexto na base de dados Oracle: {search_err}")
     
     context = search_res.get("context", "")
     citations_raw = search_res.get("citations", [])

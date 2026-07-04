@@ -93,14 +93,21 @@ def oracle_search_context(query: str, top_k: int = 5, filter_siglas: List[str] =
         title = meta.get('title', 'Documento Dehoniano')
         sigla = meta.get('sigla', 'OBRA')
         
+        page_number = meta.get('page') or meta.get('page_number') or meta.get('page_num') or None
+        page_url = meta.get('url') or meta.get('source_url') or meta.get('page_url') or None
+        destinatario = meta.get('destinatario') or meta.get('recipient') or meta.get('addressee') or meta.get('to') or None
+
         context_parts.append(f"--- FONTE [{ref_num}]: {title} ({sigla}) ---\n{content}")
         
         citations.append({
             "id": ref_num,
             "title": title,
             "sigla": sigla,
+            "destinatario": destinatario,
             "snippet": content[:200] + "...",
             "score": match.get('similarity', 0),
+            "page_url": page_url,
+            "page_number": page_number
         })
 
     return {
