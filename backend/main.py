@@ -1735,8 +1735,7 @@ Pergunta do Pesquisador: {query}
             model=model_name,
             max_tokens=2048,
             system=system_prompt,
-            messages=sanitized_messages,
-            temperature=0.2
+            messages=sanitized_messages
         ) as stream:
             for text in stream.text_stream:
                 full_response_content += text
