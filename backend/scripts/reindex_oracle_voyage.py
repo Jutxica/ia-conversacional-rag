@@ -10,11 +10,11 @@ from dotenv import load_dotenv
 # Carregar dotenv
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
 
-NEON_DB_URL = os.getenv("NEON_DB_URL")
+NEON_DB_URL = os.getenv("NEON_DB_URL") or os.getenv("SUPABASE_DB_URL")
 VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
 
 if not NEON_DB_URL:
-    print("ERRO: NEON_DB_URL não encontrado no ambiente.")
+    print("ERRO: Nem NEON_DB_URL nem SUPABASE_DB_URL foram encontrados no ambiente do container.")
     sys.exit(1)
 
 if not VOYAGE_API_KEY:
