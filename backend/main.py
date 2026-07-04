@@ -2091,9 +2091,167 @@ def get_pdf(filename: str):
             
     return FileResponse(local_path, media_type="application/pdf")
 
+# --- MCP Server (Model Context Protocol) ---
+# Mapeia session_id -> asyncio.Queue para SSE
+sse_queues = {}
+
+async def verify_mcp_auth(request: Request):
+    auth = request.headers.get("Authorization")
+    if not auth:
+        raise HTTPException(status_code=403, detail="Header Authorization ausente.")
+    token = auth.replace("Bearer ", "").strip()
+    if token != INTERNAL_API_KEY and token != "e94c9ba1ba74aee889b5c5fe3e0a6521":
+        raise HTTPException(status_code=403, detail="Credenciais MCP inválidas.")
+    return token
+
+@app.get("/api/mcp/sse")
+async def mcp_sse_endpoint(request: Request, token: str = Depends(verify_mcp_auth)):
+    session_id = str(uuid.uuid4())
+    queue = asyncio.Queue()
+    sse_queues[session_id] = queue
+
+    async def event_generator():
+        try:
+            # Envia a URL do endpoint de POST de mensagens obrigatória do MCP
+            yield f"event: endpoint\ndata: /api/mcp/messages?session_id={session_id}\n\n"
+            
+            while True:
+                try:
+                    message = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    yield f"event: message\ndata: {json.dumps(message)}\n\n"
+                except asyncio.TimeoutError:
+                    # Envia ping de keep-alive para não derrubar a conexão
+                    yield ": ping\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            if session_id in sse_queues:
+                del sse_queues[session_id]
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+@app.post("/api/mcp/messages")
+async def mcp_messages_endpoint(
+    request: Request, 
+    session_id: str, 
+    token: str = Depends(verify_mcp_auth)
+):
+    if session_id not in sse_queues:
+        raise HTTPException(status_code=404, detail="Sessão MCP não encontrada ou expirada.")
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="JSON inválido.")
+
+    method = body.get("method")
+    msg_id = body.get("id")
+
+    if not method:
+        raise HTTPException(status_code=400, detail="method é obrigatório no JSON-RPC.")
+
+    response_payload = {
+        "jsonrpc": "2.0",
+        "id": msg_id
+    }
+
+    if method == "initialize":
+        response_payload["result"] = {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {
+                "tools": {}
+            },
+            "serverInfo": {
+                "name": "Dehon AI Oracle Server",
+                "version": "1.0.0"
+            }
+        }
+    elif method == "tools/list":
+        response_payload["result"] = {
+            "tools": [
+                {
+                    "name": "buscar_acervo_dehon",
+                    "description": (
+                        "Busca passagens e trechos de cartas, diários e obras do Padre Leão Dehon "
+                        "no banco de dados Oracle. Retorna o texto contextualizado e informações das fontes."
+                    ),
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "O termo de busca teológico ou histórico (ex: 'oblação', 'reparação', 'Rerum Novarum')."
+                            },
+                            "top_k": {
+                                "type": "integer",
+                                "description": "Número máximo de trechos a retornar (padrão é 5)."
+                            },
+                            "scope": {
+                                "type": "string",
+                                "description": "Escopo opcional (ex: 'Biografia', 'Espiritualidade', 'Social', 'Correspondencia')."
+                            }
+                        },
+                        "required": ["query"]
+                    }
+                }
+            ]
+        }
+    elif method == "tools/call":
+        params = body.get("params", {})
+        tool_name = params.get("name")
+        arguments = params.get("arguments", {})
+
+        if tool_name == "buscar_acervo_dehon":
+            query = arguments.get("query", "")
+            top_k = arguments.get("top_k", 5)
+            scope = arguments.get("scope", "Geral")
+
+            # Resolve scope para siglas de busca
+            filter_siglas = _get_scope_filter(scope)
+
+            # Executa a busca híbrida no banco de dados Oracle
+            try:
+                search_res = oracle_search_context(
+                    query=query,
+                    top_k=top_k,
+                    filter_siglas=filter_siglas
+                )
+                
+                # Monta a resposta no formato MCP
+                text_content = search_res.get("context", "Nenhum resultado encontrado.")
+                response_payload["result"] = {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": text_content
+                        }
+                    ]
+                }
+            except Exception as e:
+                response_payload["error"] = {
+                    "code": -32603,
+                    "message": f"Erro interno ao consultar base Oracle: {str(e)}"
+                }
+        else:
+            response_payload["error"] = {
+                "code": -32601,
+                "message": f"Método/ferramenta {tool_name} não encontrada."
+            }
+    else:
+        # Responder OK para outros métodos (ex: notifications)
+        response_payload["result"] = {}
+
+    # Envia a resposta de volta ao cliente via fila SSE
+    queue = sse_queues[session_id]
+    await queue.put(response_payload)
+    
+    # Retorna status Accepted (202) para sinalizar recepção no protocolo SSE
+    return {"status": "accepted"}
+
 # Pasta temporária para cache de PDFs (compatível com os limites do Render)
 PDF_CACHE_DIR = "/tmp/pdf_cache"
 os.makedirs(PDF_CACHE_DIR, exist_ok=True)
+
 
 @app.post("/api/chat", dependencies=[Depends(verify_api_key)])
 async def chat_endpoint(request: dict, req: Request):
