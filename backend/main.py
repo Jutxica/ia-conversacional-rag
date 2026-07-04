@@ -2264,6 +2264,26 @@ PDF_CACHE_DIR = "/tmp/pdf_cache"
 os.makedirs(PDF_CACHE_DIR, exist_ok=True)
 
 
+@app.get("/api/anthropic/test")
+async def test_anthropic():
+    if not anthropic_client:
+        return {"error": "anthropic_client não inicializado. Verifique se ANTHROPIC_API_KEY está configurada no .env / Easypanel."}
+    try:
+        models = anthropic_client.models.list()
+        model_list = [{"id": m.id, "created_at": getattr(m, "created_at", None)} for m in models]
+        return {
+            "status": "success",
+            "available_models": model_list,
+            "api_key_configured": f"sk-ant-...{anthropic_key[-6:]}" if len(anthropic_key) > 6 else "muito curta"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+            "api_key_configured": f"sk-ant-...{anthropic_key[-6:]}" if len(anthropic_key) > 6 else "muito curta"
+        }
+
 @app.post("/api/chat", dependencies=[Depends(verify_api_key)])
 async def chat_endpoint(request: dict, req: Request):
     query = request.get("query", "")
