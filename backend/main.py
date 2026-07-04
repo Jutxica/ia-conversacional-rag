@@ -1715,7 +1715,7 @@ Pergunta do Pesquisador: {query}
         else:
             sanitized_messages[-1]["content"] += "\n\n" + user_prompt
 
-    model_name = get_env_clean("ANTHROPIC_MODEL", "claude-3-5-sonnet-20240620")
+    model_name = get_env_clean("ANTHROPIC_MODEL", "claude-sonnet-5")
     
     generation = None
     if trace:
