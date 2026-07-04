@@ -2096,10 +2096,19 @@ def get_pdf(filename: str):
 sse_queues = {}
 
 async def verify_mcp_auth(request: Request):
+    # Tenta obter do Header Authorization
     auth = request.headers.get("Authorization")
-    if not auth:
-        raise HTTPException(status_code=403, detail="Header Authorization ausente.")
-    token = auth.replace("Bearer ", "").strip()
+    token = None
+    if auth:
+        token = auth.replace("Bearer ", "").strip()
+    
+    # Se não houver no header, tenta obter da query string (para compatibilidade com o Console da Anthropic)
+    if not token:
+        token = request.query_params.get("token")
+        
+    if not token:
+        raise HTTPException(status_code=403, detail="Credenciais de autenticação MCP ausentes (Header Authorization ou query param 'token' necessário).")
+        
     if token != INTERNAL_API_KEY and token != "e94c9ba1ba74aee889b5c5fe3e0a6521":
         raise HTTPException(status_code=403, detail="Credenciais MCP inválidas.")
     return token
@@ -2112,8 +2121,8 @@ async def mcp_sse_endpoint(request: Request, token: str = Depends(verify_mcp_aut
 
     async def event_generator():
         try:
-            # Envia a URL do endpoint de POST de mensagens obrigatória do MCP
-            yield f"event: endpoint\ndata: /api/mcp/messages?session_id={session_id}\n\n"
+            # Envia a URL do endpoint de POST de mensagens obrigatória do MCP (incluindo o token)
+            yield f"event: endpoint\ndata: /api/mcp/messages?session_id={session_id}&token={token}\n\n"
             
             while True:
                 try:
