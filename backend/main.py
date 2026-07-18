@@ -1,5 +1,8 @@
 import os
 from dotenv import load_dotenv
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # Carrega variáveis de ambiente IMEDIATAMENTE (antes de importar outros módulos locais)
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
@@ -1961,6 +1964,164 @@ async def chat_response_generator(query: str, scope: str = "Geral", history: lis
             langfuse.flush()
         except Exception as e:
             print(f"[LANGFUSE] Erro no flush: {e}")
+
+
+# --- Welcome Email Endpoint ---
+SMTP_HOST = get_env_clean("SMTP_HOST", "")
+SMTP_PORT = int(get_env_clean("SMTP_PORT", "587"))
+SMTP_USERNAME = get_env_clean("SMTP_USERNAME", "")
+SMTP_PASSWORD = get_env_clean("SMTP_PASSWORD", "")
+SMTP_SENDER = get_env_clean("SMTP_SENDER", "no-reply@dehon.ai")
+
+class WelcomeEmailRequest(BaseModel):
+    email: str
+    name: str
+
+@app.post("/api/welcome-email", dependencies=[Depends(verify_api_key)])
+async def send_welcome_email(request: WelcomeEmailRequest):
+    """Envia um e-mail de boas-vindas personalizado com uma frase do Padre Dehon."""
+    email_dest = request.email
+    name_dest = request.name
+    
+    if not SMTP_HOST or not SMTP_USERNAME or not SMTP_PASSWORD:
+        print("[SMTP] Configuração de e-mail ausente ou incompleta. Ignorando envio de e-mail de boas-vindas.")
+        return {"status": "skipped", "reason": "SMTP credentials not configured."}
+        
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = SMTP_SENDER
+        msg['To'] = email_dest
+        msg['Subject'] = "Bem-vindo ao Dehon AI!"
+        
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body {{
+              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+              background-color: #fcfbf8;
+              color: #1e293b;
+              margin: 0;
+              padding: 0;
+            }}
+            .container {{
+              max-width: 600px;
+              margin: 40px auto;
+              background-color: #ffffff;
+              border: 1px solid #e2e8f0;
+              border-radius: 12px;
+              overflow: hidden;
+              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            }}
+            .header {{
+              background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
+              color: #ffffff;
+              padding: 40px 20px;
+              text-align: center;
+            }}
+            .header h1 {{
+              margin: 0;
+              font-size: 24px;
+              font-weight: 700;
+              letter-spacing: 1px;
+            }}
+            .header p {{
+              margin: 5px 0 0 0;
+              font-size: 14px;
+              color: #93c5fd;
+              text-transform: uppercase;
+              letter-spacing: 2px;
+            }}
+            .content {{
+              padding: 40px 30px;
+              line-height: 1.6;
+            }}
+            .quote-box {{
+              margin: 20px 0;
+              padding: 20px;
+              background-color: #f8fafc;
+              border-left: 4px solid #1e3a8a;
+              border-radius: 0 8px 8px 0;
+              font-style: italic;
+              color: #334155;
+            }}
+            .quote-box .author {{
+              display: block;
+              margin-top: 10px;
+              font-style: normal;
+              font-weight: bold;
+              font-size: 12px;
+              color: #64748b;
+              text-transform: uppercase;
+            }}
+            .footer {{
+              background-color: #f1f5f9;
+              padding: 20px;
+              text-align: center;
+              font-size: 12px;
+              color: #64748b;
+              border-top: 1px solid #e2e8f0;
+            }}
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Bem-vindo ao Dehon AI</h1>
+              <p>Biblioteca Acadêmica & Acervo Digital</p>
+            </div>
+            <div class="content">
+              <p>Olá, {name_dest}!</p>
+              <p>Sua conta no Dehon AI foi ativada com sucesso. A partir de agora, você faz parte do nosso espaço de pesquisa dedicado ao estudo e reflexão sobre o pensamento, espiritualidade e obra do Padre Leão Dehon.</p>
+              
+              <div class="quote-box">
+                "O amor é o segredo de toda santidade e de toda eficácia apostólica. É pelo Coração que nos aproximamos de Deus e dos irmãos."
+                <span class="author">— Padre Leão Dehon</span>
+              </div>
+
+              <p>Com sua conta, você pode:</p>
+              <ul>
+                <li>Pesquisar com buscas híbridas e obter referências e citações teológicas precisas.</li>
+                <li>Conduzir análises e estudos baseados diretamente no acervo digital dehoniano.</li>
+                <li>Salvar suas conversas e organizar suas referências bibliográficas.</li>
+              </ul>
+
+              <p>Fraterno abraço,<br><strong>Equipe Dehon AI</strong></p>
+            </div>
+            <div class="footer">
+              Este e-mail foi enviado de forma automática para {email_dest}.<br>
+              © 2026 Dehon AI. Todos os direitos reservados.
+            </div>
+          </div>
+        </body>
+        </html>
+        """
+        
+        msg.attach(MIMEText(html_content, 'html'))
+        
+        # Enviar e-mail de forma assíncrona para não travar a resposta HTTP
+        import threading
+        def send_email_thread():
+            try:
+                if SMTP_PORT == 465:
+                    server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT)
+                else:
+                    server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+                    server.starttls()
+                server.login(SMTP_USERNAME, SMTP_PASSWORD)
+                server.sendmail(SMTP_SENDER, email_dest, msg.as_string())
+                server.quit()
+                print(f"[SMTP] E-mail de boas-vindas enviado com sucesso para {email_dest}")
+            except Exception as thread_e:
+                print(f"[SMTP] Erro na thread de envio de e-mail para {email_dest}: {thread_e}")
+                
+        threading.Thread(target=send_email_thread).start()
+        return {"status": "success", "message": "Email sending initiated."}
+    except Exception as e:
+        print(f"[SMTP] Falha ao iniciar envio de e-mail de boas-vindas para {email_dest}: {e}")
+        return {"status": "error", "error": str(e)}
 
 
 @app.post("/api/feedback", dependencies=[Depends(verify_api_key)])
