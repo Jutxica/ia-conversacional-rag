@@ -152,6 +152,12 @@ def ingest_pdf_to_oracle(file_path, conn):
                 
         except Exception as e:
             print(f"  [ERRO] Falha no chunk {chunk_index} de {filename}: {e}", flush=True)
+            if "insufficient_quota" in str(e).lower():
+                print("\n[ERRO CRÍTICO] A cota da sua API Key da OpenAI acabou (insufficient_quota).", flush=True)
+                print("Por favor, adicione fundos na sua conta OpenAI em: https://platform.openai.com/settings/organization/billing", flush=True)
+                print("Interrompendo script para evitar loops infinitos.", flush=True)
+                conn.commit()
+                sys.exit(1)
             time.sleep(1)
             
     conn.commit()
