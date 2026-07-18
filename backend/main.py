@@ -1350,6 +1350,21 @@ async def edit_blessed_answer_admin(answer_id: str, data: dict):
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Resposta não encontrada")
 
+@app.post("/api/admin/sync-drive", dependencies=[Depends(verify_admin_jwt)])
+async def admin_sync_drive():
+    """Inicia a sincronização de PDFs do Google Drive para o Oracle Database."""
+    from scripts.sync_drive_oracle import sync_drive
+    import asyncio
+    
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, sync_drive)
+        if result.get("status") == "error":
+            raise HTTPException(status_code=500, detail=result.get("error"))
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro durante a sincronização: {e}")
+
 @app.get("/api/admin/logs", dependencies=[Depends(verify_admin_jwt)])
 async def get_admin_logs():
     """Retorna os logs de busca (tentando Supabase primeiro, depois arquivo local)."""
