@@ -124,15 +124,21 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
       const localSaved = localStorage.getItem('dehon-profile');
       
       let initialProfile: UserProfile = {
-        name: session.user.email?.split('@')[0] || 'Pesquisador',
-        photoUrl: '',
+        name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Pesquisador',
+        photoUrl: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || '',
         title: 'Leigo',
         congregation: 'Dehoniano'
       };
 
       if (localSaved) {
         try {
-          initialProfile = { ...initialProfile, ...JSON.parse(localSaved) };
+          const parsed = JSON.parse(localSaved);
+          initialProfile = {
+            ...initialProfile,
+            ...parsed,
+            name: parsed.name || initialProfile.name,
+            photoUrl: parsed.photoUrl || initialProfile.photoUrl
+          };
         } catch (e) {}
       } else if (metaProfile) {
         initialProfile = { ...initialProfile, ...metaProfile };
