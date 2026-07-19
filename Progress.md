@@ -1,5 +1,5 @@
 # Progresso do Projeto - Dehon AI
-*Última atualização: 29 de Maio de 2026*
+*Última atualização: 19 de Julho de 2026*
 
 Este documento registra os marcos alcançados no desenvolvimento do ecossistema Dehon AI, abrangendo interface, inteligência artificial e automação de desenvolvimento.
 
@@ -25,6 +25,8 @@ Este documento registra os marcos alcançados no desenvolvimento do ecossistema 
 - **Visualizador e Editor de Chunks:** Interface visual integrada na aba "Corpus" para inspecionar chunks e editar conteúdos manualmente com badge **EDITADO**.
 - **Exportação Acadêmica:** Botão integrado de exportação que gera arquivos `.ris` compatíveis com gerenciadores (Zotero/Mendeley) e citações formatadas no padrão ABNT/APA prontas para copiar.
 - **Estilo de Bolha de Chat:** Mensagens do usuário com estilo bubble à direita usando cores da identidade visual, com renderização defensiva via `safeRender`.
+- **Autenticação com Google Sign-In:** Botão e fluxo de login social do Google integrado via Supabase Auth com estilos de design oficiais.
+- **Sincronização de Perfil Automática:** Captura de metadados do Google (`full_name` e `avatar_url`) para preenchimento de perfil local e avatar do chat após o login social.
 
 ## 🧠 2. Backend & RAG (Retrieval-Augmented Generation)
 **Status:** ✅ Estável e de Alta Performance
@@ -36,6 +38,10 @@ Este documento registra os marcos alcançados no desenvolvimento do ecossistema 
     - **get_env_clean:** Higienização de strings em variáveis de ambiente para mitigar falhas em deploys de cloud (como Render).
     - **CORS Estendido:** Permissão de acesso de origens locais e subdomínios do Render e da instituição Conventinho (`*.conventinho.org.br`).
     - **Fallbacks Seguros:** Fallbacks para credenciais Supabase e chaves internas de API caso variáveis estejam ausentes.
+- **Sincronização com Google Drive:** Script de sincronização automática (`scripts/sync_drive_oracle.py`) que lista e faz download de novos PDFs do Google Drive usando Contas de Serviço (Service Accounts).
+- **Google Document AI OCR:** Extração inteligente de texto (`google_document_ai.py`) via API OCR de alta fidelidade do Google Cloud para PDFs complexos e históricos, com fallback para PyPDF.
+- **Rota de Disparo do Drive:** Endpoint seguro `POST /api/admin/sync-drive` para executar a sincronização em segundo plano no servidor.
+- **Envio de E-mail de Boas-Vindas:** Endpoint assíncrono `POST /api/welcome-email` integrado ao frontend que envia um e-mail com layout premium e citação de Pe. Dehon para novas contas registradas.
 - **Motor de Busca Híbrida:** Integração de busca vetorial (semântica) com busca por palavras-chave (Full Text Search) com RRF.
 - **Chunking Parent-Child (Dupla Camada):** Ingestão com fatiamento dual: chunks grandes (1000 tokens) para contexto semântico unificados a child chunks menores (200 tokens) para alta precisão de vetorização.
 - **Robustez de Tokenização:** Algoritmo chunky de quebra por palavras que evita que sentenças ou parágrafos gigantes sem pontuação estourem o limite da API da OpenAI.

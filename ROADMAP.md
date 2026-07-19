@@ -107,6 +107,11 @@ Elevar a confiança do sistema para 95%+ e garantir precisão acadêmica cirúrg
 - [x] **Controle Manual do Painel de Citações:** Toggle com ícone em cada mensagem do assistente para abrir/fechar o drawer bento-grid de citações, desativando a abertura automática padrão.
 - [x] **Resiliência e Deploy:** `get_env_clean` contra variáveis corrompidas, fallbacks de Supabase/OpenAI e CORS para Conventinho e Render.
 - [x] **Format de Chat:** Mensagens do usuário em formato bubble à direita e renderização defensiva via `safeRender`.
+- [x] **Login com Google (Google Sign-In):** Fluxo de login social do Google integrado no frontend via Supabase.
+- [x] **Sincronização de Dados do Google:** Mapeamento de `full_name` e `avatar_url` para inicialização automática do perfil do usuário.
+- [x] **E-mail de Boas-Vindas Assíncrono:** Rota `/api/welcome-email` assíncrona no backend para envio de e-mails com frases de Pe. Dehon.
+- [x] **Sincronização do Google Drive:** Script `sync_drive_oracle.py` integrado com Contas de Serviço para baixar novos PDFs automaticamente.
+- [x] **OCR Inteligente Google Cloud:** Processamento de PDFs de alta fidelidade usando Google Document AI (`google_document_ai.py`).
 
 ---
-*Documento atualizado em 29/05/2026.*
+*Documento atualizado em 19/07/2026.*
