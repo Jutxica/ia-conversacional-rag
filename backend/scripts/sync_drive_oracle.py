@@ -17,6 +17,7 @@ load_dotenv(dotenv_path=env_path)
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.oracle_db_client import get_oracle_connection
 from src.google_document_ai import extract_text_from_pdf, setup_google_credentials
+from src.rag.gemini_client import analyze_text_entities_and_sentiment_gemini
 from openai import OpenAI
 
 from google.oauth2 import service_account
@@ -131,6 +132,36 @@ def process_and_ingest_file(filename, file_content, conn):
     title = SIGLARIO.get(sigla, filename.replace('.pdf', ''))
     recipient = extract_recipient(full_text)
     
+    # 2.5 Extração de metadados semânticos via Gemini (NLU gratuito)
+    extracted_entities = []
+    sentiment_data = {"score": 0.0, "label": "NEUTRAL"}
+    
+    gemini_api_key = os.getenv("GEMINI_API_KEY")
+    if gemini_api_key:
+        try:
+            print(f"  [NLU] Analisando entidades e sentimento da obra via Gemini Flash...", flush=True)
+            # Analisa as primeiras 8000 caracteres para ter contexto geral sem estourar limites
+            sample_text = full_text[:8000]
+            nlu_res = analyze_text_entities_and_sentiment_gemini(sample_text)
+            
+            extracted_entities = [ent.get("name") for ent in nlu_res.get("entities", []) if ent.get("name")]
+            sentiment_data = nlu_res.get("sentiment", {"score": 0.0, "label": "NEUTRAL"})
+            
+            # Se a NLU detectou pessoas do tipo PERSON, e não temos recipient detectado, tenta usar o primeiro
+            if not recipient and nlu_res.get("entities"):
+                for ent in nlu_res.get("entities"):
+                    if ent.get("type") == "PERSON" and ent.get("explanation") and "destinatário" in ent.get("explanation").lower():
+                        recipient = ent.get("name")
+                        print(f"  [NLU] Destinatário identificado via Gemini: {recipient}", flush=True)
+                        break
+            
+            print(f"  [NLU] Entidades encontradas: {extracted_entities[:5]}", flush=True)
+            print(f"  [NLU] Sentimento da obra: {sentiment_data}", flush=True)
+        except Exception as nlu_err:
+            print(f"  [NLU WARNING] Falha ao extrair metadados via Gemini: {nlu_err}", flush=True)
+    else:
+        print("  [NLU INFO] GEMINI_API_KEY não configurada. Pulando análise de entidades.", flush=True)
+    
     print(f"Total de fragmentos: {len(paragraphs)}", flush=True)
     
     window_size = 12
@@ -158,7 +189,9 @@ def process_and_ingest_file(filename, file_content, conn):
                 "recipient": recipient,
                 "chunk_index": chunk_index,
                 "ingested_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-                "is_complete_work": True
+                "is_complete_work": True,
+                "extracted_entities": extracted_entities,
+                "sentiment": sentiment_data
             }
             
             cursor.execute(
