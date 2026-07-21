@@ -78,25 +78,29 @@ def analyze_text_entities_and_sentiment_gemini(text: str) -> Dict[str, Any]:
         
     model = genai.GenerativeModel("gemini-1.5-flash")
     prompt = f"""
-    Você é um assistente de Processamento de Linguagem Natural especializado em análise teológica e histórica.
-    Sua tarefa é analisar o seguinte fragmento de texto de uma obra teológica ou carta histórica e extrair:
-    1. Entidades relevantes:
-       - Pessoas (especialmente santos, papas, padres ou figuras citadas pelo Padre Dehon)
-       - Locais (cidades, países, locais de retiros ou eventos importantes)
-       - Datas ou períodos de tempo
-       - Organizações ou congregações
-       - Conceitos teológicos centrais (ex: oblação, reparação, reinado social, etc.)
-    2. Sentimento geral do texto:
-       - Um score de sentimento entre -1.0 (muito triste, aflito, negativo) e 1.0 (muito alegre, esperançoso, positivo).
-       - Uma label de classificação ("POSITIVE", "NEGATIVE", "NEUTRAL").
+    Você é um historiador especialista na vida, cartas e obras do Padre João Leão Dehon (fundador dos Dehonianos/Sacerdotes do Sagrado Coração de Jesus - SCJ) e um assistente especialista de Processamento de Linguagem Natural.
+    
+    Sua tarefa é analisar minuciosamente o fragmento de texto fornecido (que pode ser uma carta, diário espiritual ou tratado teológico) e extrair TODAS as entidades teológicas, históricas, espirituais e institucionais relevantes. Seja extremamente minucioso e não omita nenhuma entidade.
+    
+    Categorias de entidades a extrair:
+    1. PERSON: Santos, Papas (ex: Leão XIII, Pio X), bispos, padres, freiras, teólogos, destinatários de cartas, correspondentes, figuras históricas, bíblicas ou espirituais citadas.
+    2. LOCATION: Cidades, países, capelas, santuários, mosteiros, dioceses, locais de retiro ou viagem (ex: Saint-Quentin, Roma, Val-de-Bois, Loreto, etc.).
+    3. DATE: Datas específicas, anos, séculos ou festas litúrgicas citadas (ex: Festa do Sagrado Coração, Corpus Christi).
+    4. ORGANIZATION: Congregações religiosas, ordens, periódicos/revistas (ex: Le Règne du Sacré-Cœur), jornais, institutos, colégios ou comitês da época.
+    5. THEOLOGICAL_CONCEPT: Conceitos espirituais e teológicos fundamentais (ex: oblação, reparação, Sagrado Coração, reinado social, adoração eucarística, amor reparador, apostolado, ascese, etc.).
+    6. DOCUMENT: Títulos de encíclicas (ex: Rerum Novarum, Annum Sacrum), livros, constituições religiosas, diretórios espirituais ou regulamentos.
 
-    Retorne APENAS um objeto JSON válido, sem tags de markdown, com a seguinte estrutura:
+    Além disso, analise o sentimento geral deste fragmento:
+    - Um score de sentimento entre -1.0 (de aflição profunda, sofrimento espiritual, preocupação ou negatividade) e 1.0 (de alegria litúrgica, êxtase espiritual, esperança ou positividade).
+    - Uma classificação ("POSITIVE", "NEGATIVE", "NEUTRAL").
+
+    Retorne APENAS um objeto JSON válido, sem qualquer bloco de código markdown (como ```json) ou introdução, seguindo estritamente esta estrutura:
     {{
       "entities": [
         {{
-          "name": "nome da entidade",
-          "type": "PERSON" ou "LOCATION" ou "DATE" ou "ORGANIZATION" ou "THEOLOGICAL_CONCEPT",
-          "explanation": "breve explicação contextual do porquê esta entidade foi citada"
+          "name": "nome completo e exato da entidade encontrada",
+          "type": "PERSON" ou "LOCATION" ou "DATE" ou "ORGANIZATION" ou "THEOLOGICAL_CONCEPT" ou "DOCUMENT",
+          "explanation": "breve contexto em português de como esta entidade se relaciona com o texto analisado"
         }}
       ],
       "sentiment": {{
@@ -105,7 +109,7 @@ def analyze_text_entities_and_sentiment_gemini(text: str) -> Dict[str, Any]:
       }}
     }}
 
-    Fragmento de texto para analisar:
+    Texto para analisar:
     ---
     {text}
     ---
@@ -119,5 +123,18 @@ def analyze_text_entities_and_sentiment_gemini(text: str) -> Dict[str, Any]:
         data = json.loads(response.text.strip())
         return data
     except Exception as e:
-        print(f"[GEMINI NLU] Erro ao processar texto com Gemini: {e}")
-        return {"entities": [], "sentiment": {"score": 0.0, "label": "NEUTRAL"}}
+        print(f"[GEMINI NLU] Aviso: falha ao extrair com modo JSON estrito: {e}. Tentando fallback sem formato estrito...", flush=True)
+        try:
+            response = model.generate_content(prompt)
+            raw_text = response.text.strip()
+            
+            if "```json" in raw_text:
+                raw_text = raw_text.split("```json")[1].split("```")[0]
+            elif "```" in raw_text:
+                raw_text = raw_text.split("```")[1].split("```")[0]
+                
+            data = json.loads(raw_text.strip())
+            return data
+        except Exception as fallback_err:
+            print(f"[GEMINI NLU] Erro crítico no fallback da extração: {fallback_err}", flush=True)
+            return {"entities": [], "sentiment": {"score": 0.0, "label": "NEUTRAL"}}
