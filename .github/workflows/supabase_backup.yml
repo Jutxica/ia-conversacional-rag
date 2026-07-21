@@ -1,0 +1,70 @@
+name: Supabase Automatic Backup
+
+on:
+  schedule:
+    # Roda todos os dias à meia-noite (00:00 UTC)
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Permite rodar manualmente a qualquer momento pelo painel do GitHub
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Instalar cliente do PostgreSQL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Gerar dump do banco de dados Supabase
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "ERRO: A secret SUPABASE_DB_URL não está configurada no GitHub!"
+            exit 1
+          fi
+          
+          # Formata a data atual
+          BACKUP_DATE=$(date +'%Y-%m-%d_%H-%M')
+          BACKUP_FILENAME="supabase_backup_${BACKUP_DATE}.sql"
+          
+          echo "Iniciando pg_dump..."
+          
+          # Executa o dump do banco de dados Supabase
+          # --clean adiciona comandos de DROP TABLE antes do CREATE para facilitar a restauração
+          # --no-owner e --no-privileges removem vínculos com usuários específicos do Supabase local
+          pg_dump "$SUPABASE_DB_URL" --clean --no-owner --no-privileges -f "$BACKUP_FILENAME"
+          
+          # Compacta o arquivo SQL para economizar espaço
+          gzip "$BACKUP_FILENAME"
+          
+          # Exporta variáveis para os próximos passos
+          echo "BACKUP_FILE=${BACKUP_FILENAME}.gz" >> $GITHUB_ENV
+          echo "TAG_NAME=backup-${BACKUP_DATE}" >> $GITHUB_ENV
+          echo "RELEASE_NAME=Backup Supabase - ${BACKUP_DATE}" >> $GITHUB_ENV
+
+      - name: Criar Release no GitHub e Anexar Backup
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: ${{ env.RELEASE_NAME }}
+          draft: false
+          prerelease: false
+          files: ${{ env.BACKUP_FILE }}
+          body: |
+            Backup automatizado do banco de dados Supabase gerado com sucesso.
+            
+            - **Data/Hora:** ${{ env.RELEASE_NAME }}
+            - **Arquivo:** `${{ env.BACKUP_FILE }}`
+            
+            Para restaurar este backup, descompacte o arquivo e execute:
+            `psql -h <HOST> -U <USER> -d <DB> -f <ARQUIVO_DESCOMPACTADO>.sql`
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
