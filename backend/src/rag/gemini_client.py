@@ -49,6 +49,9 @@ def generate_gemini_stream(
     if not api_key:
         raise ValueError("GEMINI_API_KEY não configurada no ambiente.")
         
+    if not model_name or "1.5" in model_name:
+        model_name = "gemini-2.5-flash"
+
     # Inicializa o modelo com instrução do sistema opcional
     model = genai.GenerativeModel(
         model_name=model_name,

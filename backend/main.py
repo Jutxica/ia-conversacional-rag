@@ -1935,6 +1935,8 @@ Pergunta do Pesquisador: {query}
 """
 
     model_name = get_env_clean("GEMINI_MODEL", "gemini-2.5-flash")
+    if not model_name or "1.5" in model_name:
+        model_name = "gemini-2.5-flash"
     
     generation = None
     if trace:
