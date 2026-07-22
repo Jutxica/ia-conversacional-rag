@@ -10,57 +10,79 @@ def oracle_search_context(query: str, top_k: int = 5, filter_siglas: List[str] =
     target_people = extract_person_from_query(query)
     expanded_query = concept_processor.expand_query(query)
     
+    embedding = None
     try:
         embedding = get_embedding(expanded_query)
     except Exception as e:
-        print(f"Erro ao gerar embedding: {e}")
-        return {"context": "", "citations": []}
-    
+        print(f"Aviso ao gerar embedding (OpenAI): {e}")
+        
     conn = get_oracle_connection()
     if not conn:
         return {"context": "", "citations": []}
         
     results = []
-    try:
-        cursor = conn.cursor()
-        
-        # Oracle 23ai vector syntax
-        import array
-        vec_array = array.array("f", embedding)
-        
-        sql = """
-            SELECT content, metadata, 1 - VECTOR_DISTANCE(embedding, :emb, COSINE) as similarity
-            FROM documents
-            ORDER BY VECTOR_DISTANCE(embedding, :emb, COSINE)
-            FETCH FIRST :top_k ROWS ONLY
-        """
-        
-        cursor.execute(sql, emb=vec_array, top_k=top_k * 5) # Fetch more for re-ranking
-        rows = cursor.fetchall()
-        
-        for row in rows:
-            content_clob, meta_clob, sim = row
-            content = content_clob.read() if hasattr(content_clob, "read") else content_clob
-            meta_str = meta_clob.read() if hasattr(meta_clob, "read") else meta_clob
-            try:
-                meta = json.loads(meta_str)
-            except:
-                meta = {}
-                
-            if filter_siglas:
-                if meta.get("sigla") not in filter_siglas:
+    cursor = conn.cursor()
+    
+    # 1. Tentar busca por Vetor (Vector Search)
+    if embedding:
+        try:
+            import array
+            vec_array = array.array("f", embedding)
+            sql = """
+                SELECT content, metadata, 1 - VECTOR_DISTANCE(embedding, :emb, COSINE) as similarity
+                FROM documents
+                ORDER BY VECTOR_DISTANCE(embedding, :emb, COSINE)
+                FETCH FIRST :top_k ROWS ONLY
+            """
+            cursor.execute(sql, emb=vec_array, top_k=top_k * 5)
+            rows = cursor.fetchall()
+            for row in rows:
+                content_clob, meta_clob, sim = row
+                content = content_clob.read() if hasattr(content_clob, "read") else content_clob
+                meta_str = meta_clob.read() if hasattr(meta_clob, "read") else meta_clob
+                try:
+                    meta = json.loads(meta_str)
+                except:
+                    meta = {}
+                if filter_siglas and meta.get("sigla") not in filter_siglas:
                     continue
-                    
-            results.append({
-                "content": content,
-                "metadata": meta,
-                "similarity": sim
-            })
-            
-    except Exception as e:
-        print(f"Erro na busca Oracle: {e}")
-    finally:
-        conn.close()
+                results.append({"content": content, "metadata": meta, "similarity": sim})
+        except Exception as e:
+            print(f"Aviso na busca por vetor Oracle: {e}")
+
+    # 2. Fallback: Se busca por vetor falhou ou retornou vazia (ex: sem cota OpenAI), executa FTS por palavras-chave
+    if not results:
+        try:
+            print("[ORACLE RAG] Executando fallback por palavras-chave no Oracle DB...")
+            stopwords = {'sobre', 'como', 'para', 'onde', 'qual', 'quais', 'quem', 'este', 'esta', 'isto', 'aquilo', 'onde'}
+            words = [w for w in query.replace('?', '').replace(',', '').split() if len(w) > 2 and w.lower() not in stopwords]
+            if words:
+                where_clauses = [f"UPPER(content) LIKE UPPER(:w{i})" for i in range(len(words))]
+                sql_fts = f"""
+                    SELECT content, metadata, 0.85 as similarity
+                    FROM documents
+                    WHERE {" AND ".join(where_clauses)}
+                    FETCH FIRST :top_k ROWS ONLY
+                """
+                params = {f"w{i}": f"%{word}%" for i, word in enumerate(words)}
+                params["top_k"] = top_k * 3
+                cursor.execute(sql_fts, **params)
+                rows = cursor.fetchall()
+                for row in rows:
+                    content_clob, meta_clob, sim = row
+                    content = content_clob.read() if hasattr(content_clob, "read") else content_clob
+                    meta_str = meta_clob.read() if hasattr(meta_clob, "read") else meta_clob
+                    try:
+                        meta = json.loads(meta_str)
+                    except:
+                        meta = {}
+                    if filter_siglas and meta.get("sigla") not in filter_siglas:
+                        continue
+                    results.append({"content": content, "metadata": meta, "similarity": sim})
+        except Exception as fts_err:
+            print(f"Erro no fallback FTS Oracle: {fts_err}")
+
+    conn.close()
 
     # Re-ranking and boosting logic
     theme_boosts = get_thematic_boosts(query)
