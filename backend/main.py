@@ -1934,7 +1934,7 @@ async def chat_response_generator_google(query: str, scope: str = "Geral", histo
 Pergunta do Pesquisador: {query}
 """
 
-    model_name = get_env_clean("GEMINI_MODEL", "gemini-1.5-flash")
+    model_name = get_env_clean("GEMINI_MODEL", "gemini-2.5-flash")
     
     generation = None
     if trace:

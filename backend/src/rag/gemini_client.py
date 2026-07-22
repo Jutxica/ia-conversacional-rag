@@ -40,7 +40,7 @@ def generate_gemini_stream(
     prompt: str,
     system_instruction: str = None,
     history: List[Dict[str, str]] = None,
-    model_name: str = "gemini-1.5-flash"
+    model_name: str = "gemini-2.5-flash"
 ) -> Generator[str, None, None]:
     """
     Gera tokens via streaming usando a API do Google Gemini.
@@ -80,7 +80,7 @@ def analyze_text_entities_and_sentiment_gemini(text: str) -> Dict[str, Any]:
     if not api_key:
         raise ValueError("GEMINI_API_KEY não configurada no ambiente.")
         
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-2.5-flash")
     prompt = f"""
     Você é um historiador especialista na vida, cartas e obras do Padre João Leão Dehon (fundador dos Dehonianos/Sacerdotes do Sagrado Coração de Jesus - SCJ) e um assistente especialista de Processamento de Linguagem Natural.
     
