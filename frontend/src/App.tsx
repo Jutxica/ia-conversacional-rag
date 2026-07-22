@@ -150,6 +150,33 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
 
       setProfile(initialProfile);
       localStorage.setItem('dehon-profile', JSON.stringify(initialProfile));
+
+      // Dispara o e-mail de boas-vindas para novos usuários (Google ou tradicional)
+      const emailSentKey = `dehon-welcome-sent-${session.user.id}`;
+      const hasSent = localStorage.getItem(emailSentKey);
+      
+      const createdAt = new Date(session.user.created_at);
+      const now = new Date();
+      const isNewUser = (now.getTime() - createdAt.getTime()) < 300000; // Janela de 5 minutos desde a criação do usuário
+      
+      if (isNewUser && !hasSent) {
+        localStorage.setItem(emailSentKey, 'true');
+        const welcomeApiUrl = (import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api/chat', '/api/welcome-email') : 'https://api.147.15.29.242.sslip.io/api/welcome-email');
+        
+        fetch(welcomeApiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_API_KEY}`
+          },
+          body: JSON.stringify({
+            email: session.user.email,
+            name: initialProfile.name
+          })
+        }).then(res => {
+          if (!res.ok) console.warn("Resposta malsucedida do envio de e-mail:", res.status);
+        }).catch(err => console.error("Erro ao enviar e-mail de boas-vindas:", err));
+      }
     }
   }, [session]);
 
@@ -338,7 +365,7 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
     setActiveCitationMessageId(null);
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || '/api/chat';
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://api.147.15.29.242.sslip.io/api/chat';
       
       const historyPayload = history.map(m => ({ role: m.role, content: m.content }));
 

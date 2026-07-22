@@ -68,7 +68,7 @@ const handleCitationClick = (pageUrl: string) => {
         }
       }
       if (!base) {
-        base = window.location.origin;
+        base = 'https://api.147.15.29.242.sslip.io';
       }
     }
     targetUrl = `${base}${pageUrl}`;
