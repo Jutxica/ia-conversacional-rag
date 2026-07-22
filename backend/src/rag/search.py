@@ -46,14 +46,47 @@ try:
 except Exception as e:
     print(f"ERRO ao inicializar OpenAI em search.py: {e}")
 
+import google.generativeai as genai
+
+def get_embedding_with_provider(text: str, task_type: str = "retrieval_query") -> Dict[str, Any]:
+    """
+    Tenta gerar embedding de alta fidelidade via OpenAI (1536d).
+    Caso a OpenAI esteja sem cota/créditos (HTTP 429), realiza fallback automático e transparente
+    para o Google Gemini text-embedding-004 (768d), 100% gratuito.
+    """
+    clean_text = text.replace("\n", " ")
+    
+    # 1. Tenta OpenAI (1536d)
+    if client_openai and OPENAI_API_KEY:
+        try:
+            emb = client_openai.embeddings.create(
+                input=[clean_text], 
+                model="text-embedding-3-large",
+                dimensions=1536
+            ).data[0].embedding
+            return {"embedding": emb, "provider": "openai", "dimensions": 1536}
+        except Exception as oai_err:
+            print(f"[EMBEDDING] OpenAI indisponível/sem saldo ({oai_err}). Acionando Fallback para Google text-embedding-004...")
+
+    # 2. Fallback Google Gemini (768d)
+    try:
+        api_key = get_env_clean("GEMINI_API_KEY")
+        if api_key:
+            genai.configure(api_key=api_key)
+        res = genai.embed_content(
+            model="models/text-embedding-004",
+            content=clean_text,
+            task_type=task_type
+        )
+        emb = res["embedding"]
+        return {"embedding": emb, "provider": "google", "dimensions": 768}
+    except Exception as gem_err:
+        print(f"[EMBEDDING] Erro no fallback Google text-embedding-004: {gem_err}")
+        return {"embedding": None, "provider": "none", "dimensions": 0}
+
 def get_embedding(text: str) -> List[float]:
-    """Gera embedding usando a OpenAI (1536 dimensões) para o acervo Oracle."""
-    text = text.replace("\n", " ")
-    return client_openai.embeddings.create(
-        input=[text], 
-        model="text-embedding-3-large",
-        dimensions=1536
-    ).data[0].embedding
+    res = get_embedding_with_provider(text)
+    return res.get("embedding")
 
 def get_thematic_boosts(query: str) -> Dict[str, float]:
     """Analisa a query e retorna um mapa de sigla -> boost baseado na autoridade tematica."""

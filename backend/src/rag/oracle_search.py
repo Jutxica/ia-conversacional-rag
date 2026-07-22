@@ -3,7 +3,7 @@ import os
 import re
 from typing import List, Dict, Any
 from src.oracle_db_client import get_oracle_connection
-from src.rag.search import get_embedding, extract_person_from_query, concept_processor, get_thematic_boosts
+from src.rag.search import get_embedding_with_provider, extract_person_from_query, concept_processor, get_thematic_boosts
 
 def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] = None,
                    fts_weight: float = None, vec_weight: float = None) -> Dict[str, Any]:
@@ -11,11 +11,9 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
     target_people = extract_person_from_query(query)
     expanded_query = concept_processor.expand_query(query)
     
-    embedding = None
-    try:
-        embedding = get_embedding(expanded_query)
-    except Exception as e:
-        print(f"Aviso ao gerar embedding (OpenAI): {e}")
+    emb_info = get_embedding_with_provider(expanded_query)
+    embedding = emb_info.get("embedding")
+    provider = emb_info.get("provider")
         
     conn = get_oracle_connection()
     if not conn:
@@ -29,10 +27,13 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
         try:
             import array
             vec_array = array.array("f", embedding)
-            sql = """
-                SELECT content, metadata, 1 - VECTOR_DISTANCE(embedding, :emb, COSINE) as similarity
+            target_col = "embedding_google" if provider == "google" else "embedding"
+            print(f"[ORACLE RAG] Executando Busca Vetorial via Provedor: {provider.upper()} na coluna {target_col}...")
+            sql = f"""
+                SELECT content, metadata, 1 - VECTOR_DISTANCE({target_col}, :emb, COSINE) as similarity
                 FROM documents
-                ORDER BY VECTOR_DISTANCE(embedding, :emb, COSINE)
+                WHERE {target_col} IS NOT NULL
+                ORDER BY VECTOR_DISTANCE({target_col}, :emb, COSINE)
                 FETCH FIRST :fetch_limit ROWS ONLY
             """
             cursor.execute(sql, emb=vec_array, fetch_limit=max(top_k, 50))
@@ -49,7 +50,7 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
                     continue
                 results.append({"content": content, "metadata": meta, "similarity": sim})
         except Exception as e:
-            print(f"Aviso na busca por vetor Oracle: {e}")
+            print(f"Aviso na busca por vetor Oracle ({provider}): {e}")
 
     # 2. Fallback / Complemento FTS: Se busca por vetor retornar poucos resultados ou falhar
     if len(results) < top_k:
