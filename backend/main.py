@@ -1684,7 +1684,7 @@ async def chat_response_generator_anthropic(query: str, scope: str = "Geral", hi
         'comparative_mode': False,
         'intent': intent_str,
         'intent_confidence': 1.0,
-        'source_authority': 'Neon Hybrid Search / Cross-Encoder',
+        'source_authority': 'Oracle Autonomous DB 23ai',
         'recipient_sources': []
     }
     yield f"data: {json.dumps({'type': 'metadata', 'content': metadata})}\n\n"
@@ -1902,7 +1902,7 @@ async def chat_response_generator_google(query: str, scope: str = "Geral", histo
         'comparative_mode': False,
         'intent': intent_str,
         'intent_confidence': 1.0,
-        'source_authority': 'Neon Hybrid Search / Cross-Encoder',
+        'source_authority': 'Oracle Autonomous DB 23ai',
         'recipient_sources': []
     }
     yield f"data: {json.dumps({'type': 'metadata', 'content': metadata})}\n\n"
