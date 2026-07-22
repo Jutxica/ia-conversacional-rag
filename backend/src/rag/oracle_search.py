@@ -5,7 +5,7 @@ from typing import List, Dict, Any
 from src.oracle_db_client import get_oracle_connection
 from src.rag.search import get_embedding, extract_person_from_query, concept_processor, get_thematic_boosts
 
-def oracle_search_context(query: str, top_k: int = 5, filter_siglas: List[str] = None,
+def oracle_search_context(query: str, top_k: int = 10, filter_siglas: List[str] = None,
                    fts_weight: float = None, vec_weight: float = None) -> Dict[str, Any]:
     
     target_people = extract_person_from_query(query)
@@ -51,10 +51,10 @@ def oracle_search_context(query: str, top_k: int = 5, filter_siglas: List[str] =
         except Exception as e:
             print(f"Aviso na busca por vetor Oracle: {e}")
 
-    # 2. Fallback: Se busca por vetor falhou ou retornou vazia (ex: sem cota OpenAI), executa FTS por palavras-chave
-    if not results:
+    # 2. Fallback / Complemento FTS: Se busca por vetor retornar poucos resultados ou falhar
+    if len(results) < top_k:
         try:
-            print("[ORACLE RAG] Executando fallback por palavras-chave no Oracle DB...")
+            print(f"[ORACLE RAG] Executando busca FTS expansiva no Oracle DB (encontrados {len(results)} via vetor)...")
             stopwords = {
                 'sobre', 'como', 'para', 'onde', 'qual', 'quais', 'quem', 'este', 'esta', 'isto', 'aquilo', 
                 'resuma', 'resumo', 'explique', 'explicar', 'explicação', 'fale', 'diga', 'padre', 'dehon', 'joão', 'leão', 
@@ -65,34 +65,27 @@ def oracle_search_context(query: str, top_k: int = 5, filter_siglas: List[str] =
                 words = [w for w in re.sub(r'[^\w\s]', '', query).split() if len(w) > 3]
 
             if words:
-                # Tentativa 1: AND (todos os termos significativos)
-                where_clauses = [f"UPPER(content) LIKE UPPER(:w{i})" for i in range(len(words))]
-                sql_fts_and = f"""
-                    SELECT content, metadata, 0.85 as similarity
-                    FROM documents
-                    WHERE {" AND ".join(where_clauses)}
-                    FETCH FIRST :top_k ROWS ONLY
-                """
-                params_and = {f"w{i}": f"%{word}%" for i, word in enumerate(words)}
-                params_and["top_k"] = top_k * 3
-                cursor.execute(sql_fts_and, **params_and)
-                rows = cursor.fetchall()
-
-                # Tentativa 2: Se AND não encontrar, tenta OR (qualquer termo significativo)
-                if not rows:
-                    where_clauses_or = [f"UPPER(content) LIKE UPPER(:w{i})" for i in range(len(words))]
-                    sql_fts_or = f"""
-                        SELECT content, metadata, 0.70 as similarity
+                # Busca por palavras-chave individuais para maximizar recall
+                fts_rows = []
+                for word in words[:4]:
+                    sql_word = """
+                        SELECT content, metadata, 0.85 as similarity
                         FROM documents
-                        WHERE {" OR ".join(where_clauses_or)}
-                        FETCH FIRST :top_k ROWS ONLY
+                        WHERE UPPER(content) LIKE UPPER(:w)
+                        FETCH FIRST 15 ROWS ONLY
                     """
-                    cursor.execute(sql_fts_or, **params_and)
-                    rows = cursor.fetchall()
+                    cursor.execute(sql_word, w=f"%{word}%")
+                    fts_rows.extend(cursor.fetchall())
 
-                for row in rows:
+                # Adicionar resultados do FTS evitando duplicatas
+                existing_contents = {r["content"][:100] for r in results}
+                for row in fts_rows:
                     content_clob, meta_clob, sim = row
                     content = content_clob.read() if hasattr(content_clob, "read") else content_clob
+                    if content[:100] in existing_contents:
+                        continue
+                    existing_contents.add(content[:100])
+
                     meta_str = meta_clob.read() if hasattr(meta_clob, "read") else meta_clob
                     try:
                         meta = json.loads(meta_str)
@@ -102,7 +95,7 @@ def oracle_search_context(query: str, top_k: int = 5, filter_siglas: List[str] =
                         continue
                     results.append({"content": content, "metadata": meta, "similarity": sim})
         except Exception as fts_err:
-            print(f"Erro no fallback FTS Oracle: {fts_err}")
+            print(f"Erro na busca FTS expansiva Oracle: {fts_err}")
 
     conn.close()
 
