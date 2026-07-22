@@ -117,8 +117,31 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
             sim = match['similarity']
             match['similarity'] = sim + ((1.0 - sim) * min(boost, 0.9))
             
-    # Sort and slice
-    results = sorted(results, key=lambda x: x.get('similarity', 0), reverse=True)[:top_k]
+    # Re-ranking por pontuação
+    sorted_candidates = sorted(results, key=lambda x: x.get('similarity', 0), reverse=True)
+
+    # Aplicação de Diversificação por Sigla/Obra (máximo de 20% do top_k por sigla)
+    max_per_sigla = max(5, top_k // 5)
+    diversified_results = []
+    sigla_counts = {}
+
+    for match in sorted_candidates:
+        sigla = match.get('metadata', {}).get('sigla', 'OUTROS')
+        if sigla_counts.get(sigla, 0) < max_per_sigla:
+            diversified_results.append(match)
+            sigla_counts[sigla] = sigla_counts.get(sigla, 0) + 1
+
+    # Preenche até o top_k se necessário com os demais candidatos
+    if len(diversified_results) < top_k:
+        added_ids = {id(m) for m in diversified_results}
+        for match in sorted_candidates:
+            if id(match) not in added_ids:
+                diversified_results.append(match)
+                added_ids.add(id(match))
+                if len(diversified_results) >= top_k:
+                    break
+
+    results = diversified_results[:top_k]
     
     context_parts = []
     citations = []
