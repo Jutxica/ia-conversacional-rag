@@ -2661,7 +2661,7 @@ async def test_anthropic():
 
 @app.post("/api/chat", dependencies=[Depends(verify_api_key)])
 async def chat_endpoint(request: dict, req: Request):
-    query = request.get("query", "")
+    query = request.get("query") or request.get("message", "")
     scope = request.get("scope", "Geral")
     categories = request.get("categories", None)
     history = request.get("history", [])

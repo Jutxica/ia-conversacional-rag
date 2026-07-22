@@ -3,9 +3,11 @@ import json
 import google.generativeai as genai
 from typing import List, Dict, Any, Generator
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+def configure_gemini():
+    api_key = os.getenv("GEMINI_API_KEY", "").strip('"').strip("'").strip()
+    if api_key:
+        genai.configure(api_key=api_key)
+    return api_key
 
 def format_history_to_gemini(history: List[Dict[str, str]]) -> List[Dict[str, Any]]:
     """
@@ -43,7 +45,8 @@ def generate_gemini_stream(
     """
     Gera tokens via streaming usando a API do Google Gemini.
     """
-    if not GEMINI_API_KEY:
+    api_key = configure_gemini()
+    if not api_key:
         raise ValueError("GEMINI_API_KEY não configurada no ambiente.")
         
     # Inicializa o modelo com instrução do sistema opcional
@@ -73,7 +76,8 @@ def analyze_text_entities_and_sentiment_gemini(text: str) -> Dict[str, Any]:
     Utiliza o Gemini 1.5 Flash de forma gratuita no AI Studio para realizar processamento
     de linguagem natural (NLU) em fragmentos de obras, extraindo entidades e sentimento.
     """
-    if not GEMINI_API_KEY:
+    api_key = configure_gemini()
+    if not api_key:
         raise ValueError("GEMINI_API_KEY não configurada no ambiente.")
         
     model = genai.GenerativeModel("gemini-1.5-flash")
