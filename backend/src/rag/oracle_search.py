@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from typing import List, Dict, Any
 from src.oracle_db_client import get_oracle_connection
 from src.rag.search import get_embedding, extract_person_from_query, concept_processor, get_thematic_boosts
@@ -54,20 +55,41 @@ def oracle_search_context(query: str, top_k: int = 5, filter_siglas: List[str] =
     if not results:
         try:
             print("[ORACLE RAG] Executando fallback por palavras-chave no Oracle DB...")
-            stopwords = {'sobre', 'como', 'para', 'onde', 'qual', 'quais', 'quem', 'este', 'esta', 'isto', 'aquilo', 'onde'}
-            words = [w for w in query.replace('?', '').replace(',', '').split() if len(w) > 2 and w.lower() not in stopwords]
+            stopwords = {
+                'sobre', 'como', 'para', 'onde', 'qual', 'quais', 'quem', 'este', 'esta', 'isto', 'aquilo', 
+                'resuma', 'resumo', 'explique', 'explicar', 'explicação', 'fale', 'diga', 'padre', 'dehon', 'joão', 'leão', 
+                'quaisquer', 'detalhes', 'relacione', 'conte', 'mostre', 'descreva', 'análise', 'analise', 'uma', 'uns', 'umas'
+            }
+            words = [w for w in re.sub(r'[^\w\s]', '', query).split() if len(w) > 2 and w.lower() not in stopwords]
+            if not words:
+                words = [w for w in re.sub(r'[^\w\s]', '', query).split() if len(w) > 3]
+
             if words:
+                # Tentativa 1: AND (todos os termos significativos)
                 where_clauses = [f"UPPER(content) LIKE UPPER(:w{i})" for i in range(len(words))]
-                sql_fts = f"""
+                sql_fts_and = f"""
                     SELECT content, metadata, 0.85 as similarity
                     FROM documents
                     WHERE {" AND ".join(where_clauses)}
                     FETCH FIRST :top_k ROWS ONLY
                 """
-                params = {f"w{i}": f"%{word}%" for i, word in enumerate(words)}
-                params["top_k"] = top_k * 3
-                cursor.execute(sql_fts, **params)
+                params_and = {f"w{i}": f"%{word}%" for i, word in enumerate(words)}
+                params_and["top_k"] = top_k * 3
+                cursor.execute(sql_fts_and, **params_and)
                 rows = cursor.fetchall()
+
+                # Tentativa 2: Se AND não encontrar, tenta OR (qualquer termo significativo)
+                if not rows:
+                    where_clauses_or = [f"UPPER(content) LIKE UPPER(:w{i})" for i in range(len(words))]
+                    sql_fts_or = f"""
+                        SELECT content, metadata, 0.70 as similarity
+                        FROM documents
+                        WHERE {" OR ".join(where_clauses_or)}
+                        FETCH FIRST :top_k ROWS ONLY
+                    """
+                    cursor.execute(sql_fts_or, **params_and)
+                    rows = cursor.fetchall()
+
                 for row in rows:
                     content_clob, meta_clob, sim = row
                     content = content_clob.read() if hasattr(content_clob, "read") else content_clob
