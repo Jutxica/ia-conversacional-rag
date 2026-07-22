@@ -1858,11 +1858,12 @@ async def chat_response_generator_google(query: str, scope: str = "Geral", histo
         vec_w = 1.4
     
     # 4. Executar busca híbrida local na base de dados Oracle
+    rag_top_k = int(get_env_clean("RAG_TOP_K", "50"))
     search_res = {"context": "", "citations": []}
     try:
         search_res = oracle_search_context(
             query=condensed,
-            top_k=10,
+            top_k=rag_top_k,
             filter_siglas=filter_siglas,
             fts_weight=fts_w,
             vec_weight=vec_w

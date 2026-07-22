@@ -5,7 +5,7 @@ from typing import List, Dict, Any
 from src.oracle_db_client import get_oracle_connection
 from src.rag.search import get_embedding, extract_person_from_query, concept_processor, get_thematic_boosts
 
-def oracle_search_context(query: str, top_k: int = 10, filter_siglas: List[str] = None,
+def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] = None,
                    fts_weight: float = None, vec_weight: float = None) -> Dict[str, Any]:
     
     target_people = extract_person_from_query(query)
@@ -33,9 +33,9 @@ def oracle_search_context(query: str, top_k: int = 10, filter_siglas: List[str] 
                 SELECT content, metadata, 1 - VECTOR_DISTANCE(embedding, :emb, COSINE) as similarity
                 FROM documents
                 ORDER BY VECTOR_DISTANCE(embedding, :emb, COSINE)
-                FETCH FIRST :top_k ROWS ONLY
+                FETCH FIRST :fetch_limit ROWS ONLY
             """
-            cursor.execute(sql, emb=vec_array, top_k=top_k * 5)
+            cursor.execute(sql, emb=vec_array, fetch_limit=max(top_k, 50))
             rows = cursor.fetchall()
             for row in rows:
                 content_clob, meta_clob, sim = row
@@ -54,7 +54,7 @@ def oracle_search_context(query: str, top_k: int = 10, filter_siglas: List[str] 
     # 2. Fallback / Complemento FTS: Se busca por vetor retornar poucos resultados ou falhar
     if len(results) < top_k:
         try:
-            print(f"[ORACLE RAG] Executando busca FTS expansiva no Oracle DB (encontrados {len(results)} via vetor)...")
+            print(f"[ORACLE RAG] Executando busca FTS expansiva no Oracle DB (encontrados {len(results)} via vetor, buscando até {top_k})...")
             stopwords = {
                 'sobre', 'como', 'para', 'onde', 'qual', 'quais', 'quem', 'este', 'esta', 'isto', 'aquilo', 
                 'resuma', 'resumo', 'explique', 'explicar', 'explicação', 'fale', 'diga', 'padre', 'dehon', 'joão', 'leão', 
@@ -65,14 +65,15 @@ def oracle_search_context(query: str, top_k: int = 10, filter_siglas: List[str] 
                 words = [w for w in re.sub(r'[^\w\s]', '', query).split() if len(w) > 3]
 
             if words:
-                # Busca por palavras-chave individuais para maximizar recall
+                # Busca por palavras-chave individuais para maximizar recall em lote grande
                 fts_rows = []
-                for word in words[:4]:
-                    sql_word = """
+                fetch_per_word = max(20, top_k // max(len(words[:5]), 1))
+                for word in words[:5]:
+                    sql_word = f"""
                         SELECT content, metadata, 0.85 as similarity
                         FROM documents
                         WHERE UPPER(content) LIKE UPPER(:w)
-                        FETCH FIRST 15 ROWS ONLY
+                        FETCH FIRST {fetch_per_word} ROWS ONLY
                     """
                     cursor.execute(sql_word, w=f"%{word}%")
                     fts_rows.extend(cursor.fetchall())
