@@ -22,47 +22,42 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
     results = []
     cursor = conn.cursor()
     
-    # 1. Tentar busca por Vetor (Vector Search)
+    # 1. Tentar busca por Vetor (Vector Search na coluna única EMBEDDING)
     if embedding:
-        columns_to_try = ["embedding_google", "embedding"] if provider == "google" else ["embedding", "embedding_google"]
-        for target_col in columns_to_try:
-            try:
-                import array
-                vec_array = array.array("f", embedding)
-                print(f"[ORACLE RAG] Executando Busca Vetorial via Provedor: {provider.upper()} na coluna {target_col}...")
-                sql = f"""
-                    SELECT content, metadata, 1 - VECTOR_DISTANCE({target_col}, :emb, COSINE) as similarity
-                    FROM documents
-                    WHERE {target_col} IS NOT NULL
-                    ORDER BY VECTOR_DISTANCE({target_col}, :emb, COSINE)
-                    FETCH FIRST :fetch_limit ROWS ONLY
-                """
-                cursor.execute(sql, emb=vec_array, fetch_limit=max(top_k, 50))
-                rows = cursor.fetchall()
-                if not rows:
-                    continue
-                filter_siglas_upper = [s.upper() for s in filter_siglas] if filter_siglas else None
-                for row in rows:
-                    content_clob, meta_clob, sim = row
-                    content = content_clob.read() if hasattr(content_clob, "read") else content_clob
-                    meta_str = meta_clob.read() if hasattr(meta_clob, "read") else meta_clob
-                    try:
-                        meta = json.loads(meta_str)
-                    except:
-                        meta = {}
-                    
-                    if filter_siglas_upper:
-                        meta_sigla = str(meta.get("sigla", "")).upper()
-                        meta_code = str(meta.get("url_code", "")).upper()
-                        meta_cat = str(meta.get("category", "")).upper()
-                        allowed = any(s in meta_sigla or meta_sigla in s or s in meta_code or s in meta_cat for s in filter_siglas_upper)
-                        if not allowed:
-                            continue
-                    results.append({"content": content, "metadata": meta, "similarity": sim})
-                if results:
-                    break
-            except Exception as e:
-                print(f"Aviso na busca por vetor Oracle ({provider} em {target_col}): {e}")
+        try:
+            import array
+            vec_array = array.array("f", embedding)
+            target_col = "embedding"
+            print(f"[ORACLE RAG] Executando Busca Vetorial na coluna padronizada: {target_col}...")
+            sql = f"""
+                SELECT content, metadata, 1 - VECTOR_DISTANCE({target_col}, :emb, COSINE) as similarity
+                FROM documents
+                WHERE {target_col} IS NOT NULL
+                ORDER BY VECTOR_DISTANCE({target_col}, :emb, COSINE)
+                FETCH FIRST :fetch_limit ROWS ONLY
+            """
+            cursor.execute(sql, emb=vec_array, fetch_limit=max(top_k, 50))
+            rows = cursor.fetchall()
+            filter_siglas_upper = [s.upper() for s in filter_siglas] if filter_siglas else None
+            for row in rows:
+                content_clob, meta_clob, sim = row
+                content = content_clob.read() if hasattr(content_clob, "read") else content_clob
+                meta_str = meta_clob.read() if hasattr(meta_clob, "read") else meta_clob
+                try:
+                    meta = json.loads(meta_str)
+                except:
+                    meta = {}
+                
+                if filter_siglas_upper:
+                    meta_sigla = str(meta.get("sigla", "")).upper()
+                    meta_code = str(meta.get("url_code", "")).upper()
+                    meta_cat = str(meta.get("category", "")).upper()
+                    allowed = any(s in meta_sigla or meta_sigla in s or s in meta_code or s in meta_cat for s in filter_siglas_upper)
+                    if not allowed:
+                        continue
+                results.append({"content": content, "metadata": meta, "similarity": sim})
+        except Exception as e:
+            print(f"Aviso na busca por vetor Oracle (coluna {target_col}): {e}")
 
     # 2. Fallback / Complemento FTS: Se busca por vetor retornar poucos resultados ou falhar
     if len(results) < top_k:
