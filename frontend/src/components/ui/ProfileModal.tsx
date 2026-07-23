@@ -1,12 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera, User } from 'lucide-react';
+import { X, Camera, User, Globe } from 'lucide-react';
 import './ProfileModal.css';
+import { translations } from '../../i18n/translations';
+import type { Language } from '../../i18n/translations';
 
 export interface UserProfile {
   name: string;
   photoUrl: string;
   title: 'Padre' | 'Leigo' | 'Religioso de votos simples';
   congregation: 'Dehoniano' | 'Outra congregação';
+  language?: Language;
 }
 
 interface ProfileModalProps {
@@ -21,6 +24,7 @@ export default function ProfileModal({ isOpen, onClose, profile, onSave }: Profi
   const [photoUrl, setPhotoUrl] = useState(profile.photoUrl);
   const [title, setTitle] = useState(profile.title);
   const [congregation, setCongregation] = useState(profile.congregation);
+  const [language, setLanguage] = useState<Language>(profile.language || 'pt');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -29,9 +33,12 @@ export default function ProfileModal({ isOpen, onClose, profile, onSave }: Profi
     setPhotoUrl(profile.photoUrl);
     setTitle(profile.title);
     setCongregation(profile.congregation);
+    setLanguage(profile.language || 'pt');
   }, [profile, isOpen]);
 
   if (!isOpen) return null;
+
+  const t = translations[language] || translations['pt'];
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -66,7 +73,8 @@ export default function ProfileModal({ isOpen, onClose, profile, onSave }: Profi
       name: name.trim(),
       photoUrl,
       title,
-      congregation
+      congregation,
+      language
     });
     onClose();
   };
@@ -75,7 +83,7 @@ export default function ProfileModal({ isOpen, onClose, profile, onSave }: Profi
     <div className="pm-overlay">
       <div className="pm-container">
         <header className="pm-header">
-          <h2>Configuração de Perfil</h2>
+          <h2>{t.profileTitle}</h2>
           <button className="pm-close-btn" onClick={onClose} aria-label="Fechar">
             <X size={18} />
           </button>
@@ -132,6 +140,28 @@ export default function ProfileModal({ isOpen, onClose, profile, onSave }: Profi
               <span className="pm-field-hint">Como você gostaria de ser chamado(a) no sistema.</span>
             </div>
 
+            {/* Language Selector */}
+            <div className="pm-field-group">
+              <label htmlFor="pm-lang-select" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Globe size={15} />
+                <span>{t.languageSelectLabel}</span>
+              </label>
+              <select
+                id="pm-lang-select"
+                value={language}
+                onChange={(e) => setLanguage(e.target.value as Language)}
+                className="pm-input"
+                style={{ cursor: 'pointer', fontWeight: 500 }}
+              >
+                <option value="pt">🇵🇹 Português</option>
+                <option value="en">🇬🇧 English</option>
+                <option value="fr">🇫🇷 Français</option>
+                <option value="it">🇮🇹 Italiano</option>
+                <option value="es">🇪🇸 Español</option>
+                <option value="pl">🇵🇱 Polski</option>
+              </select>
+            </div>
+
             <div className="pm-field-group">
               <label>Vocação / Título</label>
               <div className="pm-radio-group">
@@ -143,7 +173,7 @@ export default function ProfileModal({ isOpen, onClose, profile, onSave }: Profi
                     checked={title === 'Leigo'}
                     onChange={() => setTitle('Leigo')}
                   />
-                  <span>Leigo(a)</span>
+                  <span>{t.researcherTitle}</span>
                 </label>
                 <label className={`pm-radio-card ${title === 'Padre' ? 'active' : ''}`}>
                   <input
@@ -153,7 +183,7 @@ export default function ProfileModal({ isOpen, onClose, profile, onSave }: Profi
                     checked={title === 'Padre'}
                     onChange={() => setTitle('Padre')}
                   />
-                  <span>Padre</span>
+                  <span>{t.fatherTitle}</span>
                 </label>
                 <label className={`pm-radio-card ${title === 'Religioso de votos simples' ? 'active' : ''}`}>
                   <input
@@ -163,7 +193,7 @@ export default function ProfileModal({ isOpen, onClose, profile, onSave }: Profi
                     checked={title === 'Religioso de votos simples'}
                     onChange={() => setTitle('Religioso de votos simples')}
                   />
-                  <span>Religioso (Frater)</span>
+                  <span>{t.brotherTitle} (Frater)</span>
                 </label>
               </div>
             </div>
@@ -210,3 +240,4 @@ export default function ProfileModal({ isOpen, onClose, profile, onSave }: Profi
     </div>
   );
 }
+

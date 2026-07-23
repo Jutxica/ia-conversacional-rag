@@ -8,13 +8,15 @@ interface ChatInputProps {
   onInputChange: (value: string) => void;
   onSend: () => void;
   isStreaming: boolean;
+  placeholder?: string;
 }
 
 const ChatInput: React.FC<ChatInputProps> = ({
   input,
   onInputChange,
   onSend,
-  isStreaming
+  isStreaming,
+  placeholder = "Pergunte sobre a vida, cartas ou teologia de Padre Dehon..."
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sendBtnRef = useRef<HTMLButtonElement>(null);
@@ -44,7 +46,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
         <textarea
           ref={textareaRef}
           className="chat-textarea"
-          placeholder="Atribua uma pesquisa sobre o Magistério Dehoniano..."
+          placeholder={placeholder}
           value={input}
           onChange={(e) => onInputChange(e.target.value)}
           onKeyDown={handleKeyDown}

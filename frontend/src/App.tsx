@@ -11,6 +11,7 @@ import ChatInput from './components/chat/ChatInput';
 import CitationGrid from './components/ui/CitationGrid';
 import ProfileModal from './components/ui/ProfileModal';
 import type { UserProfile } from './components/ui/ProfileModal';
+import { translations } from './i18n/translations';
 // Icons
 import { PanelLeftClose, PanelLeftOpen, ShieldCheck, Share2, Check, LogOut, X, BookOpen } from 'lucide-react';
 
@@ -673,6 +674,7 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
                       onInputChange={setInput}
                       onSend={handleSend}
                       isStreaming={isStreaming}
+                      placeholder={translations[profile.language || 'pt'].inputPlaceholder}
                     />
                   </div>
                 </div>

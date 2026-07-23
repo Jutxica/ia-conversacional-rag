@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { magneticEffect } from '../../utils/transitions';
 import type { UserProfile } from '../ui/ProfileModal';
+import { translations } from '../../i18n/translations';
 
 interface Conversation {
   id: string;
@@ -160,6 +161,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     </div>
   );
 
+  const lang = profile.language || 'pt';
+  const t = translations[lang] || translations['pt'];
+
   return (
     <>
       {/* Overlay for mobile */}
@@ -190,7 +194,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="sb-actions">
           <button ref={newChatRef} className="sb-new-chat" onClick={onNewChat}>
             <SquarePen size={16} />
-            <span>Nova Pesquisa</span>
+            <span>{t.newChatBtn}</span>
           </button>
         </div>
 
@@ -199,7 +203,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <Search size={14} className="sb-search-icon" />
           <input
             type="text"
-            placeholder="Pesquisar histórico…"
+            placeholder={t.searchHistoryPlaceholder}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="sb-search-input"
@@ -211,8 +215,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           {filtered.length === 0 ? (
             <div className="sb-empty">
               <BookOpen size={28} className="sb-empty-icon" />
-              <p>Nenhuma pesquisa ainda.</p>
-              <span>Inicie uma nova consulta acima.</span>
+              <p>{t.noSearchHistory}</p>
             </div>
           ) : (
             <>
@@ -220,7 +223,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <div className="sb-group">
                   <div className="sb-group-label">
                     <Clock size={11} />
-                    <span>Recentes</span>
+                    <span>{t.recentSearches}</span>
                   </div>
                   <div className="sb-menu">
                     {today.map(renderChatItem)}
@@ -232,7 +235,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <div className="sb-group">
                   <div className="sb-group-label">
                     <Library size={11} />
-                    <span>Anteriores</span>
+                    <span>{t.previousSearches}</span>
                   </div>
                   <div className="sb-menu">
                     {earlier.map(renderChatItem)}

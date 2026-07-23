@@ -6,6 +6,7 @@ import { magneticEffect } from '../../utils/transitions';
 import { GooeyText } from '../ui/GooeyText';
 
 import type { UserProfile } from '../ui/ProfileModal';
+import { translations } from '../../i18n/translations';
 
 interface ScholarlyHomeProps {
   input: string;
@@ -57,29 +58,32 @@ const ScholarlyHome: React.FC<ScholarlyHomeProps> = ({
     });
   }, [activeSuggestions]);
 
+  const lang = profile.language || 'pt';
+  const t = translations[lang] || translations['pt'];
+
   const getGreeting = () => {
     const hours = new Date().getHours();
-    let period = 'Bom dia';
+    let period = t.greetingMorning;
     if (hours >= 12 && hours < 18) {
-      period = 'Boa tarde';
+      period = t.greetingAfternoon;
     } else if (hours >= 18 || hours < 5) {
-      period = 'Boa noite';
+      period = t.greetingEvening;
     }
 
-    const userName = profile.name || 'Pesquisador';
+    const userName = profile.name || t.researcherTitle;
 
     let fullGreeting = '';
     if (profile.title === 'Padre') {
       const suffix = profile.congregation === 'Dehoniano' ? ', scj' : '';
-      fullGreeting = `${period}, Padre ${userName}${suffix}`;
+      fullGreeting = `${period}, ${t.fatherTitle} ${userName}${suffix}`;
     } else if (profile.title === 'Religioso de votos simples') {
       const suffix = profile.congregation === 'Dehoniano' ? ', scj' : '';
-      fullGreeting = `${period}, Fr. ${userName}${suffix}`;
+      fullGreeting = `${period}, ${t.brotherTitle} ${userName}${suffix}`;
     } else {
       fullGreeting = `${period}, ${userName}`;
     }
 
-    return `${fullGreeting}! Como posso ajudar em sua pesquisa hoje?`;
+    return `${fullGreeting}! ${t.greetingQuestion}`;
   };
 
   return (
@@ -88,9 +92,9 @@ const ScholarlyHome: React.FC<ScholarlyHomeProps> = ({
       <div className="home-ambient-glow" />
 
       <div className="home-hero">
-        <h1 className="home-title">Biblioteca Dehoniana</h1>
+        <h1 className="home-title">{t.homeTitle}</h1>
         <GooeyText
-          texts={["Para <strong>tempos novos, obras novas</strong>.", "A inteligência a serviço <strong>do Coração</strong>."]}
+          texts={[t.homeSubtitle1, t.homeSubtitle2]}
           className="home-subtitle-gooey"
           textClassName="home-subtitle-text"
           morphTime={1.2}
@@ -104,15 +108,15 @@ const ScholarlyHome: React.FC<ScholarlyHomeProps> = ({
 
       <div className="suggestions-section">
         <div className="suggestions-header">
-          <p className="suggestions-label">Sugestões de Pesquisa</p>
+          <p className="suggestions-label">{t.suggestionsLabel}</p>
           <button 
             className={`shuffle-btn ${isRotating ? 'spinning' : ''}`}
             onClick={handleShuffle}
-            title="Girar sugestões de temas"
-            aria-label="Girar sugestões de temas"
+            title={t.shuffleBtn}
+            aria-label={t.shuffleBtn}
           >
             <RefreshCw size={13} />
-            <span>Girar 🎲</span>
+            <span>{t.shuffleBtn}</span>
           </button>
         </div>
         <div className="suggestions-grid">
@@ -142,12 +146,13 @@ const ScholarlyHome: React.FC<ScholarlyHomeProps> = ({
           onInputChange={onInputChange}
           onSend={onSend}
           isStreaming={isStreaming}
+          placeholder={t.inputPlaceholder}
         />
       </div>
 
       <footer className="home-footer">
         <div className="identity-badge">
-          <span>Sistema de Alta Pesquisa desenvolvido por</span>
+          <span>{t.footerDeveloper}</span>
           <strong>Fr. João Rodrigues Utxica, scj</strong>
         </div>
       </footer>
