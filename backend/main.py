@@ -444,9 +444,13 @@ def update_search_log_fallback(conversation_id: str, feedback: str, comment: str
 
 def _get_scope_filter(scope: str, categories: List[str] = None) -> Optional[List[str]]:
     """Maps frontend scope or custom categories to list of siglas (or None for 'Geral')."""
+    ALL_DEFAULTS = {'Obras Espirituais', 'Obras Sociais', 'Diários', 'Viagens', 'Correspondência', 'Inéditos e Outros'}
+    if scope == "Geral" or not scope or (categories is not None and set(categories) >= ALL_DEFAULTS):
+        return None
+
     siglario = _load_siglario()
     
-    # Se o usuário passou categorias diretamente, mapeia elas para siglas
+    # Se o usuário passou um subconjunto de categorias especificas no frontend
     if categories is not None:
         expanded_categories = []
         for cat in categories:
@@ -460,21 +464,6 @@ def _get_scope_filter(scope: str, categories: List[str] = None) -> Optional[List
             if info.get("category") in expanded_categories:
                 matched_siglas.append(sigla)
         return matched_siglas
-
-    # Mapeamento do escopo legados ou amigáveis do frontend
-    CATEGORY_MAP = {
-        "Espiritualidade": "Obras Espirituais",
-        "Espiritualidade e Retiros": "Obras Espirituais",
-        "Social": "Obras Sociais",
-        "Social e Político": "Obras Sociais",
-        "Biografia": ["Diários", "Viagens"],
-        "Vida e Biografia": ["Diários", "Viagens"],
-        "Correspondencia": "Correspondência",
-        "Correspondência": "Correspondência",
-    }
-    
-    if scope == "Geral" or not scope:
-        return None
         
     target_categories = CATEGORY_MAP.get(scope)
     if target_categories is None:
