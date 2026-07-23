@@ -662,10 +662,10 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
                   <MessageList
                     messages={currentChat.messages}
                     isStreaming={isStreaming}
-                    session={session}
                     onViewCitations={(msgId) => setActiveCitationMessageId(prev => prev === msgId ? null : msgId)}
                     profile={profile}
                     activeCitationMessageId={activeCitationMessageId}
+                    onSendMessage={(q) => { setInput(q); handleSend(); }}
                   />
                   <div className="input-zone">
                     <ChatInput

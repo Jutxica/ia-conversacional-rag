@@ -1,6 +1,6 @@
 import React from 'react';
 import './ScholarlyHome.css';
-import { FileText, Sparkles, MessageCircle, BookOpen, Scroll } from 'lucide-react';
+import { FileText, Sparkles, MessageCircle, BookOpen, Scroll, RefreshCw, Compass } from 'lucide-react';
 import ChatInput from '../chat/ChatInput';
 import { magneticEffect } from '../../utils/transitions';
 import { GooeyText } from '../ui/GooeyText';
@@ -24,10 +24,30 @@ const ScholarlyHome: React.FC<ScholarlyHomeProps> = ({
   onSuggestionClick,
   profile
 }) => {
-  const suggestions = [
+  const suggestionPool = [
     { text: 'Resuma O Catecismo Social', icon: <FileText size={14} />, category: 'Obras' },
     { text: 'O que é a Teologia da Reparação?', icon: <Sparkles size={14} />, category: 'Teologia' },
+    { text: 'O que Dehon fala sobre o Reinado Social de Cristo?', icon: <BookOpen size={14} />, category: 'Social' },
+    { text: 'Quais os pontos centrais da obra Retraite de Moulins?', icon: <Scroll size={14} />, category: 'Retiros' },
+    { text: 'Resuma as impressões de viagem de Dehon à Ásia', icon: <Compass size={14} />, category: 'Viagens' },
+    { text: 'Qual era a relação entre Dehon e o Papa Leão XIII?', icon: <MessageCircle size={14} />, category: 'História' },
+    { text: 'O que Dehon ensina sobre a adoração eucarística?', icon: <Sparkles size={14} />, category: 'Espiritualidade' },
+    { text: 'Quais as origens da Congregação dos Dehonianos em Saint-Quentin?', icon: <BookOpen size={14} />, category: 'Histórico' },
   ];
+
+  const [activeSuggestions, setActiveSuggestions] = React.useState(() => {
+    return [...suggestionPool].sort(() => 0.5 - Math.random()).slice(0, 4);
+  });
+  const [isRotating, setIsRotating] = React.useState(false);
+
+  const handleShuffle = () => {
+    setIsRotating(true);
+    setTimeout(() => {
+      const shuffled = [...suggestionPool].sort(() => 0.5 - Math.random()).slice(0, 4);
+      setActiveSuggestions(shuffled);
+      setIsRotating(false);
+    }, 200);
+  };
 
   const cardsRef = React.useRef<HTMLDivElement[]>([]);
 
@@ -35,7 +55,7 @@ const ScholarlyHome: React.FC<ScholarlyHomeProps> = ({
     cardsRef.current.forEach(card => {
       if (card) magneticEffect(card);
     });
-  }, []);
+  }, [activeSuggestions]);
 
   const getGreeting = () => {
     const hours = new Date().getHours();
@@ -83,14 +103,25 @@ const ScholarlyHome: React.FC<ScholarlyHomeProps> = ({
       </div>
 
       <div className="suggestions-section">
-        <p className="suggestions-label">Sugestões de Pesquisa</p>
+        <div className="suggestions-header">
+          <p className="suggestions-label">Sugestões de Pesquisa</p>
+          <button 
+            className={`shuffle-btn ${isRotating ? 'spinning' : ''}`}
+            onClick={handleShuffle}
+            title="Girar sugestões de temas"
+            aria-label="Girar sugestões de temas"
+          >
+            <RefreshCw size={13} />
+            <span>Girar 🎲</span>
+          </button>
+        </div>
         <div className="suggestions-grid">
-          {suggestions.map((s, idx) => (
+          {activeSuggestions.map((s, idx) => (
             <div
-              key={idx}
+              key={s.text}
               ref={el => { if (el) cardsRef.current[idx] = el; }}
               className="suggestion-card animate-fade-in"
-              style={{ animationDelay: `${0.15 + idx * 0.08}s` }}
+              style={{ animationDelay: `${0.05 + idx * 0.05}s` }}
               onClick={() => onSuggestionClick(s.text)}
               onKeyDown={(e) => e.key === 'Enter' && onSuggestionClick(s.text)}
               role="button"

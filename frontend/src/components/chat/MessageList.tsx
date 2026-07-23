@@ -1,7 +1,7 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import './MessageList.css';
-import { Book, BookOpen, Download, Copy, Check, User } from 'lucide-react';
+import { Book, BookOpen, Download, Copy, Check, User, Share2, HelpCircle } from 'lucide-react';
 import { magneticEffect } from '../../utils/transitions';
 import type { UserProfile } from '../ui/ProfileModal';
 
@@ -22,17 +22,16 @@ interface MessageListProps {
   onViewCitations?: (messageId: string) => void;
   profile?: UserProfile;
   activeCitationMessageId?: string | null;
+  onSendMessage?: (query: string) => void;
 }
 
 const preprocessMessageContent = (content: string, citations?: any[]) => {
   let processed = content;
   
   // 1. Destacar traduções colocando-as em itálico se estiverem entre parênteses
-  // Exemplo: (Tradução livre: "...") -> _(Tradução livre: "...")_
   processed = processed.replace(/(?<!_)\(((?:tradu[çc]ã|traduz|trad\.|translation|traduzione)[^)]+)\)(?!_)/gi, '_($1)_');
   
   // 2. Tornar referências numéricas clicáveis
-  // Exemplo: [1] -> [[1]](/api/pdfs/filename.pdf#page=20)
   if (citations && citations.length > 0) {
     processed = processed.replace(/\[(\d+)\]/g, (match, numStr) => {
       const idx = parseInt(numStr, 10) - 1;
@@ -81,14 +80,16 @@ const MessageList: React.FC<MessageListProps> = ({
   isStreaming, 
   onViewCitations,
   profile,
-  activeCitationMessageId
+  activeCitationMessageId,
+  onSendMessage
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [showFormatted, setShowFormatted] = React.useState<string | null>(null);
-  const [copied, setCopied] = React.useState(false);
+  const [showFormatted, setShowFormatted] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [shareToastId, setShareToastId] = useState<string | null>(null);
 
   const handleExport = (citations: any[]) => {
-    // 1. Download RIS
     let ris = '';
     citations.forEach(c => {
       ris += `TY  - BOOK\n`;
@@ -125,11 +126,48 @@ const MessageList: React.FC<MessageListProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleCopyMessage = (messageId: string, content: string) => {
+    navigator.clipboard.writeText(content);
+    setCopiedMessageId(messageId);
+    setTimeout(() => setCopiedMessageId(null), 2000);
+  };
+
+  const handleShareMessage = async (messageId: string, content: string) => {
+    const textToShare = `${content}\n\n— Fonte: Dehon AI (${window.location.href})`;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Dehon AI - Pesquisa Acadêmica',
+          text: textToShare.slice(0, 400) + '...',
+          url: window.location.href,
+        });
+        return;
+      } catch (err) {
+        // Usuário cancelou ou navegador não permitiu Web Share API
+      }
+    }
+    // Fallback para cópia
+    navigator.clipboard.writeText(textToShare);
+    setShareToastId(messageId);
+    setTimeout(() => setShareToastId(null), 2500);
+  };
+
+  const getFollowUpQuestions = (content: string) => {
+    const lower = content.toLowerCase();
+    if (lower.includes('repara') || lower.includes('coraçã')) {
+      return ['Como a reparação se expressa na vida cotidiana?', 'Quais obras tratam da devoção ao Coração de Jesus?'];
+    } else if (lower.includes('social') || lower.includes('catecismo')) {
+      return ['Qual o papel dos leigos na ação social?', 'Como Dehon encarava as encíclicas de Leão XIII?'];
+    } else if (lower.includes('retiro') || lower.includes('moulins')) {
+      return ['Quais as principais notas espirituais de Dehon?', 'Como Dehon praticava a oração de oblação?'];
+    }
+    return ['Quais encíclicas pontifícias influenciaram Pe. Dehon?', 'Onde encontrar mais escritos sobre este tema no acervo?'];
+  };
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-    // Apply magnetic effect to all citation action buttons
     const buttons = document.querySelectorAll('.citation-action-btn');
     buttons.forEach(btn => magneticEffect(btn as HTMLElement));
   }, [messages, isStreaming]);
@@ -259,6 +297,52 @@ const MessageList: React.FC<MessageListProps> = ({
                 <span className="typing-cursor"></span>
               )}
             </div>
+
+            {/* Barra de Ações: Copiar e Partilhar */}
+            {m.role === 'assistant' && m.content !== '' && (!isStreaming || idx !== messages.length - 1) && (
+              <div className="message-toolbar">
+                <button 
+                  className={`msg-action-btn ${copiedMessageId === m.id ? 'active' : ''}`}
+                  onClick={() => handleCopyMessage(m.id, m.content)}
+                  title="Copiar texto da resposta"
+                  aria-label="Copiar resposta"
+                >
+                  {copiedMessageId === m.id ? <Check size={13} /> : <Copy size={13} />}
+                  <span>{copiedMessageId === m.id ? 'Copiado!' : 'Copiar'}</span>
+                </button>
+
+                <button 
+                  className={`msg-action-btn ${shareToastId === m.id ? 'active' : ''}`}
+                  onClick={() => handleShareMessage(m.id, m.content)}
+                  title="Partilhar resposta"
+                  aria-label="Partilhar resposta"
+                >
+                  <Share2 size={13} />
+                  <span>{shareToastId === m.id ? 'Link Copiado!' : 'Partilhar'}</span>
+                </button>
+              </div>
+            )}
+
+            {/* Pílulas de Perguntas Relacionadas (Follow-up Questions) */}
+            {m.role === 'assistant' && m.content !== '' && (!isStreaming || idx !== messages.length - 1) && (
+              <div className="follow-up-container animate-fade-in">
+                <span className="follow-up-label">
+                  <HelpCircle size={12} />
+                  <span>Perguntas Relacionadas</span>
+                </span>
+                <div className="follow-up-pills">
+                  {getFollowUpQuestions(m.content).map((q, qIdx) => (
+                    <button
+                      key={qIdx}
+                      className="follow-up-pill"
+                      onClick={() => onSendMessage?.(q)}
+                    >
+                      <span>➔ {q}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {m.role === 'assistant' && m.citations && m.citations.length > 0 && (
               <div className="sources-section">
