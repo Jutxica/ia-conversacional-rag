@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import google.generativeai as genai
 from typing import List, Dict, Any, Generator
 
@@ -43,47 +44,80 @@ def generate_gemini_stream(
     model_name: str = "gemini-2.5-flash"
 ) -> Generator[str, None, None]:
     """
-    Gera tokens via streaming usando a API do Google Gemini.
+    Gera tokens via streaming usando a API do Google Gemini com resiliência total,
+    tentativas automáticas de reconexão para erros 503 (High Demand) / 429 e fallback em cascata entre modelos.
     """
     api_key = configure_gemini()
     if not api_key:
         raise ValueError("GEMINI_API_KEY não configurada no ambiente.")
         
-    if not model_name or "1.5" in model_name:
-        model_name = "gemini-2.5-flash"
-
-    # Inicializa o modelo com instrução do sistema opcional
-    model = genai.GenerativeModel(
-        model_name=model_name,
-        system_instruction=system_instruction
-    )
+    candidate_models = [
+        model_name,
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro"
+    ]
     
-    # Se houver histórico de mensagens anterior, inicia sessão de chat
-    if history:
-        gemini_history = format_history_to_gemini(history)
-        chat = model.start_chat(history=gemini_history)
-        response = chat.send_message(prompt, stream=True)
-    else:
-        response = model.generate_content(prompt, stream=True)
-        
-    for chunk in response:
-        try:
-            if chunk.text:
-                yield chunk.text
-        except Exception as e:
-            # Se for bloqueado por segurança ou erro de parte sem texto, apenas ignore silenciosamente
-            print(f"[GEMINI CLIENT] Aviso ao extrair bloco de streaming: {e}")
+    unique_candidates = []
+    for m in candidate_models:
+        if m and m not in unique_candidates:
+            unique_candidates.append(m)
+
+    last_exception = None
+    
+    for candidate in unique_candidates:
+        for attempt in range(3): # Até 3 tentativas com pausa exponencial em caso de 503
+            try:
+                model = genai.GenerativeModel(
+                    model_name=candidate,
+                    system_instruction=system_instruction
+                )
+                
+                if history:
+                    gemini_history = format_history_to_gemini(history)
+                    chat = model.start_chat(history=gemini_history)
+                    response = chat.send_message(prompt, stream=True)
+                else:
+                    response = model.generate_content(prompt, stream=True)
+                    
+                has_yielded = False
+                for chunk in response:
+                    try:
+                        if chunk.text:
+                            has_yielded = True
+                            yield chunk.text
+                    except Exception as e:
+                        print(f"[GEMINI CLIENT] Aviso ao extrair bloco de streaming ({candidate}): {e}")
+                
+                if has_yielded or not response:
+                    return # Sucesso! Concluiu o streaming sem erros fatais
+                    
+            except Exception as e:
+                last_exception = e
+                err_str = str(e).lower()
+                print(f"[GEMINI CLIENT] Erro com modelo {candidate} (tentativa {attempt + 1}/3): {e}", flush=True)
+                
+                if "503" in err_str or "high demand" in err_str or "429" in err_str or "quota" in err_str:
+                    time.sleep(1.2 * (attempt + 1))
+                    continue
+                else:
+                    break # Erro não relacionado à alta demanda, avança para o próximo modelo candidato
+
+    if last_exception:
+        raise last_exception
 
 def analyze_text_entities_and_sentiment_gemini(text: str) -> Dict[str, Any]:
     """
-    Utiliza o Gemini 1.5 Flash de forma gratuita no AI Studio para realizar processamento
+    Utiliza o Gemini de forma resiliente para realizar processamento
     de linguagem natural (NLU) em fragmentos de obras, extraindo entidades e sentimento.
     """
     api_key = configure_gemini()
     if not api_key:
         raise ValueError("GEMINI_API_KEY não configurada no ambiente.")
         
-    model = genai.GenerativeModel("gemini-2.5-flash")
+    candidate_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+    
     prompt = f"""
     Você é um historiador especialista na vida, cartas e obras do Padre João Leão Dehon (fundador dos Dehonianos/Sacerdotes do Sagrado Coração de Jesus - SCJ) e um assistente especialista de Processamento de Linguagem Natural.
     
@@ -122,26 +156,32 @@ def analyze_text_entities_and_sentiment_gemini(text: str) -> Dict[str, Any]:
     ---
     """
     
-    try:
-        response = model.generate_content(
-            prompt,
-            generation_config={"response_mime_type": "application/json"}
-        )
-        data = json.loads(response.text.strip())
-        return data
-    except Exception as e:
-        print(f"[GEMINI NLU] Aviso: falha ao extrair com modo JSON estrito: {e}. Tentando fallback sem formato estrito...", flush=True)
+    for candidate in candidate_models:
         try:
-            response = model.generate_content(prompt)
-            raw_text = response.text.strip()
-            
-            if "```json" in raw_text:
-                raw_text = raw_text.split("```json")[1].split("```")[0]
-            elif "```" in raw_text:
-                raw_text = raw_text.split("```")[1].split("```")[0]
-                
-            data = json.loads(raw_text.strip())
+            model = genai.GenerativeModel(candidate)
+            response = model.generate_content(
+                prompt,
+                generation_config={"response_mime_type": "application/json"}
+            )
+            data = json.loads(response.text.strip())
             return data
-        except Exception as fallback_err:
-            print(f"[GEMINI NLU] Erro crítico no fallback da extração: {fallback_err}", flush=True)
-            return {"entities": [], "sentiment": {"score": 0.0, "label": "NEUTRAL"}}
+        except Exception as e:
+            print(f"[GEMINI NLU] Aviso ({candidate}): {e}. Tentando próximo candidato...", flush=True)
+            try:
+                model = genai.GenerativeModel(candidate)
+                response = model.generate_content(prompt)
+                raw_text = response.text.strip()
+                
+                if "```json" in raw_text:
+                    raw_text = raw_text.split("```json")[1].split("```")[0]
+                elif "```" in raw_text:
+                    raw_text = raw_text.split("```")[1].split("```")[0]
+                    
+                data = json.loads(raw_text.strip())
+                return data
+            except Exception as fallback_err:
+                print(f"[GEMINI NLU] Falha no fallback ({candidate}): {fallback_err}", flush=True)
+                continue
+                
+    return {"entities": [], "sentiment": {"score": 0.0, "label": "NEUTRAL"}}
+
