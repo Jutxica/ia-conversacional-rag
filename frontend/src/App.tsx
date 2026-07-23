@@ -196,13 +196,54 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
     localStorage.setItem('dehon-theme', theme);
   }, [theme]);
 
+  const TEN_DAYS_MS = 10 * 24 * 60 * 60 * 1000;
+
+  const checkSessionExpiration = (sessionObj: any) => {
+    if (!sessionObj?.user?.id) return false;
+    const loginTimeKey = `dehon-session-start-${sessionObj.user.id}`;
+    const savedTimeStr = localStorage.getItem(loginTimeKey);
+    const now = Date.now();
+
+    if (savedTimeStr) {
+      const savedTime = parseInt(savedTimeStr, 10);
+      if (!isNaN(savedTime) && (now - savedTime > TEN_DAYS_MS)) {
+        console.warn("Sessão de 10 dias expirada. Forçando novo login...");
+        localStorage.removeItem(loginTimeKey);
+        supabase.auth.signOut();
+        setSession(null);
+        setCurrentId(null);
+        return true;
+      }
+    } else {
+      localStorage.setItem(loginTimeKey, now.toString());
+    }
+    return false;
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+      if (session) {
+        const expired = checkSessionExpiration(session);
+        if (!expired) {
+          setSession(session);
+          setCurrentId(null); // Garante início na Home Page com a saudação
+        }
+      }
     });
     
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session) {
+        const expired = checkSessionExpiration(session);
+        if (!expired) {
+          setSession(session);
+          if (event === 'SIGNED_IN') {
+            setCurrentId(null); // Ao efetuar login, vai sempre para a Home
+          }
+        }
+      } else {
+        setSession(null);
+        setCurrentId(null);
+      }
     });
 
     const urlParams = new URLSearchParams(window.location.search);

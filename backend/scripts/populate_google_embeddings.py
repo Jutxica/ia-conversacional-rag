@@ -9,7 +9,15 @@ import google.generativeai as genai
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.oracle_db_client import get_oracle_connection
-from src.rag.search import get_env_clean
+
+def get_env_clean(key: str, fallback: str = "") -> str:
+    val = os.getenv(key)
+    if not val:
+        return fallback
+    val_clean = val.strip()
+    if val_clean.lower() in ("undefined", "null", "placeholder", "none", "", "nan"):
+        return fallback
+    return val_clean
 
 def populate_google_embeddings():
     api_key = get_env_clean("GEMINI_API_KEY")
@@ -17,16 +25,22 @@ def populate_google_embeddings():
         print("ERRO: GEMINI_API_KEY não encontrada no ambiente!")
         return
 
+    print("Iniciando genai.configure...")
     genai.configure(api_key=api_key)
+    print("genai configurado!")
 
+    print("Chamando get_oracle_connection()...")
     conn = get_oracle_connection()
     if not conn:
         print("ERRO: Falha ao conectar ao banco Oracle DB!")
         return
+    print("Conexão Oracle estabelecida com sucesso!")
 
+    print("Obtendo cursor...")
     cursor = conn.cursor()
     
     # Contar total de registros pendentes
+    print("Executando SELECT COUNT(*)...")
     cursor.execute("SELECT COUNT(*) FROM documents WHERE embedding_google IS NULL")
     total_pending = cursor.fetchone()[0]
     print(f"=== POPULANDO VETORES GOOGLE TEXT-EMBEDDING-004 (768D) ===")
@@ -60,11 +74,12 @@ def populate_google_embeddings():
                 if not text or not text.strip():
                     continue
 
-                # Gerar embedding via Google text-embedding-004
+                # Gerar embedding via Google gemini-embedding-2 (com redução para 768d)
                 res = genai.embed_content(
-                    model="models/text-embedding-004",
+                    model="models/gemini-embedding-2",
                     content=text.replace("\n", " "),
-                    task_type="retrieval_document"
+                    task_type="retrieval_document",
+                    output_dimensionality=768
                 )
                 emb_list = res["embedding"]
                 vec_array = array.array("f", emb_list)

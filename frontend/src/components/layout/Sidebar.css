@@ -909,3 +909,34 @@
   color: var(--text-secondary);
   user-select: none;
 }
+
+/* ── Mobile Responsive Drawer Rules ────────────────── */
+@media (max-width: 768px) {
+  .sb-root {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    height: 100dvh;
+    width: 85vw;
+    max-width: 320px;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+  }
+
+  .sb-overlay {
+    display: block;
+  }
+
+  .sb-rail {
+    display: none; /* Oculta trilho de hover no mobile */
+  }
+
+  .sb-header {
+    min-height: 72px;
+    padding: 14px 16px;
+  }
+
+  .sb-logo {
+    height: 52px;
+  }
+}

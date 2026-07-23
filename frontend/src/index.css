@@ -614,4 +614,26 @@ button, input, textarea {
   }
 }
 
+/* --- Mobile Responsiveness & Safe Area Rules --- */
+html, body, #root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  height: 100dvh;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: none;
+}
+
+@media (max-width: 768px) {
+  input, textarea, select {
+    font-size: 16px !important; /* Impede auto-zoom do iOS Safari */
+  }
+  
+  /* Melhora o desfoque glassmorphic em GPUs mobile */
+  .glass {
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    backdrop-filter: blur(12px) saturate(160%);
+  }
+}
+
 

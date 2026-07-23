@@ -48,15 +48,18 @@ const ScholarlyHome: React.FC<ScholarlyHomeProps> = ({
 
     const userName = profile.name || 'Pesquisador';
 
+    let fullGreeting = '';
     if (profile.title === 'Padre') {
       const suffix = profile.congregation === 'Dehoniano' ? ', scj' : '';
-      return `${period}, Padre ${userName}${suffix}`;
+      fullGreeting = `${period}, Padre ${userName}${suffix}`;
     } else if (profile.title === 'Religioso de votos simples') {
       const suffix = profile.congregation === 'Dehoniano' ? ', scj' : '';
-      return `${period}, Fr. ${userName}${suffix}`;
+      fullGreeting = `${period}, Fr. ${userName}${suffix}`;
     } else {
-      return `${period}, ${userName}`;
+      fullGreeting = `${period}, ${userName}`;
     }
+
+    return `${fullGreeting}! Como posso ajudar em sua pesquisa hoje?`;
   };
 
   return (
