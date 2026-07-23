@@ -2690,19 +2690,18 @@ async def chat_endpoint(request: dict, req: Request):
         scope = "Geral"
 
     # Decide which AI provider to use
-    ai_provider = get_env_clean("AI_PROVIDER", "openai").lower()
+    ai_provider = get_env_clean("AI_PROVIDER", "google").lower()
     
-    if ai_provider == "oracle":
-        return StreamingResponse(chat_response_generator(query, scope, history, conversation_id, categories), media_type="text/event-stream")
+    if ai_provider in ("google", "gemini"):
+        return StreamingResponse(chat_response_generator_google(query, scope, history, conversation_id, categories), media_type="text/event-stream")
     elif ai_provider == "anthropic":
         if not anthropic_key:
             raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY não configurada no servidor.")
         return StreamingResponse(chat_response_generator_anthropic(query, scope, history, conversation_id, categories), media_type="text/event-stream")
-    elif ai_provider in ("google", "gemini"):
-        return StreamingResponse(chat_response_generator_google(query, scope, history, conversation_id, categories), media_type="text/event-stream")
-    else:
-        # Fallback para o comportamento anterior (chama o gerador OCI)
+    elif ai_provider == "oracle":
         return StreamingResponse(chat_response_generator(query, scope, history, conversation_id, categories), media_type="text/event-stream")
+    else:
+        return StreamingResponse(chat_response_generator_google(query, scope, history, conversation_id, categories), media_type="text/event-stream")
 
 if __name__ == "__main__":
     import uvicorn

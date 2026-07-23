@@ -27,7 +27,7 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
         try:
             import array
             vec_array = array.array("f", embedding)
-            target_col = "embedding_google" if provider == "google" else "embedding"
+            target_col = "embedding"
             print(f"[ORACLE RAG] Executando Busca Vetorial via Provedor: {provider.upper()} na coluna {target_col}...")
             sql = f"""
                 SELECT content, metadata, 1 - VECTOR_DISTANCE({target_col}, :emb, COSINE) as similarity
@@ -38,6 +38,7 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
             """
             cursor.execute(sql, emb=vec_array, fetch_limit=max(top_k, 50))
             rows = cursor.fetchall()
+            filter_siglas_upper = [s.upper() for s in filter_siglas] if filter_siglas else None
             for row in rows:
                 content_clob, meta_clob, sim = row
                 content = content_clob.read() if hasattr(content_clob, "read") else content_clob
@@ -46,9 +47,14 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
                     meta = json.loads(meta_str)
                 except:
                     meta = {}
-                filter_siglas_upper = [s.upper() for s in filter_siglas] if filter_siglas else None
-                if filter_siglas_upper and str(meta.get("sigla", "")).upper() not in filter_siglas_upper:
-                    continue
+                
+                if filter_siglas_upper:
+                    meta_sigla = str(meta.get("sigla", "")).upper()
+                    meta_code = str(meta.get("url_code", "")).upper()
+                    meta_cat = str(meta.get("category", "")).upper()
+                    allowed = any(s in meta_sigla or meta_sigla in s or s in meta_code or s in meta_cat for s in filter_siglas_upper)
+                    if not allowed:
+                        continue
                 results.append({"content": content, "metadata": meta, "similarity": sim})
         except Exception as e:
             print(f"Aviso na busca por vetor Oracle ({provider}): {e}")
@@ -106,6 +112,7 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
 
                 # Adicionar resultados do FTS evitando duplicatas
                 existing_contents = {r["content"][:100] for r in results}
+                filter_siglas_upper = [s.upper() for s in filter_siglas] if filter_siglas else None
                 for row in fts_rows:
                     content_clob, meta_clob, sim = row
                     content = content_clob.read() if hasattr(content_clob, "read") else content_clob
@@ -118,9 +125,13 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
                         meta = json.loads(meta_str)
                     except:
                         meta = {}
-                    filter_siglas_upper = [s.upper() for s in filter_siglas] if filter_siglas else None
-                    if filter_siglas_upper and str(meta.get("sigla", "")).upper() not in filter_siglas_upper:
-                        continue
+                    if filter_siglas_upper:
+                        meta_sigla = str(meta.get("sigla", "")).upper()
+                        meta_code = str(meta.get("url_code", "")).upper()
+                        meta_cat = str(meta.get("category", "")).upper()
+                        allowed = any(s in meta_sigla or meta_sigla in s or s in meta_code or s in meta_cat for s in filter_siglas_upper)
+                        if not allowed:
+                            continue
                     results.append({"content": content, "metadata": meta, "similarity": sim})
         except Exception as fts_err:
             print(f"Erro na busca FTS expansiva Oracle: {fts_err}")
