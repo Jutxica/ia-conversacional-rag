@@ -61,19 +61,43 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
                 'resuma', 'resumo', 'explique', 'explicar', 'explicação', 'fale', 'diga', 'padre', 'dehon', 'joão', 'leão', 
                 'quaisquer', 'detalhes', 'relacione', 'conte', 'mostre', 'descreva', 'análise', 'analise', 'uma', 'uns', 'umas'
             }
-            words = [w for w in re.sub(r'[^\w\s]', '', query).split() if len(w) > 2 and w.lower() not in stopwords]
-            if not words:
-                words = [w for w in re.sub(r'[^\w\s]', '', query).split() if len(w) > 3]
+            raw_words = [w for w in re.sub(r'[^\w\s]', '', query).split() if len(w) > 2 and w.lower() not in stopwords]
+            if not raw_words:
+                raw_words = [w for w in re.sub(r'[^\w\s]', '', query).split() if len(w) > 3]
 
-            if words:
-                # Busca por palavras-chave individuais para maximizar recall em lote grande
+            TERM_VARIANTS = {
+                'catecismo': ['catecismo', 'catéchisme', 'catechisme'],
+                'social': ['social', 'sociale', 'sociaux'],
+                'obras': ['obras', 'oeuvres', 'œuvres'],
+                'retiro': ['retiro', 'retraite'],
+                'diario': ['diario', 'diário', 'journal'],
+                'carta': ['carta', 'lettre'],
+                'amor': ['amor', 'amour'],
+                'reparacao': ['reparacao', 'reparação', 'réparation'],
+                'constituido': ['constituido', 'constituído', 'constitué', 'estrutura', 'divisão', 'capítulos'],
+            }
+
+            expanded_words = []
+            for w in raw_words[:5]:
+                w_lower = w.lower()
+                expanded_words.append(w)
+                if w_lower in TERM_VARIANTS:
+                    expanded_words.extend(TERM_VARIANTS[w_lower])
+
+            # Deduplica preservando ordem
+            search_terms = []
+            for term in expanded_words:
+                if term and term not in search_terms:
+                    search_terms.append(term)
+
+            if search_terms:
                 fts_rows = []
-                fetch_per_word = max(20, top_k // max(len(words[:5]), 1))
-                for word in words[:5]:
+                fetch_per_word = max(15, top_k // max(len(search_terms[:8]), 1))
+                for word in search_terms[:8]:
                     sql_word = f"""
                         SELECT content, metadata, 0.85 as similarity
                         FROM documents
-                        WHERE UPPER(content) LIKE UPPER(:w)
+                        WHERE UPPER(content) LIKE UPPER(:w) OR LOWER(title) LIKE LOWER(:w)
                         FETCH FIRST {fetch_per_word} ROWS ONLY
                     """
                     cursor.execute(sql_word, w=f"%{word}%")
