@@ -27,7 +27,7 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
         try:
             import array
             vec_array = array.array("f", embedding)
-            target_col = "embedding"
+            target_col = "embedding_google" if provider == "google" else "embedding"
             print(f"[ORACLE RAG] Executando Busca Vetorial via Provedor: {provider.upper()} na coluna {target_col}...")
             sql = f"""
                 SELECT content, metadata, 1 - VECTOR_DISTANCE({target_col}, :emb, COSINE) as similarity
