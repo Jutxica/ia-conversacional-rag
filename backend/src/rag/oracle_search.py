@@ -46,7 +46,8 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
                     meta = json.loads(meta_str)
                 except:
                     meta = {}
-                if filter_siglas and meta.get("sigla") not in filter_siglas:
+                filter_siglas_upper = [s.upper() for s in filter_siglas] if filter_siglas else None
+                if filter_siglas_upper and str(meta.get("sigla", "")).upper() not in filter_siglas_upper:
                     continue
                 results.append({"content": content, "metadata": meta, "similarity": sim})
         except Exception as e:
@@ -97,7 +98,7 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
                     sql_word = f"""
                         SELECT content, metadata, 0.85 as similarity
                         FROM documents
-                        WHERE UPPER(content) LIKE UPPER(:w) OR LOWER(title) LIKE LOWER(:w)
+                        WHERE UPPER(content) LIKE UPPER(:w) OR UPPER(metadata) LIKE UPPER(:w)
                         FETCH FIRST {fetch_per_word} ROWS ONLY
                     """
                     cursor.execute(sql_word, w=f"%{word}%")
@@ -117,7 +118,8 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
                         meta = json.loads(meta_str)
                     except:
                         meta = {}
-                    if filter_siglas and meta.get("sigla") not in filter_siglas:
+                    filter_siglas_upper = [s.upper() for s in filter_siglas] if filter_siglas else None
+                    if filter_siglas_upper and str(meta.get("sigla", "")).upper() not in filter_siglas_upper:
                         continue
                     results.append({"content": content, "metadata": meta, "similarity": sim})
         except Exception as fts_err:
