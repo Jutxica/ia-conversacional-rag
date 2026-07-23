@@ -69,20 +69,27 @@ def get_embedding_with_provider(text: str, task_type: str = "retrieval_query") -
             print(f"[EMBEDDING] OpenAI indisponível/sem saldo ({oai_err}). Acionando Fallback para Google text-embedding-004...")
 
     # 2. Fallback Google Gemini (768d)
-    try:
-        api_key = get_env_clean("GEMINI_API_KEY")
-        if api_key:
+    api_key = get_env_clean("GEMINI_API_KEY")
+    if api_key:
+        try:
             genai.configure(api_key=api_key)
-        res = genai.embed_content(
-            model="models/text-embedding-004",
-            content=clean_text,
-            task_type=task_type
-        )
-        emb = res["embedding"]
-        return {"embedding": emb, "provider": "google", "dimensions": 768}
-    except Exception as gem_err:
-        print(f"[EMBEDDING] Erro no fallback Google text-embedding-004: {gem_err}")
-        return {"embedding": None, "provider": "none", "dimensions": 0}
+            for model_name in ["models/text-embedding-004", "models/gemini-embedding-2", "models/embedding-001"]:
+                try:
+                    res = genai.embed_content(
+                        model=model_name,
+                        content=clean_text,
+                        task_type=task_type,
+                        output_dimensionality=768
+                    )
+                    emb = res.get("embedding")
+                    if emb:
+                        return {"embedding": emb, "provider": "google", "dimensions": len(emb)}
+                except Exception as model_err:
+                    continue
+        except Exception as gem_err:
+            print(f"[EMBEDDING] Erro no fallback Google: {gem_err}")
+            
+    return {"embedding": None, "provider": "none", "dimensions": 0}
 
 def get_embedding(text: str) -> List[float]:
     res = get_embedding_with_provider(text)

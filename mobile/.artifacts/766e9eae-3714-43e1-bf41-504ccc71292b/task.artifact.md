@@ -1,0 +1,21 @@
+# Tarefas de Reestruturação - Dehon AI
+
+- [ ] Estruturação Inicial
+    - [ ] Criar diretórios `src/` e subpastas (concluído)
+    - [ ] Criar arquivo de tema (`src/theme/index.ts`)
+    - [ ] Definir tipos globais (`src/types/chat.ts`)
+- [ ] Implementação de Serviços
+    - [ ] Criar `src/services/StorageService.ts`
+    - [ ] Criar `src/services/ChatService.ts` (Lógica SSE)
+- [ ] Componentização da UI
+    - [ ] Criar `src/components/SplashScreen.tsx`
+    - [ ] Criar `src/features/chat/components/ChatMessage.tsx`
+    - [ ] Criar `src/features/chat/components/CitationModal.tsx`
+    - [ ] Criar `src/features/chat/components/Sidebar.tsx`
+- [ ] Telas e Navegação
+    - [ ] Criar `src/features/auth/screens/LoginScreen.tsx`
+    - [ ] Refatorar `App.tsx` para usar os novos componentes/serviços
+- [ ] Verificação Final
+    - [ ] Testar fluxo de login
+    - [ ] Testar envio de mensagens e streaming
+    - [ ] Verificar persistência de dados
