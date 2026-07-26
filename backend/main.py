@@ -1569,18 +1569,7 @@ Pergunta Autocontida:"""
                 temperature=0.0,
                 max_tokens=200
             )
-            
-        rewritten = completion.choices[0].message.content.strip()
-        if rewritten:
-            if rewritten.startswith('"') and rewritten.endswith('"'):
-                rewritten = rewritten[1:-1]
-            return rewritten
-    except Exception as e:
-        print(f"[QUERY CONDENSATION] Erro ao reescrever query: {e}")
-        
-    return query
-
-async def chat_response_generator_anthropic(query: str, scope: str = "Geral", history: list = None, conversation_id: str = None, categories: list = None):
+    async def chat_response_generator_anthropic(query: str, scope: str = "Geral", history: list = None, conversation_id: str = None, categories: list = None):
     """Gera resposta usando a API da Anthropic e RAG local."""
     
     # --- Langfuse Trace ---
@@ -1606,97 +1595,201 @@ async def chat_response_generator_anthropic(query: str, scope: str = "Geral", hi
         error_msg = "Erro Anthropic Interno: ANTHROPIC_API_KEY não configurada no servidor."
         yield f"data: {json.dumps({'content': error_msg, 'type': 'token'})}\n\n"
         yield "data: {\"type\": \"done\"}\n\n"
+        if trace:
+            try:
+                trace.update(output=error_msg)
+                if hasattr(trace, 'end'):
+                    trace.end()
+            except Exception as e:
+                print(f"[LANGFUSE] Erro ao finalizar trace: {e}")
+        if langfuse:
+            try:
+                langfuse.flush()
+            except Exception as e:
+                print(f"[LANGFUSE] Erro no flush: {e}")
         return
 
-    # 1. Condensar a query baseada no histórico de conversa
-    condensed = condense_query(query, history or [])
-    
-    # 2. Obter filtros de siglas a partir de escopo ou categorias
-    filter_siglas = _get_scope_filter(scope, categories)
-    
-    # 3. Detectar intenção para ajuste fino
-    intent_res = intent_detector.detect(condensed)
-    intent_str = intent_res.get("intent", "GENERAL")
-    
-    # Definir pesos híbridos com base na intenção
-    fts_w = 1.0
-    vec_w = 1.0
-    if intent_str == "HISTORICAL":
-        fts_w = 1.4
-        vec_w = 0.8
-    elif intent_str == "THEOLOGICAL":
-        fts_w = 0.8
-        vec_w = 1.4
-    
-    # 4. Executar busca híbrida local na base de dados Oracle
-    search_res = {"context": "", "citations": []}
+    full_response_content = ""
     try:
-        search_res = oracle_search_context(
-            query=condensed,
-            top_k=5,
-            filter_siglas=filter_siglas,
-            fts_weight=fts_w,
-            vec_weight=vec_w
-        )
-    except Exception as search_err:
-        print(f"[ANTHROPIC RAG] Erro ao buscar contexto na base de dados Oracle: {search_err}")
-    
-    context = search_res.get("context", "")
-    citations_raw = search_res.get("citations", [])
-    
-    # Mapear citações para o formato do frontend
-    citations_for_frontend = []
-    for c in citations_raw:
-        doc_filename = c.get("title", "")
-        page_number = c.get("page_number") or 1
-        page_url = c.get("page_url") or ""
+        # 1. Condensar a query baseada no histórico de conversa
+        condensed = condense_query(query, history or [])
         
-        if doc_filename and doc_filename.lower().endswith(('.txt', '.md', '.pdf')):
-            clean_filename = re.sub(r'\.(txt|md)$', '.pdf', doc_filename, flags=re.IGNORECASE)
-            page_url = f"/api/pdfs/{clean_filename}#page={page_number}"
-            
-        citations_for_frontend.append({
-            "title": doc_filename,
-            "snippet": c.get("snippet", ""),
-            "sigla": c.get("sigla", "OBRA"),
-            "destinatario": c.get("destinatario", "N/A"),
-            "page_number": page_number,
-            "page_url": page_url
-        })
+        # 2. Obter filtros de siglas a partir de escopo ou categorias
+        filter_siglas = _get_scope_filter(scope, categories)
         
-    # Envia citações e metadados imediatamente
-    yield f"data: {json.dumps({'type': 'citations', 'content': citations_for_frontend})}\n\n"
-    
-    confidence_data = compute_confidence(citations_raw)
-    metadata = {
-        'confidence': confidence_data,
-        'comparative_mode': False,
-        'intent': intent_str,
-        'intent_confidence': 1.0,
-        'source_authority': 'Oracle Autonomous DB 23ai',
-        'recipient_sources': []
-    }
-    yield f"data: {json.dumps({'type': 'metadata', 'content': metadata})}\n\n"
+        # 3. Detectar intenção para ajuste fino
+        intent_res = intent_detector.detect(condensed)
+        intent_str = intent_res.get("intent", "GENERAL")
+        
+        # Definir pesos híbridos com base na intenção
+        fts_w = 1.0
+        vec_w = 1.0
+        if intent_str == "HISTORICAL":
+            fts_w = 1.4
+            vec_w = 0.8
+        elif intent_str == "THEOLOGICAL":
+            fts_w = 0.8
+            vec_w = 1.4
+        
+        # 4. Executar busca híbrida local na base de dados Oracle com instrumentação
+        search_res = {"context": "", "citations": []}
+        
+        retrieval_span = None
+        if trace:
+            try:
+                retrieval_span = trace.span(
+                    name="retrieval",
+                    input={
+                        "query": query,
+                        "condensed_query": condensed,
+                        "filter_siglas": filter_siglas,
+                        "top_k": 5,
+                        "fts_weight": fts_w,
+                        "vec_weight": vec_w
+                    }
+                )
+            except Exception as e:
+                print(f"[LANGFUSE] Erro ao criar span de retrieval: {e}")
 
-    # 5. Formatar o prompt para o Claude
-    default_system_prompt = (
-        "Você é Dehon AI, uma inteligência artificial especializada no pensamento, vida e obra do Padre Leão Dehon. "
-        "Sua tarefa é responder a perguntas de pesquisadores acadêmicos de forma precisa, objetiva e teologicamente fundamentada, "
-        "baseando-se estritamente nas fontes fornecidas.\n\n"
-        "Instruções:\n"
-        "1. Responda apenas com base nas FONTES fornecidas sob a tag <fontes>. Se o contexto não contiver a informação necessária, "
-        "explique de forma educada que não possui dados suficientes sobre o assunto. Nunca invente informações.\n"
-        "2. Sempre cite a fonte correspondente usando a marcação [N] (onde N é o número da fonte, ex: [1], [2]), posicionando o "
-        "marcador imediatamente após a informação extraída daquela fonte (ex: 'Dehon fundou a congregação em 1878 [1].').\n"
-        "3. Use um tom acadêmico, respeitoso e formal (estilo NotebookLM).\n"
-        "4. Formate a resposta de forma extremamente estruturada e premium: organize em seções claras usando títulos (###), "
-        "use bullet points para os tópicos de cada seção e destaque termos teológicos ou conceitos centrais em **negrito** "
-        "(como **redamatio**, **oblação**, **Ecce Venio**, **Reinado Social**).\n"
-        "5. Não mencione o termo 'o contexto fornecido' ou 'as fontes fornecidas' diretamente. Integre as referências de forma fluida."
-    )
-    system_prompt = get_env_clean("ANTHROPIC_SYSTEM_PROMPT", default_system_prompt)
-    
-    user_prompt = f"""Aqui está o acervo de fontes coletado do banco de dados para responder à pergunta.
+        try:
+            search_res = oracle_search_context(
+                query=condensed,
+                top_k=5,
+                filter_siglas=filter_siglas,
+                fts_weight=fts_w,
+                vec_weight=vec_w
+            )
+            
+            if retrieval_span:
+                citations_raw = search_res.get("citations", [])
+                chunks_log = []
+                for c in citations_raw:
+                    chunks_log.append({
+                        "title": c.get("title", ""),
+                        "sigla": c.get("sigla", ""),
+                        "page_number": c.get("page_number"),
+                        "score": c.get("score")
+                    })
+                try:
+                    retrieval_span.end(
+                        output={
+                            "context": search_res.get("context", ""),
+                            "chunks_count": len(citations_raw),
+                            "chunks": chunks_log
+                        },
+                        metadata={
+                            "citations": chunks_log
+                        }
+                    )
+                except Exception as end_e:
+                    print(f"[LANGFUSE] Erro ao finalizar span de retrieval: {end_e}")
+                    
+        except Exception as search_err:
+            print(f"[ANTHROPIC RAG] Erro ao buscar contexto na base de dados Oracle: {search_err}")
+            if retrieval_span:
+                try:
+                    retrieval_span.end(
+                        level="ERROR",
+                        status_message=str(search_err)
+                    )
+                except Exception as end_e:
+                    print(f"[LANGFUSE] Erro ao finalizar span de retrieval com erro: {end_e}")
+        
+        context = search_res.get("context", "")
+        citations_raw = search_res.get("citations", [])
+        
+        # Mapear citações para o formato do frontend
+        citations_for_frontend = []
+        for c in citations_raw:
+            doc_filename = c.get("title", "")
+            page_number = c.get("page_number") or 1
+            page_url = c.get("page_url") or ""
+            
+            if doc_filename and doc_filename.lower().endswith(('.txt', '.md', '.pdf')):
+                clean_filename = re.sub(r'\.(txt|md)$', '.pdf', doc_filename, flags=re.IGNORECASE)
+                page_url = f"/api/pdfs/{clean_filename}#page={page_number}"
+                
+            citations_for_frontend.append({
+                "title": doc_filename,
+                "snippet": c.get("snippet", ""),
+                "sigla": c.get("sigla", "OBRA"),
+                "destinatario": c.get("destinatario", "N/A"),
+                "page_number": page_number,
+                "page_url": page_url
+            })
+            
+        # Envia citações e metadados imediatamente
+        yield f"data: {json.dumps({'type': 'citations', 'content': citations_for_frontend})}\n\n"
+        
+        confidence_data = compute_confidence(citations_raw)
+        metadata = {
+            'confidence': confidence_data,
+            'comparative_mode': False,
+            'intent': intent_str,
+            'intent_confidence': 1.0,
+            'source_authority': 'Oracle Autonomous DB 23ai',
+            'recipient_sources': []
+        }
+        yield f"data: {json.dumps({'type': 'metadata', 'content': metadata})}\n\n"
+
+        # 5. Formatar o prompt para o Claude
+        default_system_prompt = (
+            "Você é Dehon AI, uma inteligência artificial especializada no pensamento, vida e obra do Padre Leão Dehon. "
+            "Sua tarefa é responder a perguntas de pesquisadores acadêmicos de forma precisa, objetiva e teologicamente fundamentada, "
+            "baseando-se estritamente nas fontes fornecidas.\n\n"
+            "Instruções:\n"
+            "1. Responda apenas com base nas FONTES fornecidas sob a tag <fontes>. Se o contexto não contiver a informação necessária, "
+            "explique de forma educada que não possui dados suficientes sobre o assunto. Nunca invente informações.\n"
+            "2. Sempre cite a fonte correspondente usando a marcação [N] (onde N é o número da fonte, ex: [1], [2]), posicionando o "
+            "marcador imediatamente após a informação extraída daquela fonte (ex: 'Dehon fundou a congregação em 1878 [1].').\n"
+            "3. Use um tom acadêmico, respeitoso e formal (estilo NotebookLM).\n"
+            "4. Formate a resposta de forma extremamente estruturada e premium: organize em seções claras usando títulos (###), "
+            "use bullet points para os tópicos de cada seção e destaque termos teológicos ou conceitos centrais em **negrito** "
+            "(como **redamatio**, **oblação**, **Ecce Venio**, **Reinado Social**).\n"
+            "5. Não mencione o termo 'o contexto fornecido' ou 'as fontes fornecidas' diretamente. Integre as referências de forma fluida."
+        )
+        
+        prompt_label = get_env_clean("LANGFUSE_PROMPT_LABEL", "production")
+        langfuse_prompt = None
+        system_prompt = None
+        
+        if langfuse:
+            try:
+                langfuse_prompt = langfuse.get_prompt("Central", label=prompt_label)
+                
+                # Formatar o contexto com identificador legível por documento: ex. [OBRA 12] (Título)
+                context_parts = []
+                for c in citations_raw:
+                    sigla = c.get("sigla", "OBRA")
+                    page = c.get("page_number") or c.get("page") or 1
+                    title = c.get("title", "")
+                    content = c.get("content", "")
+                    context_parts.append(f"Documento [{sigla} {page}] ({title}):\n{content}")
+                compiled_context = "\n\n".join(context_parts)
+                
+                # Formatar histórico
+                history_parts = []
+                for h in (history or []):
+                    role = "Pesquisador" if h.get("role") == "user" else "Dehon AI"
+                    content = h.get("content", "")
+                    if content:
+                        history_parts.append(f"{role}: {content}")
+                compiled_history = "\n".join(history_parts)
+                
+                system_prompt = langfuse_prompt.compile(
+                    context=compiled_context,
+                    question=condensed,
+                    history=compiled_history
+                )
+                user_prompt = query
+                print(f"[LANGFUSE] Prompt 'Central' carregado e compilado com sucesso para Claude (versão: {getattr(langfuse_prompt, 'version', 'desconhecida')})")
+            except Exception as pe:
+                print(f"[LANGFUSE] Erro ao obter/compilar prompt 'Central' para Claude: {pe}. Usando fallback local.")
+                langfuse_prompt = None
+                
+        if not langfuse_prompt:
+            system_prompt = get_env_clean("ANTHROPIC_SYSTEM_PROMPT", default_system_prompt)
+            user_prompt = f"""Aqui está o acervo de fontes coletado do banco de dados para responder à pergunta.
 
 <fontes>
 {context}
@@ -1705,98 +1798,107 @@ async def chat_response_generator_anthropic(query: str, scope: str = "Geral", hi
 Pergunta do Pesquisador: {query}
 """
 
-    raw_messages = []
-    if history:
-        for h in history[-5:]:
-            role = h.get("role", "user")
-            content = h.get("content", "")
-            if content and "Como posso te auxiliar" not in content:
-                if role not in ("user", "assistant"):
-                    role = "user"
-                raw_messages.append({"role": role, "content": content})
-                
-    # Sanitização estrita para alternância user/assistant da API da Anthropic
-    sanitized_messages = []
-    for msg in raw_messages:
-        if not sanitized_messages:
-            if msg["role"] == "user":
-                sanitized_messages.append(msg)
-        else:
-            last_msg = sanitized_messages[-1]
-            if last_msg["role"] == msg["role"]:
-                last_msg["content"] += "\n\n" + msg["content"]
+        raw_messages = []
+        if history:
+            for h in history[-5:]:
+                role = h.get("role", "user")
+                content = h.get("content", "")
+                if content and "Como posso te auxiliar" not in content:
+                    if role not in ("user", "assistant"):
+                        role = "user"
+                    raw_messages.append({"role": role, "content": content})
+                    
+        # Sanitização estrita para alternância user/assistant da API da Anthropic
+        sanitized_messages = []
+        for msg in raw_messages:
+            if not sanitized_messages:
+                if msg["role"] == "user":
+                    sanitized_messages.append(msg)
             else:
-                sanitized_messages.append(msg)
+                last_msg = sanitized_messages[-1]
+                if last_msg["role"] == msg["role"]:
+                    last_msg["content"] += "\n\n" + msg["content"]
+                else:
+                    sanitized_messages.append(msg)
 
-    if not sanitized_messages:
-        sanitized_messages.append({"role": "user", "content": user_prompt})
-    else:
-        if sanitized_messages[-1]["role"] == "assistant":
+        if not sanitized_messages:
             sanitized_messages.append({"role": "user", "content": user_prompt})
         else:
-            sanitized_messages[-1]["content"] += "\n\n" + user_prompt
+            if sanitized_messages[-1]["role"] == "assistant":
+                sanitized_messages.append({"role": "user", "content": user_prompt})
+            else:
+                sanitized_messages[-1]["content"] += "\n\n" + user_prompt
 
-    model_name = get_env_clean("ANTHROPIC_MODEL", "claude-sonnet-5")
-    
-    generation = None
-    if trace:
-        try:
-            generation = trace.generation(
-                name="Anthropic_Claude_Chat",
-                model=model_name,
-                input=query
-            )
-        except Exception as e:
-            print(f"[LANGFUSE] Erro ao criar generation: {e}")
-
-    # 6. Chamar Anthropic API com streaming real
-    full_response_content = ""
-    try:
-        with anthropic_client.messages.stream(
-            model=model_name,
-            max_tokens=2048,
-            system=system_prompt,
-            messages=sanitized_messages
-        ) as stream:
-            for text in stream.text_stream:
-                full_response_content += text
-                yield f"data: {json.dumps({'content': text, 'type': 'token'})}\n\n"
-                
-        if generation:
-            try:
-                generation.end(output=full_response_content, metadata={"citations": citations_for_frontend})
-            except Exception as e:
-                print(f"[LANGFUSE] Erro ao finalizar generation: {e}")
-                
-    except Exception as e:
-        error_msg = f"Erro na comunicação com Anthropic: {str(e)}"
-        print(f"[ANTHROPIC API] Erro de rede/geração: {e}")
-        yield f"data: {json.dumps({'content': error_msg, 'type': 'token'})}\n\n"
-
-    yield "data: {\"type\": \"done\"}\n\n"
-
-    # Gravar log de busca
-    log_data = {
-        "query": query[:500],
-        "intent": intent_str,
-        "num_citations": len(citations_for_frontend),
-        "confidence_level": metadata['confidence']['level'],
-        "confidence_pct": metadata['confidence']['percentage'],
-        "conversation_id": conversation_id,
-    }
-    try:
-        if supabase_admin:
-            supabase_admin.table("search_logs").insert(log_data).execute()
-        else:
-            save_search_log_fallback(log_data)
-    except Exception as log_e:
-        save_search_log_fallback(log_data)
+        model_name = get_env_clean("ANTHROPIC_MODEL", "claude-sonnet-5")
         
-    if trace:
+        generation = None
+        if trace:
+            try:
+                generation = trace.generation(
+                    name="Anthropic_Claude_Chat",
+                    model=model_name,
+                    input=query,
+                    prompt=langfuse_prompt
+                )
+            except Exception as e:
+                print(f"[LANGFUSE] Erro ao criar generation: {e}")
+
+        # 6. Chamar Anthropic API com streaming real
         try:
-            langfuse.flush()
+            with anthropic_client.messages.stream(
+                model=model_name,
+                max_tokens=2048,
+                system=system_prompt,
+                messages=sanitized_messages
+            ) as stream:
+                for text in stream.text_stream:
+                    full_response_content += text
+                    yield f"data: {json.dumps({'content': text, 'type': 'token'})}\n\n"
+                    
+            if generation:
+                try:
+                    generation.end(output=full_response_content, metadata={"citations": citations_for_frontend})
+                except Exception as e:
+                    print(f"[LANGFUSE] Erro ao finalizar generation: {e}")
+                    
         except Exception as e:
-            print(f"[LANGFUSE] Erro no flush: {e}")
+            error_msg = f"Erro na comunicação com Anthropic: {str(e)}"
+            print(f"[ANTHROPIC API] Erro de rede/geração: {e}")
+            yield f"data: {json.dumps({'content': error_msg, 'type': 'token'})}\n\n"
+            full_response_content = error_msg
+
+        yield "data: {\"type\": \"done\"}\n\n"
+
+        # Gravar log de busca
+        log_data = {
+            "query": query[:500],
+            "intent": intent_str,
+            "num_citations": len(citations_for_frontend),
+            "confidence_level": metadata['confidence']['level'],
+            "confidence_pct": metadata['confidence']['percentage'],
+            "conversation_id": conversation_id,
+        }
+        try:
+            if supabase_admin:
+                supabase_admin.table("search_logs").insert(log_data).execute()
+            else:
+                save_search_log_fallback(log_data)
+        except Exception as log_e:
+            save_search_log_fallback(log_data)
+            
+    finally:
+        if trace:
+            try:
+                trace.update(output=full_response_content)
+                if hasattr(trace, 'end'):
+                    trace.end()
+            except Exception as e:
+                print(f"[LANGFUSE] Erro ao finalizar/encerrar trace: {e}")
+        if langfuse:
+            try:
+                langfuse.flush()
+            except Exception as e:
+                print(f"[LANGFUSE] Erro no flush: {e}")
 
 async def chat_response_generator_google(query: str, scope: str = "Geral", history: list = None, conversation_id: str = None, categories: list = None):
     """Gera resposta usando a API do Google Gemini (AI Studio) e RAG local."""
@@ -1824,94 +1926,198 @@ async def chat_response_generator_google(query: str, scope: str = "Geral", histo
         error_msg = "Erro Gemini Interno: GEMINI_API_KEY não configurada no servidor."
         yield f"data: {json.dumps({'content': error_msg, 'type': 'token'})}\n\n"
         yield "data: {\"type\": \"done\"}\n\n"
+        if trace:
+            try:
+                trace.update(output=error_msg)
+                if hasattr(trace, 'end'):
+                    trace.end()
+            except Exception as e:
+                print(f"[LANGFUSE] Erro ao finalizar trace: {e}")
+        if langfuse:
+            try:
+                langfuse.flush()
+            except Exception as e:
+                print(f"[LANGFUSE] Erro no flush: {e}")
         return
 
-    # 1. Condensar a query baseada no histórico de conversa
-    condensed = condense_query(query, history or [])
-    
-    # 2. Obter filtros de siglas a partir de escopo ou categorias
-    filter_siglas = _get_scope_filter(scope, categories)
-    
-    # 3. Detectar intenção para ajuste fino
-    intent_res = intent_detector.detect(condensed)
-    intent_str = intent_res.get("intent", "GENERAL")
-    
-    # Definir pesos híbridos com base na intenção
-    fts_w = 1.0
-    vec_w = 1.0
-    if intent_str == "HISTORICAL":
-        fts_w = 1.4
-        vec_w = 0.8
-    elif intent_str == "THEOLOGICAL":
-        fts_w = 0.8
-        vec_w = 1.4
-    
-    # 4. Executar busca híbrida local na base de dados Oracle
-    rag_top_k = int(get_env_clean("RAG_TOP_K", "50"))
-    search_res = {"context": "", "citations": []}
+    full_response_content = ""
     try:
-        search_res = oracle_search_context(
-            query=condensed,
-            top_k=rag_top_k,
-            filter_siglas=filter_siglas,
-            fts_weight=fts_w,
-            vec_weight=vec_w
-        )
-    except Exception as search_err:
-        print(f"[GEMINI RAG] Erro ao buscar contexto na base de dados Oracle: {search_err}")
-    
-    context = search_res.get("context", "")
-    citations_raw = search_res.get("citations", [])
-    
-    # Mapear citações para o formato do frontend
-    citations_for_frontend = []
-    for c in citations_raw:
-        doc_filename = c.get("title", "")
-        page_number = c.get("page_number") or 1
-        page_url = c.get("page_url") or ""
+        # 1. Condensar a query baseada no histórico de conversa
+        condensed = condense_query(query, history or [])
         
-        if doc_filename and doc_filename.lower().endswith(('.txt', '.md', '.pdf')):
-            clean_filename = re.sub(r'\.(txt|md)$', '.pdf', doc_filename, flags=re.IGNORECASE)
-            page_url = f"/api/pdfs/{clean_filename}#page={page_number}"
-            
-        citations_for_frontend.append({
-            "title": doc_filename,
-            "snippet": c.get("snippet", ""),
-            "sigla": c.get("sigla", "OBRA"),
-            "destinatario": c.get("destinatario", "N/A"),
-            "page_number": page_number,
-            "page_url": page_url
-        })
+        # 2. Obter filtros de siglas a partir de escopo ou categorias
+        filter_siglas = _get_scope_filter(scope, categories)
         
-    # Envia citações e metadados imediatamente
-    yield f"data: {json.dumps({'type': 'citations', 'content': citations_for_frontend})}\n\n"
-    
-    confidence_data = compute_confidence(citations_raw)
-    metadata = {
-        'confidence': confidence_data,
-        'comparative_mode': False,
-        'intent': intent_str,
-        'intent_confidence': 1.0,
-        'source_authority': 'Oracle Autonomous DB 23ai',
-        'recipient_sources': []
-    }
-    yield f"data: {json.dumps({'type': 'metadata', 'content': metadata})}\n\n"
+        # 3. Detectar intenção para ajuste fino
+        intent_res = intent_detector.detect(condensed)
+        intent_str = intent_res.get("intent", "GENERAL")
+        
+        # Definir pesos híbridos com base na intenção
+        fts_w = 1.0
+        vec_w = 1.0
+        if intent_str == "HISTORICAL":
+            fts_w = 1.4
+            vec_w = 0.8
+        elif intent_str == "THEOLOGICAL":
+            fts_w = 0.8
+            vec_w = 1.4
+        
+        # 4. Executar busca híbrida local na base de dados Oracle com instrumentação
+        rag_top_k = int(get_env_clean("RAG_TOP_K", "50"))
+        search_res = {"context": "", "citations": []}
+        
+        retrieval_span = None
+        if trace:
+            try:
+                retrieval_span = trace.span(
+                    name="retrieval",
+                    input={
+                        "query": query,
+                        "condensed_query": condensed,
+                        "filter_siglas": filter_siglas,
+                        "top_k": rag_top_k,
+                        "fts_weight": fts_w,
+                        "vec_weight": vec_w
+                    }
+                )
+            except Exception as e:
+                print(f"[LANGFUSE] Erro ao criar span de retrieval: {e}")
 
-    # 5. Formatar o prompt para o Gemini
-    default_system_prompt = (
-        "Você é Dehon AI, uma inteligência artificial acadêmica e internacional especializada na teologia, biografia, espiritualidade e obra do Padre João Leão Dehon. "
-        "Sua tarefa é fornecer respostas profundas, detalhadas, analíticas e exaustivas para pesquisadores e religiosos dehonianos de todo o mundo.\n\n"
-        "REGRAS FUNDAMENTAIS E MULTILÍNGUES:\n"
-        "1. IDIOMA DE RESPOSTA OBRIGATÓRIO (AUTO-DETECÇÃO): Detecte com precisão o idioma em que a pergunta do pesquisador foi enviada (Inglês, Francês, Italiano, Espanhol, Polonês, Alemão, Indonésio, Português, etc.). Responda INTEGRALMENTE e fluentemente NO MESMO IDIOMA da pergunta!\n"
-        "2. ANALISE E SINTETIZE TODAS AS FONTES: Utilize ativamente múltiplos trechos e documentos fornecidos sob a tag <fontes>. Sintetize e explicite os conceitos teológicos no idioma do usuário.\n"
-        "3. CITAÇÕES PRECISAS: Sempre cite a fonte correspondente usando a marcação [N] (ex: [1], [2], [3]) exatamente no ponto da afirmação.\n"
-        "4. PROFUNDIDADE ACADÊMICA: Construa uma resposta completa, com introdução conceitual, desenvolvimento minucioso dos fundamentos teológicos/históricos e síntese final.\n"
-        "5. ESTRUTURA E FORMATAÇÃO PREMIUM: Divida a resposta em seções lógicas com títulos markdown (###), utilize tópicos (bullet points) explicativos e destaque conceitos teológicos centrais em **negrito** (ex: **reparação**, **oblação**, **Ecce Venio**, **redamatio**, **reinado social**).\n"
-        "6. TONE AND STYLE: Mantenha tom científico, teológico, respeitoso e elegante (estilo ensaio acadêmico do NotebookLM). Nunca mencione frases meta como 'com base nos documentos fornecidos'."
-    )
-    system_prompt = get_env_clean("GEMINI_SYSTEM_PROMPT", default_system_prompt)
-    
-    user_prompt = f"""Aqui está o acervo de fontes coletado do banco de dados para responder à pergunta.
+        try:
+            search_res = oracle_search_context(
+                query=condensed,
+                top_k=rag_top_k,
+                filter_siglas=filter_siglas,
+                fts_weight=fts_w,
+                vec_weight=vec_w
+            )
+            
+            if retrieval_span:
+                citations_raw = search_res.get("citations", [])
+                chunks_log = []
+                for c in citations_raw:
+                    chunks_log.append({
+                        "title": c.get("title", ""),
+                        "sigla": c.get("sigla", ""),
+                        "page_number": c.get("page_number"),
+                        "score": c.get("score")
+                    })
+                try:
+                    retrieval_span.end(
+                        output={
+                            "context": search_res.get("context", ""),
+                            "chunks_count": len(citations_raw),
+                            "chunks": chunks_log
+                        },
+                        metadata={
+                            "citations": chunks_log
+                        }
+                    )
+                except Exception as end_e:
+                    print(f"[LANGFUSE] Erro ao finalizar span de retrieval: {end_e}")
+                    
+        except Exception as search_err:
+            print(f"[GEMINI RAG] Erro ao buscar contexto na base de dados Oracle: {search_err}")
+            if retrieval_span:
+                try:
+                    retrieval_span.end(
+                        level="ERROR",
+                        status_message=str(search_err)
+                    )
+                except Exception as end_e:
+                    print(f"[LANGFUSE] Erro ao finalizar span de retrieval com erro: {end_e}")
+        
+        context = search_res.get("context", "")
+        citations_raw = search_res.get("citations", [])
+        
+        # Mapear citações para o formato do frontend
+        citations_for_frontend = []
+        for c in citations_raw:
+            doc_filename = c.get("title", "")
+            page_number = c.get("page_number") or 1
+            page_url = c.get("page_url") or ""
+            
+            if doc_filename and doc_filename.lower().endswith(('.txt', '.md', '.pdf')):
+                clean_filename = re.sub(r'\.(txt|md)$', '.pdf', doc_filename, flags=re.IGNORECASE)
+                page_url = f"/api/pdfs/{clean_filename}#page={page_number}"
+                
+            citations_for_frontend.append({
+                "title": doc_filename,
+                "snippet": c.get("snippet", ""),
+                "sigla": c.get("sigla", "OBRA"),
+                "destinatario": c.get("destinatario", "N/A"),
+                "page_number": page_number,
+                "page_url": page_url
+            })
+            
+        # Envia citações e metadados imediatamente
+        yield f"data: {json.dumps({'type': 'citations', 'content': citations_for_frontend})}\n\n"
+        
+        confidence_data = compute_confidence(citations_raw)
+        metadata = {
+            'confidence': confidence_data,
+            'comparative_mode': False,
+            'intent': intent_str,
+            'intent_confidence': 1.0,
+            'source_authority': 'Oracle Autonomous DB 23ai',
+            'recipient_sources': []
+        }
+        yield f"data: {json.dumps({'type': 'metadata', 'content': metadata})}\n\n"
+
+        # 5. Formatar o prompt para o Gemini
+        default_system_prompt = (
+            "Você é Dehon AI, uma inteligência artificial acadêmica e internacional especializada na teologia, biografia, espiritualidade e obra do Padre João Leão Dehon. "
+            "Sua tarefa é fornecer respostas profundas, detalhadas, analíticas e exaustivas para pesquisadores e religiosos dehonianos de todo o mundo.\n\n"
+            "REGRAS FUNDAMENTAIS E MULTILÍNGUES:\n"
+            "1. IDIOMA DE RESPOSTA OBRIGATÓRIO (AUTO-DETECÇÃO): Detecte com precisão o idioma em que a pergunta do pesquisador foi enviada (Inglês, Francês, Italiano, Espanhol, Polonês, Alemão, Indonésio, Português, etc.). Responda INTEGRALMENTE e fluentemente NO MESMO IDIOMA da pergunta!\n"
+            "2. ANALISE E SINTETIZE TODAS AS FONTES: Utilize ativamente múltiplos trechos e documentos fornecidos sob a tag <fontes>. Sintetize e explicite os conceitos teológicos no idioma do usuário.\n"
+            "3. CITAÇÕES PRECISAS: Sempre cite a fonte correspondente usando a marcação [N] (ex: [1], [2], [3]) exatamente no ponto da afirmação.\n"
+            "4. PROFUNDIDADE ACADÊMICA: Construa uma resposta completa, com introdução conceitual, desenvolvimento minucioso dos fundamentos teológicos/históricos e síntese final.\n"
+            "5. ESTRUTURA E FORMATAÇÃO PREMIUM: Divida a resposta em seções lógicas com títulos markdown (###), utilize tópicos (bullet points) explicativos e destaque conceitos teológicos centrais em **negrito** (ex: **reparação**, **oblação**, **Ecce Venio**, **redamatio**, **reinado social**).\n"
+            "6. TONE AND STYLE: Mantenha tom científico, teológico, respeitoso e elegante (estilo ensaio acadêmico do NotebookLM). Nunca mencione frases meta como 'com base nos documentos fornecidos'."
+        )
+        
+        prompt_label = get_env_clean("LANGFUSE_PROMPT_LABEL", "production")
+        langfuse_prompt = None
+        system_prompt = None
+        
+        if langfuse:
+            try:
+                langfuse_prompt = langfuse.get_prompt("Central", label=prompt_label)
+                
+                # Formatar o contexto com identificador legível por documento: ex. [OBRA 12] (Título)
+                context_parts = []
+                for c in citations_raw:
+                    sigla = c.get("sigla", "OBRA")
+                    page = c.get("page_number") or c.get("page") or 1
+                    title = c.get("title", "")
+                    content = c.get("content", "")
+                    context_parts.append(f"Documento [{sigla} {page}] ({title}):\n{content}")
+                compiled_context = "\n\n".join(context_parts)
+                
+                # Formatar histórico
+                history_parts = []
+                for h in (history or []):
+                    role = "Pesquisador" if h.get("role") == "user" else "Dehon AI"
+                    content = h.get("content", "")
+                    if content:
+                        history_parts.append(f"{role}: {content}")
+                compiled_history = "\n".join(history_parts)
+                
+                system_prompt = langfuse_prompt.compile(
+                    context=compiled_context,
+                    question=condensed,
+                    history=compiled_history
+                )
+                user_prompt = query
+                print(f"[LANGFUSE] Prompt 'Central' carregado e compilado com sucesso (versão: {getattr(langfuse_prompt, 'version', 'desconhecida')})")
+            except Exception as pe:
+                print(f"[LANGFUSE] Erro ao obter/compilar prompt 'Central': {pe}. Usando fallback local.")
+                langfuse_prompt = None
+        
+        if not langfuse_prompt:
+            system_prompt = get_env_clean("GEMINI_SYSTEM_PROMPT", default_system_prompt)
+            user_prompt = f"""Aqui está o acervo de fontes coletado do banco de dados para responder à pergunta.
 
 <fontes>
 {context}
@@ -1920,68 +2126,77 @@ async def chat_response_generator_google(query: str, scope: str = "Geral", histo
 Pergunta do Pesquisador: {query}
 """
 
-    model_name = get_env_clean("GEMINI_MODEL", "gemini-2.5-flash")
-    if not model_name or "1.5" in model_name:
-        model_name = "gemini-2.5-flash"
-    
-    generation = None
-    if trace:
-        try:
-            generation = trace.generation(
-                name="Google_Gemini_Chat",
-                model=model_name,
-                input=query
-            )
-        except Exception as e:
-            print(f"[LANGFUSE] Erro ao criar generation: {e}")
-
-    # 6. Chamar a API do Gemini com streaming real
-    full_response_content = ""
-    try:
-        for token in generate_gemini_stream(
-            prompt=user_prompt,
-            system_instruction=system_prompt,
-            history=history or [],
-            model_name=model_name
-        ):
-            full_response_content += token
-            yield f"data: {json.dumps({'content': token, 'type': 'token'})}\n\n"
-                
-        if generation:
-            try:
-                generation.end(output=full_response_content, metadata={"citations": citations_for_frontend})
-            except Exception as e:
-                print(f"[LANGFUSE] Erro ao finalizar generation: {e}")
-                
-    except Exception as e:
-        error_msg = f"Erro na comunicação com o Gemini: {str(e)}"
-        print(f"[GEMINI API] Erro de rede/geração: {e}")
-        yield f"data: {json.dumps({'content': error_msg, 'type': 'token'})}\n\n"
-
-    yield "data: {\"type\": \"done\"}\n\n"
-
-    # Gravar log de busca
-    log_data = {
-        "query": query[:500],
-        "intent": intent_str,
-        "num_citations": len(citations_for_frontend),
-        "confidence_level": metadata['confidence']['level'],
-        "confidence_pct": metadata['confidence']['percentage'],
-        "conversation_id": conversation_id,
-    }
-    try:
-        if supabase_admin:
-            supabase_admin.table("search_logs").insert(log_data).execute()
-        else:
-            save_search_log_fallback(log_data)
-    except Exception as log_e:
-        save_search_log_fallback(log_data)
+        model_name = get_env_clean("GEMINI_MODEL", "gemini-2.5-flash")
+        if not model_name or "1.5" in model_name:
+            model_name = "gemini-2.5-flash"
         
-    if trace:
+        generation = None
+        if trace:
+            try:
+                generation = trace.generation(
+                    name="Google_Gemini_Chat",
+                    model=model_name,
+                    input=query,
+                    prompt=langfuse_prompt
+                )
+            except Exception as e:
+                print(f"[LANGFUSE] Erro ao criar generation: {e}")
+
+        # 6. Chamar a API do Gemini com streaming real
         try:
-            langfuse.flush()
+            for token in generate_gemini_stream(
+                prompt=user_prompt,
+                system_instruction=system_prompt,
+                history=history or [],
+                model_name=model_name
+            ):
+                full_response_content += token
+                yield f"data: {json.dumps({'content': token, 'type': 'token'})}\n\n"
+                    
+            if generation:
+                try:
+                    generation.end(output=full_response_content, metadata={"citations": citations_for_frontend})
+                except Exception as e:
+                    print(f"[LANGFUSE] Erro ao finalizar generation: {e}")
+                    
         except Exception as e:
-            print(f"[LANGFUSE] Erro no flush: {e}")
+            error_msg = f"Erro na comunicação com o Gemini: {str(e)}"
+            print(f"[GEMINI API] Erro de rede/geração: {e}")
+            yield f"data: {json.dumps({'content': error_msg, 'type': 'token'})}\n\n"
+            full_response_content = error_msg
+
+        yield "data: {\"type\": \"done\"}\n\n"
+
+        # Gravar log de busca
+        log_data = {
+            "query": query[:500],
+            "intent": intent_str,
+            "num_citations": len(citations_for_frontend),
+            "confidence_level": metadata['confidence']['level'],
+            "confidence_pct": metadata['confidence']['percentage'],
+            "conversation_id": conversation_id,
+        }
+        try:
+            if supabase_admin:
+                supabase_admin.table("search_logs").insert(log_data).execute()
+            else:
+                save_search_log_fallback(log_data)
+        except Exception as log_e:
+            save_search_log_fallback(log_data)
+            
+    finally:
+        if trace:
+            try:
+                trace.update(output=full_response_content)
+                if hasattr(trace, 'end'):
+                    trace.end()
+            except Exception as e:
+                print(f"[LANGFUSE] Erro ao finalizar/encerrar trace: {e}")
+        if langfuse:
+            try:
+                langfuse.flush()
+            except Exception as e:
+                print(f"[LANGFUSE] Erro no flush: {e}")
 
 # Mapeamento em memória de conversation_id (Frontend) -> session_id (OCI)
 oci_session_cache = TTLCache(maxsize=1000, ttl=86400)

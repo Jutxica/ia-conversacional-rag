@@ -208,6 +208,7 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
             "sigla": sigla,
             "destinatario": destinatario,
             "snippet": content[:200] + "...",
+            "content": content,
             "score": match.get('similarity', 0),
             "page_url": page_url,
             "page_number": page_number
