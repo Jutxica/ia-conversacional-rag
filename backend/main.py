@@ -1762,14 +1762,15 @@ async def chat_response_generator_anthropic(query: str, scope: str = "Geral", hi
             try:
                 langfuse_prompt = langfuse.get_prompt("Central", label=prompt_label)
                 
-                # Formatar o contexto com identificador legível por documento: ex. [OBRA 12] (Título)
+                # Formatar o contexto com numeração e identificador legível: ex. --- FONTE [1]: Título (Sigla) [Página N] ---
                 context_parts = []
-                for c in citations_raw:
+                for i, c in enumerate(citations_raw):
+                    ref_num = i + 1
                     sigla = c.get("sigla", "OBRA")
                     page = c.get("page_number") or c.get("page") or 1
                     title = c.get("title", "")
                     content = c.get("content", "")
-                    context_parts.append(f"Documento [{sigla} {page}] ({title}):\n{content}")
+                    context_parts.append(f"--- FONTE [{ref_num}]: {title} ({sigla}) [Página {page}] ---\n{content}")
                 compiled_context = "\n\n".join(context_parts)
                 
                 # Formatar histórico
@@ -2090,14 +2091,15 @@ async def chat_response_generator_google(query: str, scope: str = "Geral", histo
             try:
                 langfuse_prompt = langfuse.get_prompt("Central", label=prompt_label)
                 
-                # Formatar o contexto com identificador legível por documento: ex. [OBRA 12] (Título)
+                # Formatar o contexto com numeração e identificador legível: ex. --- FONTE [1]: Título (Sigla) [Página N] ---
                 context_parts = []
-                for c in citations_raw:
+                for i, c in enumerate(citations_raw):
+                    ref_num = i + 1
                     sigla = c.get("sigla", "OBRA")
                     page = c.get("page_number") or c.get("page") or 1
                     title = c.get("title", "")
                     content = c.get("content", "")
-                    context_parts.append(f"Documento [{sigla} {page}] ({title}):\n{content}")
+                    context_parts.append(f"--- FONTE [{ref_num}]: {title} ({sigla}) [Página {page}] ---\n{content}")
                 compiled_context = "\n\n".join(context_parts)
                 
                 # Formatar histórico
