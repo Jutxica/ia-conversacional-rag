@@ -1569,7 +1569,12 @@ Pergunta Autocontida:"""
                 temperature=0.0,
                 max_tokens=200
             )
-    async def chat_response_generator_anthropic(query: str, scope: str = "Geral", history: list = None, conversation_id: str = None, categories: list = None):
+        return completion.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"[CONDENSE_QUERY] Erro ao condensar query: {e}")
+        return query
+
+async def chat_response_generator_anthropic(query: str, scope: str = "Geral", history: list = None, conversation_id: str = None, categories: list = None):
     """Gera resposta usando a API da Anthropic e RAG local."""
     
     # --- Langfuse Trace ---
