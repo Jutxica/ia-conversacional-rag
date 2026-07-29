@@ -600,6 +600,7 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
   const activeMessageWithCitations = currentChat?.messages.find(m => m.id === activeCitationMessageId);
 
   // --- Render Logic ---
+  const t = translations[profile.language || 'pt'];
   if (isAppLoading) {
     return (
       <div className="splash-screen">
