@@ -84,6 +84,7 @@ const MessageList: React.FC<MessageListProps> = ({
   onSendMessage
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const prevMessagesLengthRef = useRef(messages.length);
   const [showFormatted, setShowFormatted] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
@@ -165,9 +166,26 @@ const MessageList: React.FC<MessageListProps> = ({
   };
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const container = scrollRef.current;
+    if (container) {
+      const isNewMessage = messages.length > prevMessagesLengthRef.current;
+      const lastMessage = messages[messages.length - 1];
+      const isUserMsg = lastMessage?.role === 'user';
+      
+      // Check if user was already near the bottom (within 150px)
+      const threshold = 150;
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+
+      if (isNewMessage) {
+        if (isUserMsg || isNearBottom) {
+          container.scrollTop = container.scrollHeight;
+        }
+      } else if (isStreaming && isNearBottom) {
+        container.scrollTop = container.scrollHeight;
+      }
     }
+    prevMessagesLengthRef.current = messages.length;
+
     const buttons = document.querySelectorAll('.citation-action-btn');
     buttons.forEach(btn => magneticEffect(btn as HTMLElement));
   }, [messages, isStreaming]);

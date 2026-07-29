@@ -57,7 +57,7 @@ interface AppProps {
 export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: AppProps) {
   const [session, setSession] = useState<any>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [currentId, setCurrentId] = useState<string | null>(null);
+  const [currentId, setCurrentId] = useState<string | null>(() => localStorage.getItem('dehon-current-chat-id'));
   const [input, setInput] = useState('');
   const [scope, setScope] = useState('Geral');
   const [categories, setCategories] = useState<string[]>(['Obras Espirituais', 'Obras Sociais', 'Diários', 'Viagens', 'Correspondência', 'Inéditos e Outros']);
@@ -118,6 +118,14 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
   useEffect(() => {
     localStorage.setItem('dehon-auto-cleanup', JSON.stringify(autoCleanup));
   }, [autoCleanup]);
+
+  useEffect(() => {
+    if (currentId) {
+      localStorage.setItem('dehon-current-chat-id', currentId);
+    } else {
+      localStorage.removeItem('dehon-current-chat-id');
+    }
+  }, [currentId]);
 
   useEffect(() => {
     if (session?.user) {
@@ -227,7 +235,10 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
         const expired = checkSessionExpiration(session);
         if (!expired) {
           setSession(session);
-          setCurrentId(null); // Garante início na Home Page com a saudação
+          const savedId = localStorage.getItem('dehon-current-chat-id');
+          if (!savedId) {
+            setCurrentId(null);
+          }
         }
       }
     });
@@ -238,12 +249,16 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
         if (!expired) {
           setSession(session);
           if (event === 'SIGNED_IN') {
-            setCurrentId(null); // Ao efetuar login, vai sempre para a Home
+            const savedId = localStorage.getItem('dehon-current-chat-id');
+            if (!savedId) {
+              setCurrentId(null);
+            }
           }
         }
       } else {
         setSession(null);
         setCurrentId(null);
+        localStorage.removeItem('dehon-current-chat-id');
       }
     });
 
@@ -319,6 +334,7 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
 
   // --- Actions ---
   const handleLogout = async () => {
+    localStorage.removeItem('dehon-current-chat-id');
     await supabase.auth.signOut();
   };
 
