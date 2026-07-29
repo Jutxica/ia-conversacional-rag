@@ -248,17 +248,19 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
         const expired = checkSessionExpiration(session);
         if (!expired) {
           setSession(session);
-          if (event === 'SIGNED_IN') {
+          if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
             const savedId = localStorage.getItem('dehon-current-chat-id');
-            if (!savedId) {
-              setCurrentId(null);
+            if (savedId) {
+              setCurrentId(savedId);
             }
           }
         }
       } else {
         setSession(null);
-        setCurrentId(null);
-        localStorage.removeItem('dehon-current-chat-id');
+        if (event === 'SIGNED_OUT') {
+          setCurrentId(null);
+          localStorage.removeItem('dehon-current-chat-id');
+        }
       }
     });
 
@@ -277,23 +279,32 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
   useEffect(() => {
     async function loadChats() {
       if (session?.user?.id) {
-        const { data, error } = await supabase
-          .from('chats')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .order('updated_at', { ascending: false });
+        try {
+          const { data, error } = await supabase
+            .from('chats')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .order('updated_at', { ascending: false });
 
-        if (!error && data) {
-          const sanitized = data.map((c: any) => ({
-            id: c.id,
-            title: c.title,
-            messages: c.messages.map((m: any) => ({
-              ...m,
-              timestamp: new Date(m.timestamp)
-            })),
-            is_public: c.is_public
-          }));
-          setConversations(sanitized);
+          if (!error && data) {
+            const sanitized = data.map((c: any) => {
+              const rawMessages = Array.isArray(c.messages) ? c.messages : [];
+              return {
+                id: c.id,
+                title: c.title || 'Sem título',
+                messages: rawMessages.map((m: any) => ({
+                  ...m,
+                  timestamp: m.timestamp ? new Date(m.timestamp) : new Date()
+                })),
+                is_public: c.is_public || false
+              };
+            });
+            setConversations(sanitized);
+          } else if (error) {
+            console.error('[Supabase] Error loading chats:', error);
+          }
+        } catch (err) {
+          console.error('[Supabase] Exception in loadChats:', err);
         }
       } else {
         setConversations([]);
@@ -322,14 +333,21 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
 
   const persistChat = async (chat: Conversation) => {
     if (!session?.user?.id) return;
-    await supabase.from('chats').upsert({
-      id: chat.id,
-      user_id: session.user.id,
-      title: chat.title,
-      messages: chat.messages,
-      is_public: chat.is_public || false,
-      updated_at: new Date().toISOString()
-    });
+    try {
+      const { error } = await supabase.from('chats').upsert({
+        id: chat.id,
+        user_id: session.user.id,
+        title: chat.title,
+        messages: chat.messages,
+        is_public: chat.is_public || false,
+        updated_at: new Date().toISOString()
+      });
+      if (error) {
+        console.error('[Supabase] Error persisting chat:', error);
+      }
+    } catch (e) {
+      console.error('[Supabase] Exception in persistChat:', e);
+    }
   };
 
   // --- Actions ---
@@ -530,11 +548,16 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
     } catch (err: any) {
       console.error('Connection error:', err);
       const errorMsgId = 'err-' + Date.now().toString();
-      setConversations(prev => prev.map(c => 
-        c.id === chatId 
-          ? { ...c, messages: [...c.messages, { id: errorMsgId, role: 'assistant', content: `**Erro de Conexão:** Não foi possível conectar ao servidor.\n\nSe você está usando o Render, o servidor pode estar em "Cold Start" (demora ~50s para acordar) ou há um bloqueio de CORS. Detalhes técnicos: \`${err.message}\``, timestamp: new Date() }] }
-          : c
-      ));
+      setConversations(prev => {
+        const updated = prev.map(c => 
+          c.id === chatId 
+            ? { ...c, messages: [...c.messages, { id: errorMsgId, role: 'assistant', content: `**Erro de Conexão:** Não foi possível conectar ao servidor.\n\nSe você está usando o Render, o servidor pode estar em "Cold Start" (demora ~50s para acordar) ou há um bloqueio de CORS. Detalhes técnicos: \`${err.message}\``, timestamp: new Date() }] }
+            : c
+        );
+        const final = updated.find(c => c.id === chatId);
+        if (final) persistChat(final);
+        return updated;
+      });
       setIsStreaming(false);
     }
   };
@@ -558,6 +581,7 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
       };
       setConversations([newChat, ...conversations]);
       setCurrentId(newChatId);
+      persistChat(newChat);
       executeChatLogic(newChatId, input, [userMessage]);
     } else {
       setConversations(prev => prev.map(c => 
@@ -565,7 +589,9 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
       ));
       const targetChat = conversations.find(c => c.id === currentId);
       if (targetChat) {
-        executeChatLogic(currentId, input, [...targetChat.messages, userMessage]);
+        const updatedChat = { ...targetChat, messages: [...targetChat.messages, userMessage] };
+        persistChat(updatedChat);
+        executeChatLogic(currentId, input, updatedChat.messages);
       }
     }
   };
@@ -640,12 +666,14 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
       <main className="main-viewport">
         <div className="page-panel">
           <header className="top-nav">
-            <button 
-              className="menu-toggle" 
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              title={isSidebarOpen ? "Recolher barra lateral" : "Expandir barra lateral"}
+            <button
+              className="menu-toggle"
+              onClick={() => setIsSidebarOpen(true)}
+              title={t.historyTitle}
+              aria-label="Abrir menu"
             >
-              {isSidebarOpen ? <PanelLeftClose size={20} /> : <Menu size={20} />}
+              <Menu size={18} />
+              <span className="menu-toggle-text">{t.historyBtn}</span>
             </button>
             <div className="nav-brand" onClick={startNewChat}>
               <img src="/Navbar.png" alt="Dehon AI" />

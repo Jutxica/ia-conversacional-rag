@@ -14,8 +14,8 @@
   gap: 0.75rem;
   background: #f4f4f4;
   border: 1px solid transparent;
-  border-radius: 28px;
-  padding: 6px 6px 6px 18px;
+  border-radius: 26px;
+  padding: 10px 10px 10px 20px;
   transition: all 0.2s ease;
 }
 
@@ -171,9 +171,9 @@
   }
 
   .input-container {
-    padding: 6px 6px 6px 16px;
+    padding: 8px 8px 8px 18px;
     gap: 0.5rem;
-    border-radius: 28px;
+    border-radius: 26px;
     background: #f4f4f4;
   }
 

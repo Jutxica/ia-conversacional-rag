@@ -176,11 +176,7 @@ const MessageList: React.FC<MessageListProps> = ({
       const threshold = 150;
       const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
 
-      if (isNewMessage) {
-        if (isUserMsg || isNearBottom) {
-          container.scrollTop = container.scrollHeight;
-        }
-      } else if (isStreaming && isNearBottom) {
+      if (isNewMessage && isUserMsg) {
         container.scrollTop = container.scrollHeight;
       }
     }

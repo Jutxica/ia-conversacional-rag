@@ -28,6 +28,7 @@ export interface Translations {
   relatedQuestionsLabel: string;
   footerDeveloper: string;
   languageSelectLabel: string;
+  historyBtn: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -59,6 +60,7 @@ export const translations: Record<Language, Translations> = {
     relatedQuestionsLabel: 'Perguntas Relacionadas',
     footerDeveloper: 'Sistema de Alta Pesquisa desenvolvido por',
     languageSelectLabel: 'Idioma da Interface',
+    historyBtn: 'Histórico',
   },
   en: {
     greetingMorning: 'Good morning',
@@ -88,6 +90,7 @@ export const translations: Record<Language, Translations> = {
     relatedQuestionsLabel: 'Related Questions',
     footerDeveloper: 'Advanced Research System developed by',
     languageSelectLabel: 'Interface Language',
+    historyBtn: 'History',
   },
   fr: {
     greetingMorning: 'Bonjour',
@@ -117,6 +120,7 @@ export const translations: Record<Language, Translations> = {
     relatedQuestionsLabel: 'Questions Connexes',
     footerDeveloper: 'Système de haute recherche développé par',
     languageSelectLabel: 'Langue de l\'interface',
+    historyBtn: 'Historique',
   },
   it: {
     greetingMorning: 'Buongiorno',
@@ -146,6 +150,7 @@ export const translations: Record<Language, Translations> = {
     relatedQuestionsLabel: 'Domande Correlate',
     footerDeveloper: 'Sistema di alta ricerca sviluppato da',
     languageSelectLabel: 'Lingua dell\'interfaccia',
+    historyBtn: 'Cronologia',
   },
   es: {
     greetingMorning: 'Buenos días',
@@ -175,6 +180,7 @@ export const translations: Record<Language, Translations> = {
     relatedQuestionsLabel: 'Preguntas Relacionadas',
     footerDeveloper: 'Sistema de Alta Investigación desarrollado por',
     languageSelectLabel: 'Idioma de la Interfaz',
+    historyBtn: 'Historial',
   },
   pl: {
     greetingMorning: 'Dzień dobry',
@@ -204,5 +210,6 @@ export const translations: Record<Language, Translations> = {
     relatedQuestionsLabel: 'Powiązane Pytania',
     footerDeveloper: 'Zaawansowany system badawczy opracowany przez',
     languageSelectLabel: 'Język interfejsu',
+    historyBtn: 'Historia',
   }
 };
