@@ -13,7 +13,7 @@ import ProfileModal from './components/ui/ProfileModal';
 import type { UserProfile } from './components/ui/ProfileModal';
 import { translations } from './i18n/translations';
 // Icons
-import { PanelLeftClose, PanelLeftOpen, ShieldCheck, Share2, Check, LogOut, X, BookOpen } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, ShieldCheck, Share2, Check, LogOut, X, BookOpen, Menu } from 'lucide-react';
 
 // --- Types ---
 interface Citation {
@@ -645,7 +645,7 @@ export default function App({ isAdmin = false, onSwitchToAdmin = () => {} }: App
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               title={isSidebarOpen ? "Recolher barra lateral" : "Expandir barra lateral"}
             >
-              {isSidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
+              {isSidebarOpen ? <PanelLeftClose size={20} /> : <Menu size={20} />}
             </button>
             <div className="nav-brand" onClick={startNewChat}>
               <img src="/Navbar.png" alt="Dehon AI" />

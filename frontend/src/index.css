@@ -345,6 +345,18 @@ button, input, textarea {
 @media (max-width: 768px) {
   .menu-toggle {
     margin-left: -4px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 50%;
+    width: 42px;
+    height: 42px;
+    box-shadow: var(--shadow-sm);
+    color: var(--accent-primary);
+  }
+  
+  .menu-toggle:hover, .menu-toggle:active {
+    background: var(--accent-glow);
+    color: var(--accent-primary);
   }
 }
 
