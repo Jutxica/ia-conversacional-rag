@@ -1587,9 +1587,6 @@ async def chat_response_generator_anthropic(query: str, scope: str = "Geral", hi
                 input={"query": query, "scope": scope, "history": history},
                 tags=["anthropic", "chat"]
             )
-            # Intent detection and preparation span
-            intent_span = trace.span(name="intent_detection_and_prep", input={"query": query})
-            intent_span.end(output={"resolved_scope": scope})
         except Exception as e:
             print(f"[LANGFUSE] Erro ao criar trace: {e}")
 
@@ -1622,17 +1619,40 @@ async def chat_response_generator_anthropic(query: str, scope: str = "Geral", hi
         # 2. Obter filtros de siglas a partir de escopo ou categorias
         filter_siglas = _get_scope_filter(scope, categories)
         
-        # 3. Detectar intenção para ajuste fino
+        # 3. Detectar intenção para ajuste fino com span do Langfuse
+        intent_span = None
+        if trace:
+            try:
+                intent_span = trace.span(
+                    name="intent_detection_and_prep",
+                    input={"query": query, "condensed_query": condensed}
+                )
+            except Exception as e:
+                print(f"[LANGFUSE] Erro ao criar intent_span: {e}")
+                
         intent_res = intent_detector.detect(condensed)
-        intent_str = intent_res.get("intent", "GENERAL")
+        intent_str = intent_res.get("intent", "geral")
+        
+        if intent_span:
+            try:
+                intent_span.end(
+                    output={
+                        "intent": intent_str,
+                        "confidence": intent_res.get("confidence"),
+                        "scores": intent_res.get("scores"),
+                        "resolved_scope": scope
+                    }
+                )
+            except Exception as e:
+                print(f"[LANGFUSE] Erro ao encerrar intent_span: {e}")
         
         # Definir pesos híbridos com base na intenção
         fts_w = 1.0
         vec_w = 1.0
-        if intent_str == "HISTORICAL":
+        if intent_str == "biografia/factual":
             fts_w = 1.4
             vec_w = 0.8
-        elif intent_str == "THEOLOGICAL":
+        elif intent_str == "interpretação/análise":
             fts_w = 0.8
             vec_w = 1.4
         
@@ -1650,7 +1670,9 @@ async def chat_response_generator_anthropic(query: str, scope: str = "Geral", hi
                         "filter_siglas": filter_siglas,
                         "top_k": 5,
                         "fts_weight": fts_w,
-                        "vec_weight": vec_w
+                        "vec_weight": vec_w,
+                        "intent_filter": intent_str,
+                        "allowed_source_types": ["primary"] if intent_str == "citação literal" else ["primary", "secondary"]
                     }
                 )
             except Exception as e:
@@ -1662,7 +1684,8 @@ async def chat_response_generator_anthropic(query: str, scope: str = "Geral", hi
                 top_k=5,
                 filter_siglas=filter_siglas,
                 fts_weight=fts_w,
-                vec_weight=vec_w
+                vec_weight=vec_w,
+                intent=intent_str
             )
             
             if retrieval_span:
@@ -1720,7 +1743,8 @@ async def chat_response_generator_anthropic(query: str, scope: str = "Geral", hi
                 "sigla": c.get("sigla", "OBRA"),
                 "destinatario": c.get("destinatario", "N/A"),
                 "page_number": page_number,
-                "page_url": page_url
+                "page_url": page_url,
+                "source_type": c.get("source_type", "primary")
             })
             
         # Envia citações e metadados imediatamente
@@ -1770,7 +1794,9 @@ async def chat_response_generator_anthropic(query: str, scope: str = "Geral", hi
                     page = c.get("page_number") or c.get("page") or 1
                     title = c.get("title", "")
                     content = c.get("content", "")
-                    context_parts.append(f"--- FONTE [{ref_num}]: {title} ({sigla}) [Página {page}] ---\n{content}")
+                    source_type = c.get("source_type", "primary")
+                    source_type_label = "PRIMÁRIA" if source_type == "primary" else "SECUNDÁRIA"
+                    context_parts.append(f"--- FONTE [{ref_num}] ({source_type_label}): {title} ({sigla}) [Página {page}] ---\n{content}")
                 compiled_context = "\n\n".join(context_parts)
                 
                 # Formatar histórico
@@ -1919,9 +1945,6 @@ async def chat_response_generator_google(query: str, scope: str = "Geral", histo
                 input={"query": query, "scope": scope, "history": history},
                 tags=["gemini", "chat"]
             )
-            # Intent detection and preparation span
-            intent_span = trace.span(name="intent_detection_and_prep", input={"query": query})
-            intent_span.end(output={"resolved_scope": scope})
         except Exception as e:
             print(f"[LANGFUSE] Erro ao criar trace: {e}")
 
@@ -1954,17 +1977,40 @@ async def chat_response_generator_google(query: str, scope: str = "Geral", histo
         # 2. Obter filtros de siglas a partir de escopo ou categorias
         filter_siglas = _get_scope_filter(scope, categories)
         
-        # 3. Detectar intenção para ajuste fino
+        # 3. Detectar intenção para ajuste fino com span do Langfuse
+        intent_span = None
+        if trace:
+            try:
+                intent_span = trace.span(
+                    name="intent_detection_and_prep",
+                    input={"query": query, "condensed_query": condensed}
+                )
+            except Exception as e:
+                print(f"[LANGFUSE] Erro ao criar intent_span: {e}")
+                
         intent_res = intent_detector.detect(condensed)
-        intent_str = intent_res.get("intent", "GENERAL")
+        intent_str = intent_res.get("intent", "geral")
+        
+        if intent_span:
+            try:
+                intent_span.end(
+                    output={
+                        "intent": intent_str,
+                        "confidence": intent_res.get("confidence"),
+                        "scores": intent_res.get("scores"),
+                        "resolved_scope": scope
+                    }
+                )
+            except Exception as e:
+                print(f"[LANGFUSE] Erro ao encerrar intent_span: {e}")
         
         # Definir pesos híbridos com base na intenção
         fts_w = 1.0
         vec_w = 1.0
-        if intent_str == "HISTORICAL":
+        if intent_str == "biografia/factual":
             fts_w = 1.4
             vec_w = 0.8
-        elif intent_str == "THEOLOGICAL":
+        elif intent_str == "interpretação/análise":
             fts_w = 0.8
             vec_w = 1.4
         
@@ -1983,7 +2029,9 @@ async def chat_response_generator_google(query: str, scope: str = "Geral", histo
                         "filter_siglas": filter_siglas,
                         "top_k": rag_top_k,
                         "fts_weight": fts_w,
-                        "vec_weight": vec_w
+                        "vec_weight": vec_w,
+                        "intent_filter": intent_str,
+                        "allowed_source_types": ["primary"] if intent_str == "citação literal" else ["primary", "secondary"]
                     }
                 )
             except Exception as e:
@@ -1995,7 +2043,8 @@ async def chat_response_generator_google(query: str, scope: str = "Geral", histo
                 top_k=rag_top_k,
                 filter_siglas=filter_siglas,
                 fts_weight=fts_w,
-                vec_weight=vec_w
+                vec_weight=vec_w,
+                intent=intent_str
             )
             
             if retrieval_span:
@@ -2053,7 +2102,8 @@ async def chat_response_generator_google(query: str, scope: str = "Geral", histo
                 "sigla": c.get("sigla", "OBRA"),
                 "destinatario": c.get("destinatario", "N/A"),
                 "page_number": page_number,
-                "page_url": page_url
+                "page_url": page_url,
+                "source_type": c.get("source_type", "primary")
             })
             
         # Envia citações e metadados imediatamente
@@ -2099,7 +2149,9 @@ async def chat_response_generator_google(query: str, scope: str = "Geral", histo
                     page = c.get("page_number") or c.get("page") or 1
                     title = c.get("title", "")
                     content = c.get("content", "")
-                    context_parts.append(f"--- FONTE [{ref_num}]: {title} ({sigla}) [Página {page}] ---\n{content}")
+                    source_type = c.get("source_type", "primary")
+                    source_type_label = "PRIMÁRIA" if source_type == "primary" else "SECUNDÁRIA"
+                    context_parts.append(f"--- FONTE [{ref_num}] ({source_type_label}): {title} ({sigla}) [Página {page}] ---\n{content}")
                 compiled_context = "\n\n".join(context_parts)
                 
                 # Formatar histórico

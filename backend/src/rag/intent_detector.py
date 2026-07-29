@@ -30,14 +30,14 @@ class IntentDetector:
 
     def detect(self, query: str) -> Dict[str, Any]:
         scores = {
-            "HISTORICAL": 0.0,
-            "THEOLOGICAL": 0.0,
-            "CITATION": 0.0,
-            "GENERAL": 0.1
+            "citação literal": 0.0,
+            "interpretação/análise": 0.0,
+            "biografia/factual": 0.0,
+            "geral": 0.1
         }
         q = query.lower().strip()
 
-        # --- HISTORICAL Patterns ---
+        # --- biografia/factual (formerly HISTORICAL) Patterns ---
         historical_patterns = {
             "dates": [
                 r'\b\d{4}\b', r'\bséc\.?\s*(xix|xx|xviii)\b', r'\bséculo\s*(xix|xx|xviii)\b',
@@ -61,16 +61,16 @@ class IntentDetector:
                 r'\bviajou\b', r'\bviagem\b', r'\breunião\b', r'\bencontro\b',
                 r'\bvisitou\b', r'\besteve\b', r'\bfoi\b.*\b(para|a)\b',
                 r'\bbiógrafo\b', r'\bbiography\b', r'\bbiographie\b',
-                r'\bquem\b', r'\bquem foi\b', r'\bquem é\b'
+                r'\bquem foi\b', r'\bquem é\b'
             ]
         }
 
         for category, patterns in historical_patterns.items():
             for pat in patterns:
                 if re.search(pat, q):
-                    scores["HISTORICAL"] += 0.12
+                    scores["biografia/factual"] += 0.12
 
-        # --- THEOLOGICAL Patterns ---
+        # --- interpretação/análise (formerly THEOLOGICAL) Patterns ---
         theological_patterns = [
             r'\breparação\b', r'\boblação\b', r'\bimolação\b',
             r'\bsagrado coração\b', r'\bcoração de jesus\b',
@@ -88,7 +88,7 @@ class IntentDetector:
 
         for pat in theological_patterns:
             if re.search(pat, q):
-                scores["THEOLOGICAL"] += 0.10
+                scores["interpretação/análise"] += 0.10
 
         # Check concept triggers for theological boost
         for key, data in self.concepts.items():
@@ -97,7 +97,7 @@ class IntentDetector:
             all_triggers = [key] + data.get("sinonimo", [])
             for trigger in all_triggers:
                 if trigger.lower() in q:
-                    scores["THEOLOGICAL"] += 0.08
+                    scores["interpretação/análise"] += 0.08
                     break
 
         # Check authority themes for theological boost
@@ -105,10 +105,10 @@ class IntentDetector:
             triggers = theme_data.get("triggers", [])
             for trigger in triggers:
                 if trigger.lower() in q:
-                    scores["THEOLOGICAL"] += 0.06
+                    scores["interpretação/análise"] += 0.06
                     break
 
-        # --- CITATION Patterns ---
+        # --- citação literal (formerly CITATION) Patterns ---
         citation_patterns = [
             r'\b(asc|con|doc|cor|art)\b', r'\b(1ld|lc1|lc2|lcc|1lc|1lc1)\b',
             r'\b(nhv|rso|dju|ext|mis|nqt|ntd|nto|acd|dis)\b',
@@ -119,25 +119,37 @@ class IntentDetector:
             r'\bobra\b', r'\bdocumento\b', r'\bcarta\b',
             r'\bdehoniana\b', r'\bdehoniano\b',
             r'\bprocur[ao]\b.*\b(sigla|código|referência)\b',
-            r'\bqual\b.*\bsigla\b', r'\bcomo citar\b'
+            r'\bqual\b.*\bsigla\b', r'\bcomo citar\b',
+            r'"[^"]+"', r'\'[^\']+\'', # detect strings in quotes
+            r'\bcitar\b', r'\bpalavras\s+de\b', r'\bescreveu\b', r'\bdisse\s+dehon\b'
         ]
         for pat in citation_patterns:
             if re.search(pat, q):
-                scores["CITATION"] += 0.12
+                scores["citação literal"] += 0.12
 
         # --- Multi-word penalties to avoid false positives ---
         word_count = len(q.split())
         if word_count > 15:
-            scores["CITATION"] *= 0.5
+            scores["citação literal"] *= 0.5
         if word_count < 3:
-            scores["HISTORICAL"] *= 0.7
-            scores["THEOLOGICAL"] *= 0.7
+            scores["biografia/factual"] *= 0.7
+            scores["interpretação/análise"] *= 0.7
 
         # --- Contextual disambiguation ---
-        comparative_words = ['comparação', 'comparar', 'diferença', 'vs', 'versus', 'evolução', 'mudança']
+        comparative_words = ['comparação', 'comparar', 'diferença', 'vs', 'versus', 'evolução', 'mudança', 'análise', 'interpretar', 'explicação', 'estudo']
         has_comparative = any(w in q for w in comparative_words)
         if has_comparative:
-            scores["HISTORICAL"] += 0.15
+            scores["interpretação/análise"] += 0.15
+
+        # Boost "geral" for conversational greetings and self-identification queries
+        greeting_words = {'olá', 'ola', 'oi', 'bom', 'tudo'}
+        self_id_words = ['quem é você', 'quem e voce', 'o que você é', 'o que voce e', 'o que você faz', 'o que voce faz', 'quem é dehon ai', 'quem e dehon ai']
+        
+        words = set(q.split())
+        is_greeting = any(w in words for w in greeting_words) or any(phrase in q for phrase in ['bom dia', 'boa tarde', 'boa noite', 'como vai', 'tudo bem'])
+        is_self_id = any(phrase in q for phrase in self_id_words)
+        if is_greeting or is_self_id:
+            scores["geral"] += 0.5
 
         # Normalize so the dominant intent stands out
         max_score = max(scores.values())
@@ -151,7 +163,7 @@ class IntentDetector:
 
         threshold = 0.3
         if confidence < threshold:
-            intent = "GENERAL"
+            intent = "geral"
             confidence = 0.5
 
         return {

@@ -5,8 +5,25 @@ from typing import List, Dict, Any
 from src.oracle_db_client import get_oracle_connection
 from src.rag.search import get_embedding_with_provider, extract_person_from_query, concept_processor, get_thematic_boosts
 
+def get_source_type(metadata: dict) -> str:
+    sigla = str(metadata.get("sigla", "")).upper().strip()
+    title = str(metadata.get("title", "")).upper().strip()
+    doc_name = str(metadata.get("document_name", "")).upper().strip()
+    source_id = str(metadata.get("source_id", "")).upper().strip()
+    
+    # Identify secondary sources (Studia Dehoniana, biography, essays)
+    secondary_indicators = ["STD", "STUDIA", "HOMEM DE IGREJA", "COMENTADOR", "1_FR.PDF", "2_FR.PDF", "3_FR.PDF"]
+    for indicator in secondary_indicators:
+        if (indicator in sigla) or (indicator in title) or (indicator in doc_name) or (indicator in source_id):
+            return "secondary"
+            
+    if sigla.endswith(".PDF") or len(sigla) > 10:
+        return "secondary"
+        
+    return "primary"
+
 def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] = None,
-                   fts_weight: float = None, vec_weight: float = None) -> Dict[str, Any]:
+                   fts_weight: float = None, vec_weight: float = None, intent: str = None) -> Dict[str, Any]:
     
     target_people = extract_person_from_query(query)
     expanded_query = concept_processor.expand_query(query)
@@ -36,7 +53,9 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
                 ORDER BY VECTOR_DISTANCE({target_col}, :emb, COSINE)
                 FETCH FIRST :fetch_limit ROWS ONLY
             """
-            cursor.execute(sql, emb=vec_array, fetch_limit=max(top_k, 50))
+            # Fetch a larger pool of rows to allow dynamic python filtering by intent
+            fetch_limit = max(top_k * 3, 150)
+            cursor.execute(sql, emb=vec_array, fetch_limit=fetch_limit)
             rows = cursor.fetchall()
             filter_siglas_upper = [s.upper() for s in filter_siglas] if filter_siglas else None
             for row in rows:
@@ -47,6 +66,14 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
                     meta = json.loads(meta_str)
                 except:
                     meta = {}
+                
+                # Dynamic classification of source type
+                source_type = get_source_type(meta)
+                meta["source_type"] = source_type
+                
+                # Strict filtering for literal citation intent
+                if intent == "citação literal" and source_type != "primary":
+                    continue
                 
                 if filter_siglas_upper:
                     meta_sigla = str(meta.get("sigla", "")).upper()
@@ -99,7 +126,8 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
 
             if search_terms:
                 fts_rows = []
-                fetch_per_word = max(15, top_k // max(len(search_terms[:8]), 1))
+                # Fetch a larger pool of rows for FTS
+                fetch_per_word = max(30, (top_k * 3) // max(len(search_terms[:8]), 1))
                 for word in search_terms[:8]:
                     sql_word = f"""
                         SELECT content, metadata, 0.85 as similarity
@@ -122,13 +150,23 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
                     content = content_clob.read() if hasattr(content_clob, "read") else content_clob
                     if content[:100] in existing_contents:
                         continue
-                    existing_contents.add(content[:100])
 
                     meta_str = meta_clob.read() if hasattr(meta_clob, "read") else meta_clob
                     try:
                         meta = json.loads(meta_str)
                     except:
                         meta = {}
+                    
+                    # Dynamic classification of source type
+                    source_type = get_source_type(meta)
+                    meta["source_type"] = source_type
+                    
+                    # Strict filtering for literal citation intent
+                    if intent == "citação literal" and source_type != "primary":
+                        continue
+
+                    existing_contents.add(content[:100])
+
                     if filter_siglas_upper:
                         meta_sigla = str(meta.get("sigla", "")).upper()
                         meta_code = str(meta.get("url_code", "")).upper()
@@ -195,12 +233,14 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
         ref_num = i + 1
         title = meta.get('title', 'Documento Dehoniano')
         sigla = meta.get('sigla', 'OBRA')
+        source_type = meta.get('source_type', 'primary')
+        source_type_label = "PRIMÁRIA" if source_type == "primary" else "SECUNDÁRIA"
         
         page_number = meta.get('page') or meta.get('page_number') or meta.get('page_num') or None
         page_url = meta.get('url') or meta.get('source_url') or meta.get('page_url') or None
         destinatario = meta.get('destinatario') or meta.get('recipient') or meta.get('addressee') or meta.get('to') or None
 
-        context_parts.append(f"--- FONTE [{ref_num}]: {title} ({sigla}) ---\n{content}")
+        context_parts.append(f"--- FONTE [{ref_num}] ({source_type_label}): {title} ({sigla}) ---\n{content}")
         
         citations.append({
             "id": ref_num,
@@ -211,7 +251,8 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
             "content": content,
             "score": match.get('similarity', 0),
             "page_url": page_url,
-            "page_number": page_number
+            "page_number": page_number,
+            "source_type": source_type
         })
 
     return {
