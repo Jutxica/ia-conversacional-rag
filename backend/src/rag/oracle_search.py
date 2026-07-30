@@ -36,29 +36,47 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
     if not conn:
         return {"context": "", "citations": []}
         
-    results = []
     cursor = conn.cursor()
     
-    # 1. Tentar busca por Vetor (Vector Search na coluna única EMBEDDING)
+    # 1. Determine target limits for primary and secondary sources based on intent
+    if intent == "citação literal":
+        secondary_limit = 0
+        primary_limit = top_k
+    elif intent == "biografia/factual":
+        secondary_limit = int(top_k * 0.20)
+        primary_limit = top_k - secondary_limit
+    elif intent == "interpretação/análise":
+        secondary_limit = int(top_k * 0.40)
+        primary_limit = top_k - secondary_limit
+    else:  # geral
+        secondary_limit = int(top_k * 0.30)
+        primary_limit = top_k - secondary_limit
+
+    # We fetch more to allow for Python-side filtering/diversification/leakage handling
+    fetch_primary = max(primary_limit * 3, 100)
+    fetch_secondary = max(secondary_limit * 3, 100) if secondary_limit > 0 else 0
+
+    primary_results = []
+    secondary_results = []
+    
+    # Vector Search
     if embedding:
         try:
             import array
             vec_array = array.array("f", embedding)
-            target_col = "embedding"
-            print(f"[ORACLE RAG] Executando Busca Vetorial na coluna padronizada: {target_col}...")
-            sql = f"""
-                SELECT content, metadata, 1 - VECTOR_DISTANCE({target_col}, :emb, COSINE) as similarity
+            
+            # Fetch Primary candidates (where sigla != 'OBRA' and title/document name doesn't contain STD/STUDIA)
+            sql_primary = """
+                SELECT content, metadata, 1 - VECTOR_DISTANCE(embedding, :emb, COSINE) as similarity
                 FROM documents
-                WHERE {target_col} IS NOT NULL
-                ORDER BY VECTOR_DISTANCE({target_col}, :emb, COSINE)
+                WHERE embedding IS NOT NULL
+                  AND (JSON_VALUE(metadata, '$.sigla') IS NULL OR JSON_VALUE(metadata, '$.sigla') != 'OBRA')
+                  AND (JSON_VALUE(metadata, '$.document_name') IS NULL OR (UPPER(JSON_VALUE(metadata, '$.document_name')) NOT LIKE '%STD%' AND UPPER(JSON_VALUE(metadata, '$.document_name')) NOT LIKE '%STUDIA%'))
+                ORDER BY VECTOR_DISTANCE(embedding, :emb, COSINE)
                 FETCH FIRST :fetch_limit ROWS ONLY
             """
-            # Fetch a larger pool of rows to allow dynamic python filtering by intent
-            fetch_limit = max(top_k * 3, 150)
-            cursor.execute(sql, emb=vec_array, fetch_limit=fetch_limit)
-            rows = cursor.fetchall()
-            filter_siglas_upper = [s.upper() for s in filter_siglas] if filter_siglas else None
-            for row in rows:
+            cursor.execute(sql_primary, emb=vec_array, fetch_limit=fetch_primary)
+            for row in cursor.fetchall():
                 content_clob, meta_clob, sim = row
                 content = content_clob.read() if hasattr(content_clob, "read") else content_clob
                 meta_str = meta_clob.read() if hasattr(meta_clob, "read") else meta_clob
@@ -66,30 +84,52 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
                     meta = json.loads(meta_str)
                 except:
                     meta = {}
-                
-                # Dynamic classification of source type
                 source_type = get_source_type(meta)
                 meta["source_type"] = source_type
                 
-                # Strict filtering for literal citation intent
-                if intent == "citação literal" and source_type != "primary":
-                    continue
+                # Double-check classification via Python
+                if source_type == "primary":
+                    primary_results.append({"content": content, "metadata": meta, "similarity": sim})
+                else:
+                    if secondary_limit > 0:
+                        secondary_results.append({"content": content, "metadata": meta, "similarity": sim})
                 
-                if filter_siglas_upper:
-                    meta_sigla = str(meta.get("sigla", "")).upper()
-                    meta_code = str(meta.get("url_code", "")).upper()
-                    meta_cat = str(meta.get("category", "")).upper()
-                    allowed = any(s in meta_sigla or meta_sigla in s or s in meta_code or s in meta_cat for s in filter_siglas_upper)
-                    if not allowed:
-                        continue
-                results.append({"content": content, "metadata": meta, "similarity": sim})
+            # Fetch Secondary candidates
+            if fetch_secondary > 0:
+                sql_secondary = """
+                    SELECT content, metadata, 1 - VECTOR_DISTANCE(embedding, :emb, COSINE) as similarity
+                    FROM documents
+                    WHERE embedding IS NOT NULL
+                      AND (JSON_VALUE(metadata, '$.sigla') = 'OBRA'
+                           OR UPPER(JSON_VALUE(metadata, '$.document_name')) LIKE '%STD%'
+                           OR UPPER(JSON_VALUE(metadata, '$.document_name')) LIKE '%STUDIA%')
+                    ORDER BY VECTOR_DISTANCE(embedding, :emb, COSINE)
+                    FETCH FIRST :fetch_limit ROWS ONLY
+                """
+                cursor.execute(sql_secondary, emb=vec_array, fetch_limit=fetch_secondary)
+                for row in cursor.fetchall():
+                    content_clob, meta_clob, sim = row
+                    content = content_clob.read() if hasattr(content_clob, "read") else content_clob
+                    meta_str = meta_clob.read() if hasattr(meta_clob, "read") else meta_clob
+                    try:
+                        meta = json.loads(meta_str)
+                    except:
+                        meta = {}
+                    source_type = get_source_type(meta)
+                    meta["source_type"] = source_type
+                    
+                    if source_type == "secondary":
+                        secondary_results.append({"content": content, "metadata": meta, "similarity": sim})
+                    else:
+                        primary_results.append({"content": content, "metadata": meta, "similarity": sim})
+                    
         except Exception as e:
-            print(f"Aviso na busca por vetor Oracle (coluna {target_col}): {e}")
+            print(f"Erro na busca por vetor Oracle: {e}")
 
-    # 2. Fallback / Complemento FTS: Se busca por vetor retornar poucos resultados ou falhar
-    if len(results) < top_k:
+    # Fallback/Complement FTS: if either cota is not filled
+    if len(primary_results) < primary_limit or (secondary_limit > 0 and len(secondary_results) < secondary_limit):
         try:
-            print(f"[ORACLE RAG] Executando busca FTS expansiva no Oracle DB (encontrados {len(results)} via vetor, buscando até {top_k})...")
+            print(f"[ORACLE RAG] Executando busca FTS expansiva no Oracle DB para completar cotas...")
             stopwords = {
                 'sobre', 'como', 'para', 'onde', 'qual', 'quais', 'quem', 'este', 'esta', 'isto', 'aquilo', 
                 'resuma', 'resumo', 'explique', 'explicar', 'explicação', 'fale', 'diga', 'padre', 'dehon', 'joão', 'leão', 
@@ -118,139 +158,130 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
                 if w_lower in TERM_VARIANTS:
                     expanded_words.extend(TERM_VARIANTS[w_lower])
 
-            # Deduplica preservando ordem
             search_terms = []
             for term in expanded_words:
                 if term and term not in search_terms:
                     search_terms.append(term)
 
             if search_terms:
-                fts_rows = []
-                # Fetch a larger pool of rows for FTS
-                fetch_per_word = max(30, (top_k * 3) // max(len(search_terms[:8]), 1))
-                for word in search_terms[:8]:
-                    sql_word = f"""
+                existing_primary = {r["content"][:100] for r in primary_results}
+                existing_secondary = {r["content"][:100] for r in secondary_results}
+                
+                # Fetch FTS results and classify
+                for word in search_terms[:5]:
+                    sql_fts = """
                         SELECT content, metadata, 0.85 as similarity
                         FROM documents
                         WHERE UPPER(DBMS_LOB.SUBSTR(content, 4000, 1)) LIKE UPPER(:w) 
                            OR UPPER(DBMS_LOB.SUBSTR(metadata, 4000, 1)) LIKE UPPER(:w)
-                        FETCH FIRST {fetch_per_word} ROWS ONLY
+                        FETCH FIRST 50 ROWS ONLY
                     """
-                    try:
-                        cursor.execute(sql_word, w=f"%{word}%")
-                        fts_rows.extend(cursor.fetchall())
-                    except Exception as word_err:
-                        print(f"[ORACLE FTS] Aviso ao buscar palavra '{word}': {word_err}")
-
-                # Adicionar resultados do FTS evitando duplicatas
-                existing_contents = {r["content"][:100] for r in results}
-                filter_siglas_upper = [s.upper() for s in filter_siglas] if filter_siglas else None
-                for row in fts_rows:
-                    content_clob, meta_clob, sim = row
-                    content = content_clob.read() if hasattr(content_clob, "read") else content_clob
-                    if content[:100] in existing_contents:
-                        continue
-
-                    meta_str = meta_clob.read() if hasattr(meta_clob, "read") else meta_clob
-                    try:
-                        meta = json.loads(meta_str)
-                    except:
-                        meta = {}
-                    
-                    # Dynamic classification of source type
-                    source_type = get_source_type(meta)
-                    meta["source_type"] = source_type
-                    
-                    # Strict filtering for literal citation intent
-                    if intent == "citação literal" and source_type != "primary":
-                        continue
-
-                    existing_contents.add(content[:100])
-
-                    if filter_siglas_upper:
-                        meta_sigla = str(meta.get("sigla", "")).upper()
-                        meta_code = str(meta.get("url_code", "")).upper()
-                        meta_cat = str(meta.get("category", "")).upper()
-                        allowed = any(s in meta_sigla or meta_sigla in s or s in meta_code or s in meta_cat for s in filter_siglas_upper)
-                        if not allowed:
-                            continue
-                    results.append({"content": content, "metadata": meta, "similarity": sim})
+                    cursor.execute(sql_fts, w=f"%{word}%")
+                    for row in cursor.fetchall():
+                        content_clob, meta_clob, sim = row
+                        content = content_clob.read() if hasattr(content_clob, "read") else content_clob
+                        
+                        meta_str = meta_clob.read() if hasattr(meta_clob, "read") else meta_clob
+                        try:
+                            meta = json.loads(meta_str)
+                        except:
+                            meta = {}
+                        
+                        source_type = get_source_type(meta)
+                        meta["source_type"] = source_type
+                        
+                        if source_type == "primary":
+                            if content[:100] not in existing_primary:
+                                primary_results.append({"content": content, "metadata": meta, "similarity": sim})
+                                existing_primary.add(content[:100])
+                        else:
+                            if secondary_limit > 0 and content[:100] not in existing_secondary:
+                                secondary_results.append({"content": content, "metadata": meta, "similarity": sim})
+                                existing_secondary.add(content[:100])
+                                
         except Exception as fts_err:
-            print(f"Erro na busca FTS expansiva Oracle: {fts_err}")
+            print(f"Erro na busca FTS: {fts_err}")
 
     conn.close()
 
-    # Re-ranking and boosting logic
+    # Re-ranking and boosting logic (separate for primary and secondary lists)
     theme_boosts = get_thematic_boosts(query)
-    for match in results:
-        sigla = match.get('metadata', {}).get('sigla', 'OBRA')
-        content = match.get('content', '').lower()
-        boost = theme_boosts.get(sigla, 0)
-        
-        # Boost primary sources to prioritize Dehon's own writings
-        source_type = match.get('metadata', {}).get('source_type', 'primary')
-        if source_type == 'primary':
-            boost += 0.15
-            
-        if target_people:
-            # simple boost
-            for person in target_people:
-                if person.lower() in content:
-                    boost += 0.40
-        
-        if boost > 0:
-            sim = match['similarity']
-            match['similarity'] = sim + ((1.0 - sim) * min(boost, 0.9))
-            
-    # Re-ranking por pontuação
-    sorted_candidates = sorted(results, key=lambda x: x.get('similarity', 0), reverse=True)
-
-    # 1. Definir o limite máximo de fontes secundárias permitido por intenção
-    max_secondary_ratio = 0.30
-    if intent == "citação literal":
-        max_secondary_ratio = 0.0
-    elif intent == "biografia/factual":
-        max_secondary_ratio = 0.20
-    elif intent == "interpretação/análise":
-        max_secondary_ratio = 0.40
-    elif intent == "geral":
-        max_secondary_ratio = 0.30
-        
-    max_secondary_count = int(top_k * max_secondary_ratio)
     
-    # 2. Filtrar candidatos respeitando o limite máximo de secundárias
-    filtered_candidates = []
-    secondary_count = 0
-    for match in sorted_candidates:
-        s_type = match.get('metadata', {}).get('source_type', 'primary')
-        if s_type == 'secondary':
-            if secondary_count >= max_secondary_count:
-                continue
-            secondary_count += 1
-        filtered_candidates.append(match)
+    def apply_boosting(candidates_list):
+        for match in candidates_list:
+            sigla = match.get('metadata', {}).get('sigla', 'OBRA')
+            content = match.get('content', '').lower()
+            boost = theme_boosts.get(sigla, 0)
+            
+            source_type = match.get('metadata', {}).get('source_type', 'primary')
+            if source_type == 'primary':
+                boost += 0.15
+                
+            if target_people:
+                for person in target_people:
+                    if person.lower() in content:
+                        boost += 0.40
+            
+            if boost > 0:
+                sim = match['similarity']
+                match['similarity'] = sim + ((1.0 - sim) * min(boost, 0.9))
 
-    # 3. Aplicação de Diversificação por Sigla/Obra (máximo de 20% do top_k por sigla)
+    apply_boosting(primary_results)
+    apply_boosting(secondary_results)
+
+    # Apply filter_siglas in Python
+    if filter_siglas:
+        filter_siglas_upper = [s.upper() for s in filter_siglas]
+        def filter_by_siglas(lst):
+            filtered = []
+            for match in lst:
+                meta = match.get('metadata', {})
+                meta_sigla = str(meta.get("sigla", "")).upper()
+                meta_code = str(meta.get("url_code", "")).upper()
+                meta_cat = str(meta.get("category", "")).upper()
+                allowed = any(s in meta_sigla or meta_sigla in s or s in meta_code or s in meta_cat for s in filter_siglas_upper)
+                if allowed:
+                    filtered.append(match)
+            return filtered
+            
+        primary_results = filter_by_siglas(primary_results)
+        secondary_results = filter_by_siglas(secondary_results)
+
+    # Sort each list by similarity
+    sorted_primary = sorted(primary_results, key=lambda x: x.get('similarity', 0), reverse=True)
+    sorted_secondary = sorted(secondary_results, key=lambda x: x.get('similarity', 0), reverse=True)
+
+    # Select and diversify candidates
     max_per_sigla = max(5, top_k // 5)
-    diversified_results = []
-    sigla_counts = {}
-
-    for match in filtered_candidates:
-        sigla = match.get('metadata', {}).get('sigla', 'OUTROS')
-        if sigla_counts.get(sigla, 0) < max_per_sigla:
-            diversified_results.append(match)
-            sigla_counts[sigla] = sigla_counts.get(sigla, 0) + 1
-
-    # Preenche até o top_k se necessário com os demais candidatos filtrados
-    if len(diversified_results) < top_k:
-        added_ids = {id(m) for m in diversified_results}
-        for match in filtered_candidates:
-            if id(match) not in added_ids:
-                diversified_results.append(match)
-                added_ids.add(id(match))
-                if len(diversified_results) >= top_k:
+    
+    def select_with_diversification(candidates, limit):
+        selected = []
+        sigla_counts = {}
+        # First pass: diversified
+        for match in candidates:
+            sigla = match.get('metadata', {}).get('sigla', 'OUTROS')
+            if sigla_counts.get(sigla, 0) < max_per_sigla:
+                selected.append(match)
+                sigla_counts[sigla] = sigla_counts.get(sigla, 0) + 1
+                if len(selected) >= limit:
                     break
+        # Second pass: fill up remaining
+        if len(selected) < limit:
+            added_ids = {id(m) for m in selected}
+            for match in candidates:
+                if id(match) not in added_ids:
+                    selected.append(match)
+                    added_ids.add(id(match))
+                    if len(selected) >= limit:
+                        break
+        return selected
 
-    results = diversified_results[:top_k]
+    final_primary = select_with_diversification(sorted_primary, primary_limit)
+    final_secondary = select_with_diversification(sorted_secondary, secondary_limit) if secondary_limit > 0 else []
+
+    # Merge and sort final results
+    results = final_primary + final_secondary
+    results = sorted(results, key=lambda x: x.get('similarity', 0), reverse=True)
     
     context_parts = []
     citations = []
