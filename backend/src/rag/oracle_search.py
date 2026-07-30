@@ -187,6 +187,11 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
         content = match.get('content', '').lower()
         boost = theme_boosts.get(sigla, 0)
         
+        # Boost primary sources to prioritize Dehon's own writings
+        source_type = match.get('metadata', {}).get('source_type', 'primary')
+        if source_type == 'primary':
+            boost += 0.15
+            
         if target_people:
             # simple boost
             for person in target_people:
@@ -200,21 +205,45 @@ def oracle_search_context(query: str, top_k: int = 50, filter_siglas: List[str] 
     # Re-ranking por pontuação
     sorted_candidates = sorted(results, key=lambda x: x.get('similarity', 0), reverse=True)
 
-    # Aplicação de Diversificação por Sigla/Obra (máximo de 20% do top_k por sigla)
+    # 1. Definir o limite máximo de fontes secundárias permitido por intenção
+    max_secondary_ratio = 0.30
+    if intent == "citação literal":
+        max_secondary_ratio = 0.0
+    elif intent == "biografia/factual":
+        max_secondary_ratio = 0.20
+    elif intent == "interpretação/análise":
+        max_secondary_ratio = 0.40
+    elif intent == "geral":
+        max_secondary_ratio = 0.30
+        
+    max_secondary_count = int(top_k * max_secondary_ratio)
+    
+    # 2. Filtrar candidatos respeitando o limite máximo de secundárias
+    filtered_candidates = []
+    secondary_count = 0
+    for match in sorted_candidates:
+        s_type = match.get('metadata', {}).get('source_type', 'primary')
+        if s_type == 'secondary':
+            if secondary_count >= max_secondary_count:
+                continue
+            secondary_count += 1
+        filtered_candidates.append(match)
+
+    # 3. Aplicação de Diversificação por Sigla/Obra (máximo de 20% do top_k por sigla)
     max_per_sigla = max(5, top_k // 5)
     diversified_results = []
     sigla_counts = {}
 
-    for match in sorted_candidates:
+    for match in filtered_candidates:
         sigla = match.get('metadata', {}).get('sigla', 'OUTROS')
         if sigla_counts.get(sigla, 0) < max_per_sigla:
             diversified_results.append(match)
             sigla_counts[sigla] = sigla_counts.get(sigla, 0) + 1
 
-    # Preenche até o top_k se necessário com os demais candidatos
+    # Preenche até o top_k se necessário com os demais candidatos filtrados
     if len(diversified_results) < top_k:
         added_ids = {id(m) for m in diversified_results}
-        for match in sorted_candidates:
+        for match in filtered_candidates:
             if id(match) not in added_ids:
                 diversified_results.append(match)
                 added_ids.add(id(match))
