@@ -1,0 +1,8 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+
+# Disallow indexing of private dashboard areas
+Disallow: /admin/
+
+Sitemap: https://dehonia.conventinho.org.br/sitemap.xml

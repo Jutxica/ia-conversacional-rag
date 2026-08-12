@@ -1,0 +1,10 @@
+# Dehon AI (RAG)
+
+> Inteligência artificial acadêmica especializada no pensamento, vida e obra do Padre Leão Dehon (fundador da Congregação dos Sacerdotes do Sagrado Coração de Jesus - Dehonianos).
+
+## Descrição Geral
+O **Dehon AI** é um assistente teológico e histórico que responde a perguntas baseando-se em um corpus indexado de escritos dehonianos. A arquitetura RAG (Retrieval-Augmented Generation) do sistema realiza busca híbrida e re-ranking de fontes validadas, retornando respostas com alto rigor científico e citações acadêmicas precisas.
+
+## Recursos
+- [Dehon AI Home](https://dehonia.conventinho.org.br/): Interface de conversação principal com o assistente, permitindo busca semântica em escritos e cartas.
+- [Acesso/Login](https://dehonia.conventinho.org.br/): Tela de login e registro para pesquisadores e leigos interessados nos escritos dehonianos.
